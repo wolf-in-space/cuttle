@@ -161,7 +161,7 @@ impl SdfShaderBuilder {
             fn fragment(input: VertexOut) -> @location(0) vec4<f32> {
                 var result: SdfResult;
                 {ops}
-                let alpha = step(result.distance, 0.0);
+                let alpha = smoothstep(0.0, 1.0, -result.distance);
                 return vec4(result.color, alpha);
             }
         }

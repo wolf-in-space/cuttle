@@ -2,7 +2,7 @@ use crate::flag::SdfPipelineKey;
 use bevy_asset::Handle;
 use bevy_ecs::{
     prelude::*,
-    system::{Res, Resource, SystemState},
+    system::Resource,
     world::{FromWorld, World},
 };
 use bevy_render::{
@@ -37,8 +37,7 @@ pub struct SdfPipeline {
 
 impl FromWorld for SdfPipeline {
     fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<Res<RenderDevice>> = SystemState::new(world);
-        let render_device = system_state.get_mut(world);
+        let render_device = world.resource::<RenderDevice>();
 
         let mut indices = BufferVec::new(BufferUsages::INDEX);
         indices.values_mut().append(&mut vec![2, 0, 1, 1, 3, 2]);
@@ -108,7 +107,7 @@ impl SpecializedRenderPipeline for SdfPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some(format!("SdfPipeline for Variant '{key:?}'").into()),
+            label: Some(format!("SdfPipeline for Sdf '{key:?}'").into()),
             push_constant_ranges: Vec::new(),
         }
     }
