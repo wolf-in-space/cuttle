@@ -1,18 +1,21 @@
-use bevy::prelude::*;
-use core::fmt::Debug;
-use flag::{RenderableVariant, VariantFlag};
-use render::{
-    shader::{buffers::SdfVariantBuffer, variants::VariantShaderBuilder}, SdfRenderPlugin,
-};
+#![allow(clippy::type_complexity)]
+
 pub mod components;
 pub mod flag;
 mod implementations;
 pub mod operations;
 mod render;
 mod scheduling;
+
+use bevy_app::prelude::*;
+use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_reflect::prelude::*;
+use core::fmt::Debug;
+use render::SdfRenderPlugin;
+
 pub mod prelude {
     pub use crate::components::{FillColor, GradientColor};
-    pub use crate::render::shader::buffers::SdfRenderIndex;
+    pub use crate::render::shader::buffers::SdfStorageIndex;
     pub use bevy_comdf_core::prelude::*;
 }
 
@@ -28,23 +31,6 @@ pub fn plugin(app: &mut App) {
     ));
 }
 
-trait RenderSdfComponent: Sized + Component + Debug {
-    fn flag() -> VariantFlag;
-    fn flag_system(mut query: Query<&mut RenderableVariant, With<Self>>) {
-        query
-            .iter_mut()
-            .for_each(|mut variant| variant.flag |= Self::flag());
-    }
-
-    fn setup(shader: &mut VariantShaderBuilder);
-    fn setup_system(mut query: Query<&mut VariantShaderBuilder, With<Self>>) {
-        query.iter_mut().for_each(|mut comp| Self::setup(&mut comp));
-    }
-
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self);
-    fn prep_system(mut query: Query<(&mut SdfVariantBuffer, &Self)>) {
-        query.iter_mut().for_each(|(mut buffer, comp)| {
-            Self::prep(&mut buffer, comp);
-        });
-    }
-}
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Component, Reflect)]
+#[reflect(Component)]
+pub struct RenderSdf;

@@ -1,40 +1,28 @@
 use super::loading::SdfShaderRegister;
-use crate::flag::RenderSdf;
-use crate::flag::RenderableVariant;
-use crate::scheduling::ComdfRenderPostUpdateSet::*;
-use crate::scheduling::ComdfRenderUpdateSet::*;
-use bevy::core::Pod;
-use bevy::{core::bytes_of, prelude::*};
-use bevy_comdf_core::prelude::*;
+use crate::flag::RenderableSdf;
+use crate::scheduling::ComdfRenderSet::*;
+use bevy_app::prelude::*;
+use bevy_core::bytes_of;
+use bevy_core::Pod;
+use bevy_ecs::prelude::*;
+use bevy_render::Render;
+use bevy_render::RenderApp;
 
 pub fn plugin(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            add_a_if_with_b_and_without_a::<SdfRenderIndex, RenderableVariant>
-                .before(AssignVariantIndices),
-            assign_variant_indices.in_set(AssignVariantIndices),
-        ),
-    );
-    app.add_systems(
-        PostUpdate,
-        (
-            add_a_if_with_b_and_without_a::<SdfVariantBuffer, RenderableVariant>,
-            add_a_if_with_b_and_without_a::<SdfOperationsBuffer, RenderSdf>,
-            clear_variant_buffers,
-            clear_operations_buffers,
-        )
-            .before(GatherDataForExtract),
-    );
+    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        return;
+    };
+
+    render_app.add_systems(Render, (assign_variant_indices.in_set(AssignSdfIndices),));
 }
 
 #[derive(Clone, Default, Component)]
-pub struct SdfVariantBuffer {
+pub struct SdfStorageBuffer {
     align: u8,
     bytes: Vec<u8>,
 }
 
-impl SdfVariantBuffer {
+impl SdfStorageBuffer {
     pub fn push<T: Pod>(&mut self, value: &T) {
         let bytes = bytes_of(value);
         let size = bytes.len() as u8;
@@ -58,28 +46,29 @@ impl SdfVariantBuffer {
     }
 }
 
-pub fn clear_variant_buffers(mut query: Query<&mut SdfVariantBuffer>) {
+#[derive(Clone, Default, Component)]
+pub struct SdfOperationsBuffer(pub Vec<u8>);
+/*
+pub fn clear_variant_buffers(mut query: Query<&mut SdfStorageBuffer>) {
     query
         .iter_mut()
         .for_each(|mut render_data| render_data.bytes.clear())
 }
-
-#[derive(Clone, Default, Component)]
-pub struct SdfOperationsBuffer(pub Vec<u8>);
 
 pub fn clear_operations_buffers(mut query: Query<&mut SdfOperationsBuffer>) {
     query
         .iter_mut()
         .for_each(|mut render_data| render_data.0.clear())
 }
-
+ */
 #[derive(Debug, Default, Clone, Copy, Component, PartialEq, Eq, PartialOrd, Ord)]
-pub struct SdfRenderIndex(pub u32);
+pub struct SdfStorageIndex(pub u32);
 
 pub fn assign_variant_indices(
     register: Res<SdfShaderRegister>,
-    mut query: Query<(&mut SdfRenderIndex, &RenderableVariant)>,
+    mut query: Query<(&mut SdfStorageIndex, &RenderableSdf)>,
 ) {
+    // println!("assign_indices: {}", query.iter().len());
     let total_bindings = register.bindings.len();
     query.iter_mut().fold(
         vec![0; total_bindings],

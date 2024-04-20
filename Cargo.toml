@@ -5,12 +5,19 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies.bevy]
-version = "0.13"
-default-features = false
-features = [ "bevy_render", "bevy_gizmos", "bevy_core_pipeline" ]
-
 [dependencies]
+
+glam = "0.25"
+bevy_log = "0.13"
+bevy_utils = "0.13"
+bevy_ecs = "0.13"
+bevy_app = "0.13"
+bevy_render = "0.13"
+bevy_reflect = "0.13"
+bevy_asset = "0.13"
+bevy_core = "0.13"
+bevy_core_pipeline = "0.13"
+
 bevy_comdf_core = { path = "../bevy_comdf_core" }
 itertools = "0.12"
 bitflags = "2"

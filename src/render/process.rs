@@ -1,94 +1,76 @@
-use super::extract::{ExtractedRenderSdf, ExtractedRenderSdfs};
-use super::pipeline::SdfSpecializationData;
-use super::{extract::ExtractedSdfVariants, pipeline::SdfPipeline};
-use crate::flag::RenderSdf;
-use bevy::core::bytes_of;
-use bevy::render::render_resource::BindGroupEntry;
-use bevy::{
-    prelude::*,
-    render::{
-        render_resource::{BindGroup, BindGroupEntries, BufferUsages, BufferVec},
-        renderer::{RenderDevice, RenderQueue},
-        view::{ExtractedView, ViewUniforms},
-    },
-    utils::HashMap,
+use super::pipeline::SdfPipeline;
+use super::shader::buffers::SdfOperationsBuffer;
+use super::shader::buffers::SdfStorageBuffer;
+use crate::flag::RenderableSdf;
+use crate::flag::SdfPipelineKey;
+use crate::prelude::SdfStorageIndex;
+use crate::scheduling::ComdfRenderSet::*;
+use bevy_app::App;
+use bevy_comdf_core::aabb::AABB;
+use bevy_core::bytes_of;
+use bevy_ecs::prelude::*;
+use bevy_render::Render;
+use bevy_render::RenderApp;
+use bevy_render::{
+    render_resource::{BindGroup, BindGroupEntries, BufferUsages, BufferVec},
+    renderer::{RenderDevice, RenderQueue},
+    view::{ExtractedView, ViewUniforms},
 };
 use itertools::Itertools;
 
-#[derive(Resource, Default)]
-pub struct SdfBindGroups(pub HashMap<RenderSdf, BindGroup>);
+pub fn plugin(app: &mut App) {
+    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        return;
+    };
+
+    render_app.add_systems(
+        Render,
+        (
+            process_render_sdfs.in_set(PrepareBuffers),
+            (process_sdfs, prepare_view_bind_groups).in_set(PrepareBatches),
+            write_buffers.chain().in_set(WriteBuffers),
+        ),
+    );
+}
 
 #[derive(Component)]
 pub struct SdfInstance {
-    pub key: RenderSdf,
+    pub key: SdfPipelineKey,
     pub vertex_buffer: BufferVec<u8>,
 }
 
-pub fn process_render_sdfs(mut cmds: Commands, mut extracted: ResMut<ExtractedRenderSdfs>) {
-    let instances = extracted
-        .0
-        .drain(..)
-        .map(
-            |ExtractedRenderSdf {
-                 key,
-                 size,
-                 translation,
-                 bytes,
-             }| {
-                let mut vertex_buffer = BufferVec::new(BufferUsages::VERTEX);
-                vertex_buffer
-                    .values_mut()
-                    .extend_from_slice(bytes_of(&size));
-                vertex_buffer
-                    .values_mut()
-                    .extend_from_slice(bytes_of(&translation));
-                vertex_buffer.extend(bytes);
+pub fn process_render_sdfs(
+    mut cmds: Commands,
+    render_sdfs: Query<(Entity, &SdfPipelineKey, &AABB, &SdfOperationsBuffer)>,
+) {
+    // println!("process_render_sdfs: {}", render_sdfs.iter().len());
+    for (entity, key, aabb, buffer) in render_sdfs.into_iter() {
+        let mut vertex_buffer = BufferVec::new(BufferUsages::VERTEX);
+        vertex_buffer
+            .values_mut()
+            .extend_from_slice(bytes_of(&aabb.size()));
+        vertex_buffer
+            .values_mut()
+            .extend_from_slice(bytes_of(&aabb.pos()));
+        vertex_buffer.extend(buffer.0.clone());
 
-                SdfInstance { key, vertex_buffer }
-            },
-        )
-        .collect_vec();
-
-    cmds.spawn_batch(instances);
+        cmds.entity(entity).insert(SdfInstance {
+            key: key.clone(),
+            vertex_buffer,
+        });
+    }
 }
 
-pub fn process_sdf_variants(
-    mut extracted: ResMut<ExtractedSdfVariants>,
+pub fn process_sdfs(
+    mut sdfs: Query<(&RenderableSdf, &SdfStorageIndex, &mut SdfStorageBuffer)>,
     mut pipeline: ResMut<SdfPipeline>,
 ) {
-    extracted.sdfs.sort_unstable_by_key(|v| v.index);
-    extracted.sdfs.drain(..).for_each(|v| {
-        pipeline.bind_group_buffers[v.binding as usize].extend(v.bytes);
-    });
-}
-
-pub fn create_bind_groups_for_new_keys(
-    device: Res<RenderDevice>,
-    mut recv: EventReader<SdfSpecializationData>,
-    pipeline: Res<SdfPipeline>,
-    mut bind_groups: ResMut<SdfBindGroups>,
-) {
-    recv.read().for_each(|data| {
-        let variant_entrys = data
-            .key
-            .0
-            .iter()
-            .map(|(_, i)| i)
-            .unique()
-            .map(|i| BindGroupEntry {
-                binding: *i,
-                resource: pipeline.bind_group_buffers[*i as usize]
-                    .buffer()
-                    .unwrap()
-                    .as_entire_binding(),
-            })
-            .collect_vec();
-
-        bind_groups.0.insert(
-            data.key.clone(),
-            device.create_bind_group(None, &data.bind_group_layout, &variant_entrys),
-        );
-    });
+    // println!("process_sdfs: {}", sdfs.iter().len());
+    sdfs.iter_mut()
+        .sorted_unstable_by_key(|(_, index, _)| **index)
+        .for_each(|(RenderableSdf { binding, .. }, _, mut buffer)| {
+            pipeline.bind_group_buffers[*binding as usize].extend(buffer.bytes());
+        });
 }
 
 pub fn write_buffers(
@@ -99,6 +81,7 @@ pub fn write_buffers(
 ) {
     pipeline.indices.write_buffer(&device, &queue);
     pipeline.bind_group_buffers.iter_mut().for_each(|buffer| {
+        // println!("buffer {:?}", buffer.values());
         buffer.write_buffer(&device, &queue);
         buffer.clear();
     });

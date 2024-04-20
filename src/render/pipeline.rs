@@ -1,48 +1,38 @@
-use crate::flag::RenderSdf;
-use bevy::{
-    ecs::{
-        system::{Res, Resource, SystemState},
-        world::{FromWorld, World},
-    },
+use crate::flag::SdfPipelineKey;
+use bevy_asset::Handle;
+use bevy_ecs::{
     prelude::*,
-    render::{
-        render_resource::{
-            binding_types::uniform_buffer, BindGroupLayout, BindGroupLayoutEntries, BlendState,
-            BufferUsages, BufferVec, ColorTargetState, ColorWrites, FragmentState, FrontFace,
-            MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology,
-            RenderPipelineDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
-            TextureFormat, VertexBufferLayout, VertexState,
-        },
-        renderer::RenderDevice,
-        texture::BevyDefault,
-        view::ViewUniform,
-    },
-    utils::HashMap,
+    system::{Res, Resource, SystemState},
+    world::{FromWorld, World},
 };
+use bevy_render::{
+    render_resource::{
+        binding_types::uniform_buffer, BindGroup, BindGroupLayout, BindGroupLayoutEntries,
+        BlendState, BufferUsages, BufferVec, ColorTargetState, ColorWrites, FragmentState,
+        FrontFace, MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology,
+        RenderPipelineDescriptor, Shader, ShaderStages, SpecializedRenderPipeline, TextureFormat,
+        VertexBufferLayout, VertexState,
+    },
+    renderer::RenderDevice,
+    texture::BevyDefault,
+    view::ViewUniform,
+};
+use bevy_utils::hashbrown::HashMap;
 
 #[derive(Event, Debug, PartialEq, Clone)]
 pub struct SdfSpecializationData {
-    pub key: RenderSdf,
     pub vertex_layout: VertexBufferLayout,
     pub shader: Handle<Shader>,
     pub bind_group_layout: BindGroupLayout,
-}
-
-pub fn receive_specialization(
-    mut recv: EventReader<SdfSpecializationData>,
-    mut pipeline: ResMut<SdfPipeline>,
-) {
-    recv.read().for_each(|s| {
-        pipeline.specialization.insert(s.key.clone(), s.clone());
-    });
 }
 
 #[derive(Resource)]
 pub struct SdfPipeline {
     pub view_layout: BindGroupLayout,
     pub bind_group_buffers: Vec<BufferVec<u8>>,
+    pub bind_groups: HashMap<SdfPipelineKey, BindGroup>,
     pub indices: BufferVec<u16>,
-    pub specialization: HashMap<RenderSdf, SdfSpecializationData>,
+    pub specialization: HashMap<SdfPipelineKey, SdfSpecializationData>,
 }
 
 impl FromWorld for SdfPipeline {
@@ -65,13 +55,14 @@ impl FromWorld for SdfPipeline {
             bind_group_buffers: Vec::new(),
             indices,
             view_layout,
+            bind_groups: HashMap::new(),
             specialization: HashMap::new(),
         }
     }
 }
 
 impl SpecializedRenderPipeline for SdfPipeline {
-    type Key = RenderSdf;
+    type Key = SdfPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let Some(SdfSpecializationData {

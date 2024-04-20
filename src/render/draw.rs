@@ -1,20 +1,18 @@
 use super::{
     pipeline::SdfPipeline,
-    process::{SdfBindGroups, SdfInstance, SdfViewBindGroup},
+    process::{SdfInstance, SdfViewBindGroup},
 };
-use bevy::{
-    ecs::system::{
-        lifetimeless::{Read, SRes},
-        SystemParamItem,
+use bevy_ecs::system::{
+    lifetimeless::{Read, SRes},
+    SystemParamItem,
+};
+use bevy_log::error;
+use bevy_render::{
+    render_phase::{
+        PhaseItem, RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
     },
-    log::error,
-    render::{
-        render_phase::{
-            PhaseItem, RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
-        },
-        render_resource::IndexFormat,
-        view::ViewUniformOffset,
-    },
+    render_resource::IndexFormat,
+    view::ViewUniformOffset,
 };
 
 pub type DrawSdf = (SetItemPipeline, SetSdfViewBindGroup, DrawSdfDispatch);
@@ -40,7 +38,7 @@ impl<P: PhaseItem> RenderCommand<P> for SetSdfViewBindGroup {
 
 pub struct DrawSdfDispatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSdfDispatch {
-    type Param = (SRes<SdfPipeline>, SRes<SdfBindGroups>);
+    type Param = SRes<SdfPipeline>;
     type ViewQuery = ();
     type ItemQuery = Read<SdfInstance>;
 
@@ -49,7 +47,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSdfDispatch {
         _item: &P,
         _view: (),
         sdf_instance: Option<&'w SdfInstance>,
-        (pipeline, variants): SystemParamItem<'w, '_, Self::Param>,
+        pipeline: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(instance) = sdf_instance else {
@@ -60,11 +58,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSdfDispatch {
             error!("Cancelled draw: 'bevy_comdf sdf vertices buffer not available'");
             return RenderCommandResult::Failure;
         };
-        let Some(indices) = pipeline.into_inner().indices.buffer() else {
+        let pipeline = pipeline.into_inner();
+        let Some(indices) = pipeline.indices.buffer() else {
             error!("Cancelled draw: 'bevy_comdf sdf indices buffer not available'");
             return RenderCommandResult::Failure;
         };
-        let Some(bind_group) = variants.into_inner().0.get(&instance.key) else {
+        let Some(bind_group) = pipeline.bind_groups.get(&instance.key) else {
             error!(
                 "Cancelled draw: 'bind_group not found for key {:?}'",
                 instance.key
@@ -72,6 +71,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSdfDispatch {
             return RenderCommandResult::Failure;
         };
 
+        // println!("draw: {:?}", instance.key);
         pass.set_vertex_buffer(0, vertices.slice(..));
         pass.set_bind_group(1, bind_group, &[]);
         pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint16);

@@ -1,15 +1,11 @@
-use bevy::app::App;
-use bevy::ecs::component::Component;
-use bevy::ecs::reflect::ReflectComponent;
-use bevy::reflect::prelude::*;
+use bevy_app::App;
+use bevy_ecs::component::Component;
 use bitflags::bitflags;
 
 use crate::operations::OperationsFlag;
 
 pub fn plugin(app: &mut App) {
-    app.register_type::<RenderableVariant>()
-        .register_type::<OperationsFlag>()
-        .register_type::<RenderSdf>();
+    app.register_type::<OperationsFlag>();
 }
 
 bitflags! {
@@ -33,16 +29,11 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Component, Reflect)]
-#[reflect(Component)]
-pub struct RenderableVariant {
-    #[reflect(ignore)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Component)]
+pub struct RenderableSdf {
     pub flag: VariantFlag,
-    #[reflect(ignore)]
     pub binding: u32,
 }
 
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Component, Reflect)]
-#[reflect(Component)]
-pub struct RenderSdf(#[reflect(ignore)] pub Vec<(OperationsFlag, u32)>);
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Component)]
+pub struct SdfPipelineKey(pub Vec<(OperationsFlag, u32)>);

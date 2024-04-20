@@ -1,22 +1,31 @@
+use crate::flag::{RenderableSdf, VariantFlag};
 use crate::linefy;
 use crate::prelude::{FillColor, GradientColor};
-use crate::render::shader::buffers::SdfVariantBuffer;
+use crate::render::extract::EntityTranslator;
+use crate::render::shader::buffers::SdfStorageBuffer;
 use crate::render::shader::lines::Lines;
 use crate::render::shader::variants::Calculation::*;
 use crate::render::shader::variants::VariantShaderBuilder;
-use crate::scheduling::ComdfRenderPostUpdateSet::*;
-use crate::scheduling::ComdfRenderUpdateSet::*;
-use crate::{flag::VariantFlag, RenderSdfComponent};
-use bevy::app::PostUpdate;
-use bevy::app::{App, Update};
-use bevy::math::Mat2;
-use bevy::prelude::IntoSystemConfigs;
-use bevy::render::render_resource::VertexFormat;
+use crate::scheduling::ComdfRenderSet::*;
+use bevy_app::App;
 use bevy_comdf_core::prelude::*;
+use bevy_ecs::component::Component;
+use bevy_ecs::entity::Entity;
+use bevy_ecs::query::With;
+use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::system::{Commands, Query, Res};
+use bevy_render::render_resource::VertexFormat;
+use bevy_render::{Extract, ExtractSchedule, Render, RenderApp};
+use glam::Mat2;
+use itertools::Itertools;
 
 pub fn plugin(app: &mut App) {
-    let (setup_rendering, prepare_for_frame, build_flags) = system_tuples!(
-        [setup_system, prep_system, flag_system],
+    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        return;
+    };
+
+    let (build_shaders, prepare_buffers, build_flags, extract) = system_tuples!(
+        [setup_system, prep_system, flag_system, extract],
         [
             Point,
             Line,
@@ -32,14 +41,49 @@ pub fn plugin(app: &mut App) {
         ]
     );
 
-    app.add_systems(Update, build_flags.in_set(BuildVariantFlags));
-    app.add_systems(
-        PostUpdate,
+    render_app.add_systems(ExtractSchedule, extract.in_set(Extract));
+    render_app.add_systems(
+        Render,
         (
-            setup_rendering.chain().in_set(BuildShaders),
-            prepare_for_frame.chain().in_set(GatherDataForExtract),
+            build_flags.in_set(BuildSdfFlags),
+            build_shaders.chain().in_set(BuildShaders),
+            prepare_buffers.chain().in_set(BuildBuffers),
         ),
     );
+}
+
+trait RenderSdfComponent: Sized + Component + Clone {
+    fn flag() -> VariantFlag;
+    fn flag_system(mut query: Query<&mut RenderableSdf, With<Self>>) {
+        query
+            .iter_mut()
+            .for_each(|mut variant| variant.flag |= Self::flag());
+    }
+
+    fn setup(shader: &mut VariantShaderBuilder);
+    fn setup_system(mut query: Query<&mut VariantShaderBuilder, With<Self>>) {
+        query.iter_mut().for_each(|mut comp| Self::setup(&mut comp));
+    }
+
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self);
+    fn prep_system(mut query: Query<(&mut SdfStorageBuffer, &Self)>) {
+        query.iter_mut().for_each(|(mut buffer, comp)| {
+            Self::prep(&mut buffer, comp);
+        });
+    }
+
+    fn extract(
+        mut cmds: Commands,
+        translator: Res<EntityTranslator>,
+        query: Extract<Query<(Entity, &Self)>>,
+    ) {
+        cmds.insert_or_spawn_batch(
+            query
+                .into_iter()
+                .map(|(e, c)| (*translator.0.get(&e).unwrap(), c.clone()))
+                .collect_vec(),
+        )
+    }
 }
 
 impl RenderSdfComponent for Point {
@@ -50,7 +94,7 @@ impl RenderSdfComponent for Point {
         shader.calc(Distance, stringify!(length(position)))
     }
 
-    fn prep(_render: &mut SdfVariantBuffer, _comp: &Self) {}
+    fn prep(_render: &mut SdfStorageBuffer, _comp: &Self) {}
 }
 
 impl RenderSdfComponent for Line {
@@ -75,7 +119,7 @@ impl RenderSdfComponent for Line {
         );
     }
 
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self) {
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self) {
         render.push(&comp.0)
     }
 }
@@ -101,7 +145,7 @@ impl RenderSdfComponent for Rectangle {
         );
     }
 
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self) {
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self) {
         render.push(&comp.0.to_array())
     }
 }
@@ -120,7 +164,7 @@ impl RenderSdfComponent for Rotated {
         )
     }
 
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self) {
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self) {
         let mat = Mat2::from_angle(comp.0).to_cols_array_2d();
         render.push(&mat[0]);
         render.push(&mat[1]);
@@ -137,7 +181,7 @@ impl RenderSdfComponent for Translated {
         shader.calc(Position, stringify!(input.translation - <prev>))
     }
 
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self) {
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self) {
         render.push(&comp.0.to_array())
     }
 }
@@ -152,7 +196,7 @@ impl RenderSdfComponent for Added {
         shader.calc(Distance, stringify!(<prev> - input.added));
     }
 
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self) {
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self) {
         render.push(&comp.0)
     }
 }
@@ -166,7 +210,7 @@ impl RenderSdfComponent for Annular {
         shader.calc(Distance, stringify!(abs(<prev>) - input.annular_radius));
     }
 
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self) {
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self) {
         render.push(&comp.0)
     }
 }
@@ -191,7 +235,7 @@ impl RenderSdfComponent for Bend {
         shader.calc(Position, stringify!(bend_point(<prev>, input.bend)))
     }
 
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self) {
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self) {
         render.push(&comp.0)
     }
 }
@@ -210,7 +254,7 @@ impl RenderSdfComponent for Stretched {
         );
     }
 
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self) {
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self) {
         render.push(&comp.0.to_array())
     }
 }
@@ -225,7 +269,7 @@ impl RenderSdfComponent for FillColor {
         shader.calc(PixelColor, stringify!(input.fill_color));
     }
 
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self) {
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self) {
         render.push(&comp.0.rgb_to_vec3())
     }
 }
@@ -243,7 +287,7 @@ impl RenderSdfComponent for GradientColor {
         );
     }
 
-    fn prep(render: &mut SdfVariantBuffer, comp: &Self) {
+    fn prep(render: &mut SdfStorageBuffer, comp: &Self) {
         render.push(&comp.0.rgb_to_vec3())
     }
 }

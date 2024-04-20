@@ -1,14 +1,12 @@
 use super::{draw::DrawSdf, pipeline::SdfPipeline, process::SdfInstance};
-use bevy::{
-    core_pipeline::core_2d::Transparent2d,
-    prelude::*,
-    render::{
-        render_phase::{DrawFunctions, RenderPhase},
-        render_resource::{PipelineCache, SpecializedRenderPipelines},
-        view::ExtractedView,
-    },
-    utils::FloatOrd,
+use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_ecs::prelude::*;
+use bevy_render::{
+    render_phase::{DrawFunctions, RenderPhase},
+    render_resource::{PipelineCache, SpecializedRenderPipelines},
+    view::ExtractedView,
 };
+use bevy_utils::FloatOrd;
 
 pub fn queue_sdfs(
     sdfs: Query<(Entity, &SdfInstance)>,
@@ -18,9 +16,11 @@ pub fn queue_sdfs(
     mut pipelines: ResMut<SpecializedRenderPipelines<SdfPipeline>>,
     cache: Res<PipelineCache>,
 ) {
+    // println!("queue_sdfs: {}", sdfs.iter().len());
     let draw_function = draw_functions.read().id::<DrawSdf>();
     views.iter_mut().for_each(|(_view, mut render_phase)| {
         sdfs.into_iter().for_each(|(entity, sdf)| {
+            // println!("queue: {:?}", &sdf.key);
             let pipeline = pipelines.specialize(&cache, &sdf_pipeline, sdf.key.clone());
             render_phase.add(Transparent2d {
                 sort_key: FloatOrd(0.),

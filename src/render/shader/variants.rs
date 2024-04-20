@@ -1,10 +1,8 @@
-use bevy::{
-    prelude::Component,
-    render::render_resource::{
-        BindGroupLayoutEntry, BindingType, BufferBindingType, ShaderStages, VertexFormat,
-    },
-    utils::{default, HashMap},
+use bevy_ecs::component::Component;
+use bevy_render::render_resource::{
+    BindGroupLayoutEntry, BindingType, BufferBindingType, ShaderStages, VertexFormat,
 };
+use bevy_utils::{default, HashMap};
 
 #[derive(Default, Debug, Clone, Component)]
 pub struct VariantShaderBuilder {

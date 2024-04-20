@@ -1,110 +1,88 @@
-use super::{
-    pipeline::{SdfPipeline, SdfSpecializationData},
-    shader::{
-        buffers::{SdfOperationsBuffer, SdfRenderIndex, SdfVariantBuffer},
-        loading::{LoadedSdfPipelineData, SdfShaderRegister},
-    },
+use super::shader::buffers::{SdfOperationsBuffer, SdfStorageBuffer};
+use crate::scheduling::ComdfRenderSet::*;
+use crate::{
+    flag::{RenderableSdf, SdfPipelineKey},
+    prelude::SdfStorageIndex,
+    RenderSdf,
 };
-use crate::flag::{RenderSdf, RenderableVariant};
-use bevy::{
-    prelude::*,
-    render::{
-        render_resource::{BufferUsages, BufferVec},
-        renderer::RenderDevice,
-        Extract,
-    },
-};
-use bevy_comdf_core::aabb::AABB;
+use bevy_app::prelude::*;
+use bevy_comdf_core::{aabb::AABB, prepare::Sdf};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
+use bevy_render::{Extract, ExtractSchedule, RenderApp};
 use itertools::Itertools;
 
-#[derive(Clone, Debug)]
-pub struct ExtractedSdfVariant {
-    pub bytes: Vec<u8>,
-    pub binding: u32,
-    pub index: u32,
-}
-
-#[derive(Resource, Default, Debug)]
-pub struct ExtractedSdfVariants {
-    pub sdfs: Vec<ExtractedSdfVariant>,
-}
-
-pub fn extract_sdf_variants(
-    mut extracted: ResMut<ExtractedSdfVariants>,
-    query: Extract<Query<(&SdfVariantBuffer, &RenderableVariant, &SdfRenderIndex)>>,
-) {
-    extracted.sdfs.clear();
-    extracted.sdfs.extend(
-        query
-            .iter()
-            .map(|(bytes, variant, index)| ExtractedSdfVariant {
-                bytes: bytes.clone().bytes(),
-                binding: variant.binding,
-                index: index.0,
-            }),
+pub fn plugin(app: &mut App) {
+    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        return;
+    };
+    render_app.init_resource::<EntityTranslator>();
+    render_app.add_systems(
+        ExtractSchedule,
+        (
+            setup_entity_translation.before(PrepareExtract),
+            (extract_render_sdfs, extract_sdf_entitys).in_set(Extract),
+        ),
     );
 }
 
-pub fn extract_render_sdfs(
-    mut extracted: ResMut<ExtractedRenderSdfs>,
-    query: Extract<Query<(&RenderSdf, &SdfOperationsBuffer, &AABB)>>,
+#[derive(Default, Resource)]
+pub struct EntityTranslator(pub EntityHashMap<Entity>);
+
+fn setup_entity_translation(
+    mut cmds: Commands,
+    mut translator: ResMut<EntityTranslator>,
+    query: Extract<Query<Entity, Or<(With<Sdf>, With<RenderSdf>)>>>,
 ) {
-    extracted
-        .0
-        .extend(
-            query
-                .iter()
-                .filter(|(sdf, _, _)| sdf.0.is_empty())
-                .map(|(sdf, buffer, aabb)| ExtractedRenderSdf {
-                    key: sdf.clone(),
-                    bytes: buffer.0.clone(),
-                    size: aabb.size(),
-                    translation: aabb.pos(),
-                }),
-        );
-}
-
-pub struct ExtractedRenderSdf {
-    pub key: RenderSdf,
-    pub size: Vec2,
-    pub translation: Vec2,
-    pub bytes: Vec<u8>,
-}
-
-#[derive(Resource, Default)]
-pub struct ExtractedRenderSdfs(pub Vec<ExtractedRenderSdf>);
-
-pub fn extract_variant_data(
-    register: Extract<Res<SdfShaderRegister>>,
-    mut pipeline: ResMut<SdfPipeline>,
-) {
-    let variants = register.bindings.len();
-    if pipeline.bind_group_buffers.len() < variants {
-        pipeline
-            .bind_group_buffers
-            .resize_with(variants, || BufferVec::new(BufferUsages::STORAGE));
+    translator.0.clear();
+    for entity in query.into_iter() {
+        let render_entity = cmds.spawn_empty().id();
+        translator.0.insert(entity, render_entity);
     }
 }
 
-pub fn extract_loaded_specialization_data(
-    mut loaded: Extract<EventReader<LoadedSdfPipelineData>>,
-    mut send: EventWriter<SdfSpecializationData>,
-    render_device: Res<RenderDevice>,
+fn extract_sdf_entitys(
+    mut cmds: Commands,
+    translator: Res<EntityTranslator>,
+    query: Extract<Query<(Entity, &AABB), With<Sdf>>>,
 ) {
-    for data in loaded.read() {
-        let entrys = data
-            .entrys
-            .iter()
-            .copied()
-            .unique_by(|e| e.binding)
-            .collect_vec();
-        let bind_group_layout = render_device.create_bind_group_layout(None, &entrys);
-        let variant = SdfSpecializationData {
-            key: data.key.clone(),
-            vertex_layout: data.vertex_layout.clone(),
-            bind_group_layout,
-            shader: data.shader.clone(),
-        };
-        send.send(variant);
-    }
+    // println!("extracting '{}' sdfs", query.iter().len());
+    cmds.insert_or_spawn_batch(
+        query
+            .into_iter()
+            .map(|(e, aabb)| {
+                (
+                    *translator.0.get(&e).unwrap(),
+                    (
+                        aabb.clone(),
+                        SdfStorageBuffer::default(),
+                        RenderableSdf::default(),
+                        SdfStorageIndex::default(),
+                    ),
+                )
+            })
+            .collect_vec(),
+    )
+}
+
+fn extract_render_sdfs(
+    mut cmds: Commands,
+    translator: Res<EntityTranslator>,
+    query: Extract<Query<Entity, With<RenderSdf>>>,
+) {
+    // println!("extracting '{}' render sdfs", query.iter().len());
+    cmds.insert_or_spawn_batch(
+        query
+            .into_iter()
+            .map(|e| {
+                (
+                    *translator.0.get(&e).unwrap(),
+                    (
+                        SdfPipelineKey::default(),
+                        SdfOperationsBuffer::default(),
+                        AABB::default(),
+                    ),
+                )
+            })
+            .collect_vec(),
+    )
 }

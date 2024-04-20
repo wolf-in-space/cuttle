@@ -1,14 +1,12 @@
 use super::{lines::Lines, variants::VariantShaderBuilder};
 use crate::{
-    flag::{RenderSdf, VariantFlag},
+    flag::{SdfPipelineKey, VariantFlag},
     linefy,
     operations::OperationsFlag,
 };
-use bevy::{
-    prelude::Component,
-    render::render_resource::{Shader, VertexBufferLayout, VertexFormat, VertexStepMode},
-    utils::{default, HashMap, HashSet},
-};
+use bevy_ecs::component::Component;
+use bevy_render::render_resource::{Shader, VertexBufferLayout, VertexFormat, VertexStepMode};
+use bevy_utils::{default, HashMap, HashSet};
 use itertools::Itertools;
 
 #[derive(Default, Clone, Component)]
@@ -42,9 +40,13 @@ impl SdfShaderBuilder {
         });
     }
 
-    pub fn to_shader(&self, key: &RenderSdf, snippets: &HashMap<OperationsFlag, Lines>) -> Shader {
+    pub fn to_shader(
+        &self,
+        key: &SdfPipelineKey,
+        snippets: &HashMap<OperationsFlag, Lines>,
+    ) -> Shader {
         let code = self.gen_shader_code(snippets);
-        println!("{}", code);
+        // println!("{}", code);
         Shader::from_wgsl(
             code,
             format!("Generated in '{}' for sdf {:?}", file!(), key),

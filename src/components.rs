@@ -1,4 +1,7 @@
-use bevy::prelude::*;
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
+use bevy_reflect::prelude::*;
+use bevy_render::color::Color;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<FillColor>();
@@ -9,8 +12,6 @@ pub fn plugin(app: &mut App) {
 #[reflect(Component)]
 pub struct FillColor(pub Color);
 
-
 #[derive(Debug, Default, Clone, Component, Reflect)]
 #[reflect(Component)]
 pub struct GradientColor(pub Color);
-

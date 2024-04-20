@@ -1,27 +1,46 @@
-use std::marker::PhantomData;
-
-use crate::flag::{RenderSdf, RenderableVariant};
-use crate::linefy;
-use crate::render::shader::buffers::{SdfOperationsBuffer, SdfRenderIndex};
+use crate::flag::{RenderableSdf, SdfPipelineKey};
+use crate::render::extract::EntityTranslator;
+use crate::render::shader::buffers::{SdfOperationsBuffer, SdfStorageIndex};
 use crate::render::shader::building::SdfShaderBuilder;
 use crate::render::shader::lines::*;
 use crate::render::shader::loading::SdfShaderRegister;
-use crate::scheduling::ComdfRenderPostUpdateSet::*;
-use crate::scheduling::ComdfRenderUpdateSet::*;
+use crate::scheduling::ComdfRenderSet::*;
+use crate::{linefy, RenderSdf};
 use aery::prelude::*;
-use bevy::core::bytes_of;
-use bevy::ecs::entity::EntityHashMap;
-use bevy::{prelude::*, render::render_resource::VertexFormat};
+use bevy_app::prelude::*;
 use bevy_comdf_core::prelude::*;
+use bevy_core::bytes_of;
+use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::prelude::*;
+use bevy_reflect::Reflect;
+use bevy_render::render_resource::VertexFormat;
+use bevy_render::{Extract, ExtractSchedule, Render, RenderApp};
+use std::marker::PhantomData;
+use std::ops::Deref;
 
 pub fn plugin(app: &mut App) {
-    let (load_shaders, prepare_for_extract, build_keys, combine_aabbs, load_snippets) = system_tuples!(
+    app.add_systems(
+        Update,
+        ((
+            add_a_if_with_b_and_without_a::<OperationsValues<SmoothUnion>, RenderSdf>,
+            add_a_if_with_b_and_without_a::<OperationsValues<SmoothIntersect>, RenderSdf>,
+            add_a_if_with_b_and_without_a::<OperationsValues<SmoothSubtract>, RenderSdf>,
+            add_a_if_with_b_and_without_a::<OperationsValues<SmoothXOR>, RenderSdf>,
+            add_a_if_with_b_and_without_a::<OperationsValues<Merge>, RenderSdf>,
+        ),),
+    );
+    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+        return;
+    };
+
+    let (build_shaders, prepare_buffers, build_keys, combine_aabbs, load_snippets, extract) = system_tuples!(
         [
-            load_shader,
-            prepare_for_extract,
+            build_shader,
+            prepare_buffers,
             build_key,
             combine_aabbs,
-            load_snippets
+            load_snippets,
+            extract
         ],
         [
             Base,
@@ -37,36 +56,27 @@ pub fn plugin(app: &mut App) {
         ]
     );
 
-    app.add_systems(Startup, load_snippets);
-    app.add_systems(
-        Update,
-        (
-            clear_render_keys.before(BuildRenderSdfKeys),
-            build_keys.chain().in_set(BuildRenderSdfKeys),
+    render_app
+        .add_systems(ExtractSchedule, extract.in_set(Extract))
+        .add_systems(
+            Render,
             (
-                add_a_if_with_b_and_without_a::<OperationsValues<SmoothUnion>, RenderSdf>,
-                add_a_if_with_b_and_without_a::<OperationsValues<SmoothIntersect>, RenderSdf>,
-                add_a_if_with_b_and_without_a::<OperationsValues<SmoothSubtract>, RenderSdf>,
-                add_a_if_with_b_and_without_a::<OperationsValues<SmoothXOR>, RenderSdf>,
-                add_a_if_with_b_and_without_a::<OperationsValues<Merge>, RenderSdf>,
+                // clear_render_keys.before(BuildPipelineKeys),
+                (build_keys.chain(), load_snippets).in_set(BuildPipelineKeys),
+                (
+                    // clear_aabbs,
+                    combine_aabbs,
+                )
+                    .chain()
+                    .after(AfterExtract)
+                    .before(PrepareBuffers),
+                build_shaders.chain().in_set(BuildShaders),
+                prepare_buffers.chain().in_set(PrepareBuffers),
             ),
-        ),
-    );
-    app.add_systems(
-        PostUpdate,
-        (
-            (
-                add_a_if_with_b_and_without_a::<AABB, RenderSdf>,
-                clear_aabbs,
-                combine_aabbs,
-            )
-                .chain(),
-            load_shaders.chain().in_set(BuildShaders),
-            prepare_for_extract.chain().in_set(GatherDataForExtract),
-        ),
-    );
+        );
 }
 
+type RelationsQuery<'a, 'b, Data, Relation> = Query<'a, 'b, (Data, Relations<Relation>)>;
 pub trait RenderSdfOperation: Relation {
     fn flag() -> OperationsFlag;
 
@@ -83,9 +93,10 @@ pub trait RenderSdfOperation: Relation {
     }
 
     fn build_key(
-        mut operations: Query<(&mut RenderSdf, Relations<Self>)>,
-        variants: Query<&RenderableVariant>,
+        mut operations: Query<(&mut SdfPipelineKey, Relations<Self>)>,
+        variants: Query<&RenderableSdf>,
     ) {
+        // println!("build_key_{:?}: {}", Self::flag(), operations.iter().len());
         for (mut sdf, edges) in operations.iter_mut() {
             edges.join::<Self>(&variants).for_each(|variant| {
                 sdf.0.push((Self::flag(), variant.binding));
@@ -94,8 +105,8 @@ pub trait RenderSdfOperation: Relation {
     }
 
     fn combine_aabbs(
-        mut operations: Query<(&mut AABB, Relations<Self>), With<RenderSdf>>,
-        variants: Query<&AABB, Without<RenderSdf>>,
+        mut operations: Query<(&mut AABB, Relations<Self>), With<SdfPipelineKey>>,
+        variants: Query<&AABB, Without<SdfPipelineKey>>,
     ) {
         for (mut aabb, edges) in operations.iter_mut() {
             edges.join::<Self>(&variants).for_each(|variant| {
@@ -106,7 +117,7 @@ pub trait RenderSdfOperation: Relation {
 }
 
 trait BasicSdfOperation: RenderSdfOperation {
-    fn shader(shader: &mut SdfShaderBuilder, variant: &RenderableVariant) {
+    fn shader(shader: &mut SdfShaderBuilder, variant: &RenderableSdf) {
         let name = Self::flag().func_name();
         let bind = variant.binding;
         shader.input((format!("{name}_{bind}"), VertexFormat::Uint32));
@@ -115,9 +126,9 @@ trait BasicSdfOperation: RenderSdfOperation {
         ));
     }
 
-    fn load_shader(
+    fn build_shader(
         mut operations: Query<(&mut SdfShaderBuilder, Relations<Self>)>,
-        variants: Query<&RenderableVariant>,
+        variants: Query<&RenderableSdf>,
     ) {
         for (mut builder, edges) in operations.iter_mut() {
             builder.operation_snippets.extend(Self::require_snippets());
@@ -127,9 +138,9 @@ trait BasicSdfOperation: RenderSdfOperation {
         }
     }
 
-    fn prepare_for_extract(
+    fn prepare_buffers(
         mut operations: Query<(&mut SdfOperationsBuffer, Relations<Self>)>,
-        variants: Query<&SdfRenderIndex>,
+        variants: Query<&SdfStorageIndex>,
     ) {
         for (mut buffer, edges) in operations.iter_mut() {
             edges.join::<Self>(&variants).for_each(|index| {
@@ -137,10 +148,25 @@ trait BasicSdfOperation: RenderSdfOperation {
             });
         }
     }
+
+    fn extract(
+        mut cmds: Commands,
+        translator: Res<EntityTranslator>,
+        mut extract: Extract<Query<(Entity, Relations<Self>)>>,
+        sdfs: Extract<Query<Entity, With<Sdf>>>,
+    ) {
+        for (target, edges) in extract.iter_mut() {
+            let target_render_ent = *translator.0.get(&target).unwrap();
+            edges.join::<Self>(sdfs.deref()).for_each(|sdf| {
+                let sdf_render_ent = *translator.0.get(&sdf).unwrap();
+                cmds.entity(sdf_render_ent).set::<Self>(target_render_ent);
+            });
+        }
+    }
 }
 
 pub trait SdfOperationWithValue: RenderSdfOperation {
-    fn shader(shader: &mut SdfShaderBuilder, variant: &RenderableVariant) {
+    fn shader(shader: &mut SdfShaderBuilder, variant: &RenderableSdf) {
         let name = Self::flag().func_name();
         let bind = variant.binding;
         shader.input((format!("{name}_{bind}"), VertexFormat::Uint32));
@@ -150,9 +176,9 @@ pub trait SdfOperationWithValue: RenderSdfOperation {
         ));
     }
 
-    fn load_shader(
+    fn build_shader(
         mut operations: Query<(&mut SdfShaderBuilder, Relations<Self>)>,
-        variants: Query<&RenderableVariant>,
+        variants: Query<&RenderableSdf>,
     ) {
         for (mut builder, edges) in operations.iter_mut() {
             builder.operation_snippets.extend(Self::require_snippets());
@@ -162,12 +188,9 @@ pub trait SdfOperationWithValue: RenderSdfOperation {
         }
     }
 
-    fn prepare_for_extract(
-        mut operations: Query<(
-            (&mut SdfOperationsBuffer, &OperationsValues<Self>),
-            Relations<Self>,
-        )>,
-        variants: Query<(Entity, &SdfRenderIndex)>,
+    fn prepare_buffers(
+        mut operations: RelationsQuery<(&mut SdfOperationsBuffer, &OperationsValues<Self>), Self>,
+        variants: Query<(Entity, &SdfStorageIndex)>,
     ) {
         for ((mut buffer, values), edges) in operations.iter_mut() {
             edges.join::<Self>(&variants).for_each(|(entity, index)| {
@@ -175,6 +198,23 @@ pub trait SdfOperationWithValue: RenderSdfOperation {
                 buffer.0.extend_from_slice(bytes_of(
                     &values.values.get(&entity).copied().unwrap_or(20.0),
                 ));
+            });
+        }
+    }
+
+    fn extract(
+        mut cmds: Commands,
+        translator: Res<EntityTranslator>,
+        mut extract: Extract<RelationsQuery<(Entity, &OperationsValues<Self>), Self>>,
+        sdfs: Extract<Query<Entity, With<Sdf>>>,
+    ) {
+        for ((target, values), edges) in extract.iter_mut() {
+            let target_render_ent = *translator.0.get(&target).unwrap();
+            cmds.entity(target_render_ent)
+                .insert(values.translate_to_render(&translator));
+            edges.join::<Self>(sdfs.deref()).for_each(|sdf| {
+                let sdf_render_ent = *translator.0.get(&sdf).unwrap();
+                cmds.entity(sdf_render_ent).set::<Self>(target_render_ent);
             });
         }
     }
@@ -220,6 +260,23 @@ pub struct OperationsValues<Op: SdfOperationWithValue> {
     marker: PhantomData<Op>,
 }
 
+impl<Op: SdfOperationWithValue> OperationsValues<Op> {
+    fn translate_to_render(&self, translation: &EntityTranslator) -> Self {
+        let values = self
+            .values
+            .iter()
+            .map(|(ent, val)| (*translation.0.get(ent).unwrap(), *val))
+            .fold(EntityHashMap::default(), |mut accu, (key, val)| {
+                accu.insert(key, val);
+                accu
+            });
+        Self {
+            values,
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<Op: SdfOperationWithValue> Default for OperationsValues<Op> {
     fn default() -> Self {
         Self {
@@ -229,16 +286,34 @@ impl<Op: SdfOperationWithValue> Default for OperationsValues<Op> {
     }
 }
 
-fn clear_aabbs(mut query: Query<&mut AABB, With<RenderSdf>>) {
+impl<Op: SdfOperationWithValue> Clone for OperationsValues<Op> {
+    fn clone(&self) -> Self {
+        Self {
+            values: self.values.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<Op: SdfOperationWithValue> std::fmt::Debug for OperationsValues<Op> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OperationsValues")
+            .field("values", &self.values)
+            .finish()
+    }
+}
+/*
+fn clear_aabbs(mut query: Query<&mut AABB, With<SdfPipelineKey>>) {
     query
         .iter_mut()
         .for_each(|mut aabb| *aabb = AABB::default())
 }
-
-fn clear_render_keys(mut query: Query<&mut RenderSdf>) {
-    query.iter_mut().for_each(|mut sdf| sdf.0.clear())
+ */
+/*
+fn clear_render_keys(mut query: Query<&mut SdfPipelineKey>) {
+    query.iter_mut().for_each(|mut sdf| sdf.2.clear())
 }
-
+ */
 impl RenderSdfOperation for Base {
     fn flag() -> OperationsFlag {
         OperationsFlag::Base
@@ -246,7 +321,7 @@ impl RenderSdfOperation for Base {
 }
 
 impl BasicSdfOperation for Base {
-    fn shader(shader: &mut SdfShaderBuilder, variant: &RenderableVariant) {
+    fn shader(shader: &mut SdfShaderBuilder, variant: &RenderableSdf) {
         shader.input((format!("base_{}", variant.binding), VertexFormat::Uint32));
         shader.operation(linefy!(
             b => variant.binding;
