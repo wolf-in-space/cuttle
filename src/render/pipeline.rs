@@ -71,7 +71,7 @@ impl SpecializedRenderPipeline for SdfPipeline {
             ..
         }) = self.specialization.get(&key)
         else {
-            panic!("Specialize data not loaded into pipeline for key {key:?}");
+            panic!("Specialize data not loaded into sdf pipeline for key {key:?}");
         };
 
         RenderPipelineDescriptor {

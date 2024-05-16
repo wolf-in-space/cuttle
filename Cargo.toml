@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bevy_comdf_core = { path = "../bevy_comdf_core" }
 
 glam = "0.25"
 bevy_log = "0.13"
@@ -16,9 +17,10 @@ bevy_render = "0.13"
 bevy_reflect = "0.13"
 bevy_asset = "0.13"
 bevy_core = "0.13"
+bevy_transform = "0.13"
 bevy_core_pipeline = "0.13"
+bytemuck = "1.15"
 
-bevy_comdf_core = { path = "../bevy_comdf_core" }
 itertools = "0.12"
 bitflags = "2"
 aery = "0.6"

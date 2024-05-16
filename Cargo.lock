@@ -391,8 +391,10 @@ dependencies = [
  "bevy_log",
  "bevy_reflect",
  "bevy_render",
+ "bevy_transform",
  "bevy_utils",
  "bitflags 2.5.0",
+ "bytemuck",
  "glam",
  "itertools 0.12.1",
 ]
@@ -405,6 +407,7 @@ dependencies = [
  "bevy_app",
  "bevy_ecs",
  "bevy_reflect",
+ "bevy_transform",
  "bevy_tweening",
  "glam",
 ]

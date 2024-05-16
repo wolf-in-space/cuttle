@@ -9,31 +9,27 @@ pub fn plugin(app: &mut App) {
 }
 
 bitflags! {
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash)]
-    pub struct VariantFlag: u32 {
+    #[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash, Component)]
+    pub struct RenderableSdf: u32 {
         //Primitives
         const Point = 1 << 0;
         const Rectangle = 1 << 1;
         const Line = 1 << 2;
         //Transforms
-        const Translated = 1 << 10;
-        const Rotated = 1 << 11;
+        const Translated = 1 << 5;
+        const Rotated = 1 << 6;
+        const Transform = 1 << 7;
         //Shape modifiers
-        const Added = 1 << 21;
-        const Annular = 1 << 22;
-        const Stretched = 1 << 23;
-        const Bend = 1 << 24;
+        const Added = 1 << 10;
+        const Annular = 1 << 11;
+        const Stretched = 1 << 12;
+        const Bend = 1 << 13;
         //Color
-        const FillColor = 1 << 30;
-        const GradientColor = 1 << 31;
+        const Fill = 1 << 20;
+        const Gradient = 1 << 21;
+        const Border = 1 << 22;
     }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Component)]
-pub struct RenderableSdf {
-    pub flag: VariantFlag,
-    pub binding: u32,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Component)]
-pub struct SdfPipelineKey(pub Vec<(OperationsFlag, u32)>);
+pub struct SdfPipelineKey(pub Vec<(OperationsFlag, RenderableSdf)>);

@@ -1,26 +1,24 @@
 use crate::flag::{RenderableSdf, SdfPipelineKey};
 use crate::render::extract::EntityTranslator;
-use crate::render::shader::buffers::{SdfOperationsBuffer, SdfStorageIndex};
-use crate::render::shader::building::SdfShaderBuilder;
+use crate::render::shader::buffers::{SdfStorageBuffer, SdfStorageIndex};
 use crate::render::shader::lines::*;
-use crate::render::shader::loading::SdfShaderRegister;
+use crate::render::shader::loading::{SdfBinding, SdfBindings, SdfShaderRegister};
+use crate::render::shader::variants::{Calculation, SdfCalculationBuilder};
 use crate::scheduling::ComdfRenderSet::*;
 use crate::{linefy, RenderSdf};
 use aery::prelude::*;
 use bevy_app::prelude::*;
 use bevy_comdf_core::prelude::*;
-use bevy_core::bytes_of;
 use bevy_ecs::entity::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
-use bevy_render::render_resource::VertexFormat;
 use bevy_render::{Extract, ExtractSchedule, Render, RenderApp};
 use std::marker::PhantomData;
 use std::ops::Deref;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(
-        Update,
+        PostUpdate,
         ((
             add_a_if_with_b_and_without_a::<OperationsValues<SmoothUnion>, RenderSdf>,
             add_a_if_with_b_and_without_a::<OperationsValues<SmoothIntersect>, RenderSdf>,
@@ -33,11 +31,20 @@ pub fn plugin(app: &mut App) {
         return;
     };
 
-    let (build_shaders, prepare_buffers, build_keys, combine_aabbs, load_snippets, extract) = system_tuples!(
+    let (
+        build_shaders,
+        prepare_buffers,
+        build_keys,
+        gather_bindings,
+        combine_aabbs,
+        load_snippets,
+        extract,
+    ) = system_tuples!(
         [
             build_shader,
             prepare_buffers,
             build_key,
+            gather_bindings,
             combine_aabbs,
             load_snippets,
             extract
@@ -62,21 +69,19 @@ pub fn plugin(app: &mut App) {
             Render,
             (
                 // clear_render_keys.before(BuildPipelineKeys),
-                (build_keys.chain(), load_snippets).in_set(BuildPipelineKeys),
                 (
-                    // clear_aabbs,
-                    combine_aabbs,
+                    (add_this_key_entrys, build_keys.chain()).chain(),
+                    load_snippets,
                 )
-                    .chain()
-                    .after(AfterExtract)
-                    .before(PrepareBuffers),
-                build_shaders.chain().in_set(BuildShaders),
-                prepare_buffers.chain().in_set(PrepareBuffers),
+                    .in_set(BuildPipelineKeys),
+                gather_bindings.in_set(GatherOperationBindings),
+                combine_aabbs.after(AfterExtract).before(PrepareBuffers),
+                build_shaders.chain().in_set(BuildShadersForOperations),
+                prepare_buffers.chain().in_set(BuildBuffersForOperations),
             ),
         );
 }
 
-type RelationsQuery<'a, 'b, Data, Relation> = Query<'a, 'b, (Data, Relations<Relation>)>;
 pub trait RenderSdfOperation: Relation {
     fn flag() -> OperationsFlag;
 
@@ -94,19 +99,29 @@ pub trait RenderSdfOperation: Relation {
 
     fn build_key(
         mut operations: Query<(&mut SdfPipelineKey, Relations<Self>)>,
-        variants: Query<&RenderableSdf>,
+        flags: Query<&RenderableSdf>,
     ) {
-        // println!("build_key_{:?}: {}", Self::flag(), operations.iter().len());
         for (mut sdf, edges) in operations.iter_mut() {
-            edges.join::<Self>(&variants).for_each(|variant| {
-                sdf.0.push((Self::flag(), variant.binding));
+            edges.join::<Self>(&flags).for_each(|flag| {
+                sdf.0.push((Self::flag(), *flag));
+            });
+        }
+    }
+
+    fn gather_bindings(
+        mut operations: Query<(&mut SdfBindings, Relations<Self>)>,
+        flags: Query<&SdfBinding>,
+    ) {
+        for (mut bindings, edges) in operations.iter_mut() {
+            edges.join::<Self>(&flags).for_each(|binding| {
+                bindings.0.push(binding.0);
             });
         }
     }
 
     fn combine_aabbs(
-        mut operations: Query<(&mut AABB, Relations<Self>), With<SdfPipelineKey>>,
-        variants: Query<&AABB, Without<SdfPipelineKey>>,
+        mut operations: Query<(&mut AABB, Relations<Self>), With<RenderSdf>>,
+        variants: Query<&AABB, Without<RenderSdf>>,
     ) {
         for (mut aabb, edges) in operations.iter_mut() {
             edges.join::<Self>(&variants).for_each(|variant| {
@@ -116,35 +131,43 @@ pub trait RenderSdfOperation: Relation {
     }
 }
 
+fn add_this_key_entrys(mut query: Query<(&mut SdfPipelineKey, &RenderableSdf)>) {
+    for (mut key, sdf) in query.iter_mut() {
+        key.0.push((OperationsFlag::This, *sdf))
+    }
+}
+
 trait BasicSdfOperation: RenderSdfOperation {
-    fn shader(shader: &mut SdfShaderBuilder, variant: &RenderableSdf) {
+    fn shader(shader: &mut SdfCalculationBuilder, bind: &SdfBinding) {
         let name = Self::flag().func_name();
-        let bind = variant.binding;
-        shader.input((format!("{name}_{bind}"), VertexFormat::Uint32));
-        shader.operation(format!(
-            "sdf_{name}(result, calc_sdf{bind}(input.{name}_{bind}, input.world_position));"
-        ));
+        let bind = bind.0;
+        let input_name = format!("{name}_{bind}_{}", shader.input_len());
+        shader.input(input_name.clone(), "u32");
+        shader.calc(
+            Calculation::Operations,
+            format!("sdf_{name}(result, calc_sdf{bind}(input.{input_name}, position))"),
+        );
     }
 
     fn build_shader(
-        mut operations: Query<(&mut SdfShaderBuilder, Relations<Self>)>,
-        variants: Query<&RenderableSdf>,
+        mut operations: Query<(&mut SdfCalculationBuilder, Relations<Self>)>,
+        bindings: Query<&SdfBinding>,
     ) {
         for (mut builder, edges) in operations.iter_mut() {
             builder.operation_snippets.extend(Self::require_snippets());
             edges
-                .join::<Self>(&variants)
-                .for_each(|variant| Self::shader(&mut builder, variant));
+                .join::<Self>(&bindings)
+                .for_each(|binding| Self::shader(&mut builder, binding));
         }
     }
 
     fn prepare_buffers(
-        mut operations: Query<(&mut SdfOperationsBuffer, Relations<Self>)>,
+        mut operations: Query<(&mut SdfStorageBuffer, Relations<Self>)>,
         variants: Query<&SdfStorageIndex>,
     ) {
         for (mut buffer, edges) in operations.iter_mut() {
             edges.join::<Self>(&variants).for_each(|index| {
-                buffer.0.extend_from_slice(bytes_of(&index.0));
+                buffer.push(&index.0);
             });
         }
     }
@@ -166,38 +189,43 @@ trait BasicSdfOperation: RenderSdfOperation {
 }
 
 pub trait SdfOperationWithValue: RenderSdfOperation {
-    fn shader(shader: &mut SdfShaderBuilder, variant: &RenderableSdf) {
+    fn shader(shader: &mut SdfCalculationBuilder, SdfBinding(bind): &SdfBinding) {
         let name = Self::flag().func_name();
-        let bind = variant.binding;
-        shader.input((format!("{name}_{bind}"), VertexFormat::Uint32));
-        shader.input((format!("{name}_{bind}_value"), VertexFormat::Float32));
-        shader.operation(format!(
-            "sdf_{name}(result, calc_sdf{bind}(input.{name}_{bind}, input.world_position), input.{name}_{bind}_value);"
-        ));
+        let index_name = format!("{name}_{bind}_{}", shader.input_len());
+        let value_name = format!("{index_name}_value");
+        shader.input(index_name.clone(), "u32");
+        shader.input(value_name.clone(), "f32");
+        shader.calc(
+            Calculation::Operations,
+            format!(
+                "sdf_{name}(result, calc_sdf{bind}(input.{index_name}, position), input.{value_name})"
+            ),
+        );
     }
 
     fn build_shader(
-        mut operations: Query<(&mut SdfShaderBuilder, Relations<Self>)>,
-        variants: Query<&RenderableSdf>,
+        mut operations: Query<(&mut SdfCalculationBuilder, Relations<Self>)>,
+        bindings: Query<&SdfBinding>,
     ) {
         for (mut builder, edges) in operations.iter_mut() {
             builder.operation_snippets.extend(Self::require_snippets());
             edges
-                .join::<Self>(&variants)
-                .for_each(|variant| Self::shader(&mut builder, variant));
+                .join::<Self>(&bindings)
+                .for_each(|bind| Self::shader(&mut builder, bind));
         }
     }
 
     fn prepare_buffers(
-        mut operations: RelationsQuery<(&mut SdfOperationsBuffer, &OperationsValues<Self>), Self>,
+        mut operations: Query<(
+            (&mut SdfStorageBuffer, &OperationsValues<Self>),
+            Relations<Self>,
+        )>,
         variants: Query<(Entity, &SdfStorageIndex)>,
     ) {
         for ((mut buffer, values), edges) in operations.iter_mut() {
             edges.join::<Self>(&variants).for_each(|(entity, index)| {
-                buffer.0.extend_from_slice(bytes_of(&index.0));
-                buffer.0.extend_from_slice(bytes_of(
-                    &values.values.get(&entity).copied().unwrap_or(20.0),
-                ));
+                buffer.push(&index.0);
+                buffer.push(&values.values.get(&entity).copied().unwrap_or(0.5));
             });
         }
     }
@@ -205,7 +233,7 @@ pub trait SdfOperationWithValue: RenderSdfOperation {
     fn extract(
         mut cmds: Commands,
         translator: Res<EntityTranslator>,
-        mut extract: Extract<RelationsQuery<(Entity, &OperationsValues<Self>), Self>>,
+        mut extract: Extract<Query<((Entity, &OperationsValues<Self>), Relations<Self>)>>,
         sdfs: Extract<Query<Entity, With<Sdf>>>,
     ) {
         for ((target, values), edges) in extract.iter_mut() {
@@ -321,12 +349,12 @@ impl RenderSdfOperation for Base {
 }
 
 impl BasicSdfOperation for Base {
-    fn shader(shader: &mut SdfShaderBuilder, variant: &RenderableSdf) {
-        shader.input((format!("base_{}", variant.binding), VertexFormat::Uint32));
-        shader.operation(linefy!(
-            b => variant.binding;
-            calc_sdf{b}(input.base_{b}, input.world_position);
-        ))
+    fn shader(shader: &mut SdfCalculationBuilder, SdfBinding(bind): &SdfBinding) {
+        shader.input(format!("base_{}", bind), "u32");
+        shader.calc(
+            Calculation::Operations,
+            format!("calc_sdf{b}(input.base_{b}, position)", b = bind),
+        )
     }
 }
 

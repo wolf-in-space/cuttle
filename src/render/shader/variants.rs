@@ -1,18 +1,19 @@
 use bevy_ecs::component::Component;
 use bevy_render::render_resource::{
-    BindGroupLayoutEntry, BindingType, BufferBindingType, ShaderStages, VertexFormat,
+    BindGroupLayoutEntry, BindingType, BufferBindingType, ShaderStages,
 };
-use bevy_utils::{default, HashMap};
+use bevy_utils::{default, HashMap, HashSet};
 
 #[derive(Default, Debug, Clone, Component)]
-pub struct VariantShaderBuilder {
-    input: Vec<(String, VertexFormat)>,
-    pub(crate) extra: HashMap<VariantFlag, Lines>,
+pub struct SdfCalculationBuilder {
+    input: Vec<(String, String)>,
+    pub(crate) extra: HashMap<RenderableSdf, Lines>,
     calculations: HashMap<Calculation, Vec<String>>,
+    pub operation_snippets: HashSet<OperationsFlag>,
     pub(crate) binding: u32,
 }
 
-impl VariantShaderBuilder {
+impl SdfCalculationBuilder {
     pub fn new(binding: u32) -> Self {
         Self {
             binding,
@@ -21,20 +22,28 @@ impl VariantShaderBuilder {
     }
 
     pub(crate) fn build(&self) -> Lines {
-        linefy! {
-            bind => self.binding, layout => self.sdf_struct(), calculations => self.calculations();
+        [
+            format!(
+                "@group(1) @binding({bind}) var<storage, read> data{bind}: array<Sdf{bind}>;",
+                bind = self.binding
+            )
+            .into(),
+            self.sdf_struct(),
+            format!(
+                "fn calc_sdf{bind}(input_index: u32, world_position: vec2<f32>) -> SdfResult {{",
+                bind = self.binding
+            )
+            .into(),
+            format!("let input = data{}[input_index];", self.binding).into(),
+            self.calculations(),
+            stringify!(return result;).into(),
+            "}".into(),
+        ]
+        .into()
+    }
 
-            @group(1) @binding({bind}) var<storage, read> data{bind}: array<Sdf{bind}>;
-
-            {layout}
-
-            fn calc_sdf{bind}(input_index: u32, world_position: vec2<f32>) -> SdfResult {
-                let input = data{bind}[input_index];
-                var result: SdfResult;
-                {calculations}
-                return result;
-            }
-        }
+    pub fn input_len(&self) -> usize {
+        self.input.len()
     }
 
     fn sdf_struct(&self) -> Lines {
@@ -48,61 +57,38 @@ impl VariantShaderBuilder {
 
     fn calculations(&self) -> Lines {
         [
-            self.calculation(Position, "let position"),
-            self.calculation(Distance, "result.distance"),
-            self.calculation(PixelColor, "result.color"),
+            self.calculation(Position),
+            self.calculation(Operations),
+            self.calculation(Distance),
+            self.calculation(PixelColor),
         ]
         .into()
     }
 
     pub fn calc(&mut self, kind: Calculation, calc: impl Into<String>) {
-        let calc = calc.into();
-        let calc = calc.replace("<prev>", &self.var(kind));
-        self.calculations.entry(kind).or_default().push(calc);
+        self.calculations.entry(kind).or_default().push(calc.into());
     }
 
-    pub fn extra(&mut self, flag: VariantFlag, extra: Lines) {
+    pub fn extra(&mut self, flag: RenderableSdf, extra: Lines) {
         self.extra.insert(flag, extra);
     }
 
-    pub fn input(&mut self, (name, format): (impl Into<String>, VertexFormat)) {
-        self.input.push((name.into(), format));
+    pub fn input(&mut self, name: impl Into<String>, wgsl_type: impl Into<String>) {
+        self.input.push((name.into(), wgsl_type.into()));
     }
 
-    fn var(&self, kind: Calculation) -> String {
-        self.calculations
-            .get(&kind)
-            .and_then(|calc| {
-                if calc.is_empty() {
-                    None
-                } else {
-                    Some(format!("{}{}", kind.var_name(), calc.len() - 1))
-                }
-            })
-            .unwrap_or_else(|| kind.default_val())
-    }
+    fn calculation(&self, kind: Calculation) -> Lines {
+        let mut result = Vec::new();
+        let name = kind.var_name();
 
-    fn calculation(&self, kind: Calculation, final_name: impl Into<String>) -> Lines {
-        let Some(calculations) = self.calculations.get(&kind) else {
-            return Lines::default();
+        if let Some(default) = kind.default_val() {
+            result.push(format!("var {name} = {default};"));
+        }
+        if let Some(calculations) = self.calculations.get(&kind) {
+            result.extend(calculations.iter().map(|calc| format!("{name} = {calc};")));
         };
 
-        let name = kind.var_name();
-        let final_name = final_name.into();
-        let last_calc_index = calculations.len() - 1;
-
-        calculations
-            .iter()
-            .enumerate()
-            .map(|(i, calc)| {
-                if i == last_calc_index {
-                    format!("{final_name} = {calc};")
-                } else {
-                    format!("let {name}{i} = {calc};")
-                }
-            })
-            .collect_vec()
-            .into()
+        result.into()
     }
 
     pub fn bindgroup_layout_entry(&self) -> BindGroupLayoutEntry {
@@ -122,30 +108,31 @@ impl VariantShaderBuilder {
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub enum Calculation {
     Position,
+    Operations,
     Distance,
     PixelColor,
 }
-use itertools::Itertools;
 pub use Calculation::*;
 
 use super::{building::gen_struct, lines::Lines};
-use crate::{flag::VariantFlag, linefy};
+use crate::{flag::RenderableSdf, operations::OperationsFlag};
 
 impl Calculation {
     fn var_name(&self) -> &str {
         match self {
             Position => "position",
-            Distance => "distance",
-            PixelColor => "color",
+            Operations => "result",
+            Distance => "result.distance",
+            PixelColor => "result.color",
         }
     }
 
-    fn default_val(&self) -> String {
+    fn default_val(&self) -> Option<&str> {
         match self {
-            Position => "world_position",
-            Distance => "0.0",
-            PixelColor => "vec3<f32>(1.0)",
+            Position => Some("world_position"),
+            Operations => Some("SdfResult()"),
+            Distance => None,
+            PixelColor => None,
         }
-        .to_string()
     }
 }

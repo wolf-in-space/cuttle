@@ -1,4 +1,4 @@
-use super::shader::buffers::{SdfOperationsBuffer, SdfStorageBuffer};
+use super::shader::buffers::SdfStorageBuffer;
 use crate::scheduling::ComdfRenderSet::*;
 use crate::{
     flag::{RenderableSdf, SdfPipelineKey},
@@ -12,9 +12,7 @@ use bevy_render::{Extract, ExtractSchedule, RenderApp};
 use itertools::Itertools;
 
 pub fn plugin(app: &mut App) {
-    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-        return;
-    };
+    let render_app = app.sub_app_mut(RenderApp);
     render_app.init_resource::<EntityTranslator>();
     render_app.add_systems(
         ExtractSchedule,
@@ -31,7 +29,7 @@ pub struct EntityTranslator(pub EntityHashMap<Entity>);
 fn setup_entity_translation(
     mut cmds: Commands,
     mut translator: ResMut<EntityTranslator>,
-    query: Extract<Query<Entity, Or<(With<Sdf>, With<RenderSdf>)>>>,
+    query: Extract<Query<Entity, With<Sdf>>>,
 ) {
     translator.0.clear();
     for entity in query.into_iter() {
@@ -45,20 +43,20 @@ fn extract_sdf_entitys(
     translator: Res<EntityTranslator>,
     query: Extract<Query<(Entity, &AABB), With<Sdf>>>,
 ) {
-    // println!("extracting '{}' sdfs", query.iter().len());
     cmds.insert_or_spawn_batch(
         query
             .into_iter()
-            .map(|(e, aabb)| {
-                (
-                    *translator.0.get(&e).unwrap(),
+            .filter_map(|(e, aabb)| {
+                Some((
+                    *translator.0.get(&e)?,
                     (
                         aabb.clone(),
+                        SdfPipelineKey::default(),
                         SdfStorageBuffer::default(),
                         RenderableSdf::default(),
                         SdfStorageIndex::default(),
                     ),
-                )
+                ))
             })
             .collect_vec(),
     )
@@ -69,19 +67,14 @@ fn extract_render_sdfs(
     translator: Res<EntityTranslator>,
     query: Extract<Query<Entity, With<RenderSdf>>>,
 ) {
-    // println!("extracting '{}' render sdfs", query.iter().len());
     cmds.insert_or_spawn_batch(
         query
             .into_iter()
-            .map(|e| {
-                (
-                    *translator.0.get(&e).unwrap(),
-                    (
-                        SdfPipelineKey::default(),
-                        SdfOperationsBuffer::default(),
-                        AABB::default(),
-                    ),
-                )
+            .filter_map(|e| {
+                Some((
+                    *translator.0.get(&e)?,
+                    (RenderSdf, SdfPipelineKey::default()),
+                ))
             })
             .collect_vec(),
     )

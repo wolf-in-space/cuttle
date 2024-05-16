@@ -1,13 +1,12 @@
 use super::pipeline::SdfPipeline;
-use super::shader::buffers::SdfOperationsBuffer;
 use super::shader::buffers::SdfStorageBuffer;
-use crate::flag::RenderableSdf;
+use super::shader::loading::SdfBinding;
 use crate::flag::SdfPipelineKey;
 use crate::prelude::SdfStorageIndex;
 use crate::scheduling::ComdfRenderSet::*;
+use crate::RenderSdf;
 use bevy_app::App;
 use bevy_comdf_core::aabb::AABB;
-use bevy_core::bytes_of;
 use bevy_ecs::prelude::*;
 use bevy_render::Render;
 use bevy_render::RenderApp;
@@ -16,60 +15,83 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, ViewUniforms},
 };
+use bytemuck::Pod;
+use bytemuck::Zeroable;
+use glam::Vec2;
 use itertools::Itertools;
 
 pub fn plugin(app: &mut App) {
-    let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
-        return;
-    };
+    let render_app = app.sub_app_mut(RenderApp);
 
     render_app.add_systems(
         Render,
         (
-            process_render_sdfs.in_set(PrepareBuffers),
+            batch_render_sdfs.in_set(PrepareBuffers),
             (process_sdfs, prepare_view_bind_groups).in_set(PrepareBatches),
             write_buffers.chain().in_set(WriteBuffers),
         ),
     );
 }
 
-#[derive(Component)]
+#[derive(Clone, Copy, Zeroable, Pod)]
+#[repr(C)]
 pub struct SdfInstance {
-    pub key: SdfPipelineKey,
-    pub vertex_buffer: BufferVec<u8>,
+    size: Vec2,
+    position: Vec2,
+    sdf_index: u32,
 }
 
-pub fn process_render_sdfs(
-    mut cmds: Commands,
-    render_sdfs: Query<(Entity, &SdfPipelineKey, &AABB, &SdfOperationsBuffer)>,
-) {
-    // println!("process_render_sdfs: {}", render_sdfs.iter().len());
-    for (entity, key, aabb, buffer) in render_sdfs.into_iter() {
-        let mut vertex_buffer = BufferVec::new(BufferUsages::VERTEX);
-        vertex_buffer
-            .values_mut()
-            .extend_from_slice(bytes_of(&aabb.size()));
-        vertex_buffer
-            .values_mut()
-            .extend_from_slice(bytes_of(&aabb.pos()));
-        vertex_buffer.extend(buffer.0.clone());
+#[derive(Component)]
+pub struct SdfBatch {
+    pub instance_count: u16,
+    pub key: SdfPipelineKey,
+    pub vertex_buffer: BufferVec<SdfInstance>,
+}
 
-        cmds.entity(entity).insert(SdfInstance {
-            key: key.clone(),
-            vertex_buffer,
-        });
-    }
+pub fn batch_render_sdfs(
+    mut cmds: Commands,
+    render_sdfs: Query<(&SdfPipelineKey, &AABB, &SdfStorageIndex), With<RenderSdf>>,
+) {
+    let instances = render_sdfs
+        .into_iter()
+        .into_grouping_map_by(|(key, _, _)| *key)
+        .fold(
+            (Vec::new(), 0),
+            |(mut vertices, count), _, (_, aabb, index)| {
+                vertices.push(SdfInstance {
+                    size: aabb.size(),
+                    position: aabb.pos(),
+                    sdf_index: index.0,
+                });
+                (vertices, count + 1)
+            },
+        )
+        .into_iter()
+        .fold(
+            Vec::new(),
+            |mut instances, (key, (vertices, instance_count))| {
+                let mut vertex_buffer = BufferVec::new(BufferUsages::VERTEX);
+                *vertex_buffer.values_mut() = vertices;
+                instances.push(SdfBatch {
+                    instance_count,
+                    key: key.clone(),
+                    vertex_buffer,
+                });
+                instances
+            },
+        );
+
+    cmds.spawn_batch(instances);
 }
 
 pub fn process_sdfs(
-    mut sdfs: Query<(&RenderableSdf, &SdfStorageIndex, &mut SdfStorageBuffer)>,
+    mut sdfs: Query<(&SdfBinding, &SdfStorageIndex, &mut SdfStorageBuffer)>,
     mut pipeline: ResMut<SdfPipeline>,
 ) {
-    // println!("process_sdfs: {}", sdfs.iter().len());
     sdfs.iter_mut()
         .sorted_unstable_by_key(|(_, index, _)| **index)
-        .for_each(|(RenderableSdf { binding, .. }, _, mut buffer)| {
-            pipeline.bind_group_buffers[*binding as usize].extend(buffer.bytes());
+        .for_each(|(SdfBinding(bind), _, mut buffer)| {
+            pipeline.bind_group_buffers[*bind as usize].extend(buffer.bytes());
         });
 }
 
@@ -77,11 +99,10 @@ pub fn write_buffers(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
     mut pipeline: ResMut<SdfPipeline>,
-    mut instances: Query<&mut SdfInstance>,
+    mut instances: Query<&mut SdfBatch>,
 ) {
     pipeline.indices.write_buffer(&device, &queue);
     pipeline.bind_group_buffers.iter_mut().for_each(|buffer| {
-        // println!("buffer {:?}", buffer.values());
         buffer.write_buffer(&device, &queue);
         buffer.clear();
     });

@@ -1,6 +1,6 @@
 use super::{
     pipeline::SdfPipeline,
-    process::{SdfInstance, SdfViewBindGroup},
+    process::{SdfBatch, SdfViewBindGroup},
 };
 use bevy_ecs::system::{
     lifetimeless::{Read, SRes},
@@ -40,13 +40,13 @@ pub struct DrawSdfDispatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSdfDispatch {
     type Param = SRes<SdfPipeline>;
     type ViewQuery = ();
-    type ItemQuery = Read<SdfInstance>;
+    type ItemQuery = Read<SdfBatch>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        sdf_instance: Option<&'w SdfInstance>,
+        sdf_instance: Option<&'w SdfBatch>,
         pipeline: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -71,11 +71,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSdfDispatch {
             return RenderCommandResult::Failure;
         };
 
-        // println!("draw: {:?}", instance.key);
         pass.set_vertex_buffer(0, vertices.slice(..));
         pass.set_bind_group(1, bind_group, &[]);
         pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint16);
-        pass.draw_indexed(0..6, 0, 0..1);
+        pass.draw_indexed(0..6, 0, 0..(instance.instance_count as u32));
         RenderCommandResult::Success
     }
 }

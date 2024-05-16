@@ -1,10 +1,8 @@
-use super::{building::SdfShaderBuilder, lines::Lines, variants::VariantShaderBuilder};
+use super::{building::SdfShaderBuilder, lines::Lines, variants::SdfCalculationBuilder};
 use crate::render::pipeline::{SdfPipeline, SdfSpecializationData};
 use crate::scheduling::ComdfRenderSet::*;
-use crate::{
-    flag::{RenderableSdf, SdfPipelineKey, VariantFlag},
-    operations::OperationsFlag,
-};
+use crate::RenderSdf;
+use crate::{flag::SdfPipelineKey, operations::OperationsFlag};
 use bevy_app::prelude::*;
 use bevy_asset::AssetServer;
 use bevy_ecs::prelude::*;
@@ -20,19 +18,16 @@ pub fn plugin(app: &mut App) {
         return;
     };
 
-    render_app.add_event::<NewSdfFlag>();
-    render_app.add_event::<NewPipelineKey>();
+    render_app.add_event::<NewPipeline>();
+    render_app.add_event::<NewRenderableSdfType>();
     render_app.add_systems(
         Render,
         (
-            assign_bindings_and_trigger_new_sdf_events.in_set(AssignSdfBindings),
+            assign_bindings_and_trigger_events_for_new_keys.in_set(AssignBindings),
             create_new_bind_group_buffers
-                .after(AssignSdfBindings)
+                .after(AssignBindings)
                 .before(PrepareBatches),
-            trigger_new_key_events
-                .after(BuildPipelineKeys)
-                .before(PrepareShaderBuild),
-            (prepare_sdf_shader_build, prepare_render_shader_build).in_set(PrepareShaderBuild),
+            prepare_sdf_shader_build.in_set(PrepareShaderBuild),
             (gather_loaded_calculations, build_new_shaders)
                 .chain()
                 .in_set(CollectShaders),
@@ -44,46 +39,74 @@ pub fn plugin(app: &mut App) {
 #[derive(Resource, Default)]
 pub struct SdfShaderRegister {
     pub snippets: HashMap<OperationsFlag, Lines>,
-    pub bindings: HashMap<VariantFlag, u32>,
-    loaded_calcs: HashMap<u32, VariantShaderBuilder>,
-    shaders: HashSet<SdfPipelineKey>,
-    loaded_shaders: HashSet<SdfPipelineKey>,
+    pub bindings: HashMap<SdfPipelineKey, u32>,
+    loaded_calcs: HashMap<u32, SdfCalculationBuilder>,
+    pipelines: HashSet<SdfPipelineKey>,
 }
 
-#[derive(Event)]
-pub struct NewSdfFlag {
+#[derive(Event, Debug)]
+pub struct NewPipeline {
+    entity: Entity,
+    key: SdfPipelineKey,
+}
+
+#[derive(Event, Debug)]
+pub struct NewRenderableSdfType {
     entity: Entity,
     binding: u32,
 }
 
-pub fn assign_bindings_and_trigger_new_sdf_events(
-    mut query: Query<(Entity, &mut RenderableSdf)>,
+#[derive(Component, Clone, Copy)]
+pub struct SdfBinding(pub u32);
+
+#[derive(Component)]
+pub struct SdfBindings(pub Vec<u32>);
+
+pub fn assign_bindings_and_trigger_events_for_new_keys(
+    mut cmds: Commands,
+    mut query: Query<(Entity, &SdfPipelineKey, Option<&RenderSdf>)>,
     mut registry: ResMut<SdfShaderRegister>,
-    mut new_sdfs: EventWriter<NewSdfFlag>,
+    mut new_pipeline: EventWriter<NewPipeline>,
+    mut new_renderable: EventWriter<NewRenderableSdfType>,
 ) {
-    // println!("assign_bindings: {}", query.iter().len());
-    query.iter_mut().for_each(|(entity, mut renderable)| {
-        if let Some(binding) = registry.bindings.get(&renderable.flag) {
-            renderable.binding = *binding;
+    query.iter_mut().for_each(|(entity, key, render)| {
+        if render.is_some() && !registry.pipelines.contains(key) {
+            registry.pipelines.insert(key.clone());
+            new_pipeline.send(NewPipeline {
+                entity,
+                key: key.clone(),
+            });
+        }
+
+        let mut insert = |bind: u32| {
+            cmds.entity(entity)
+                .insert((SdfBinding(bind), SdfBindings(vec![bind])));
+        };
+
+        if let Some(binding) = registry.bindings.get(key) {
+            insert(*binding);
         } else {
             let binding = registry.bindings.len() as u32;
-            registry.bindings.insert(renderable.flag, binding);
-            new_sdfs.send(NewSdfFlag { entity, binding });
-            renderable.binding = binding;
+            registry.bindings.insert(key.clone(), binding);
+            insert(binding);
+            new_renderable.send(NewRenderableSdfType { entity, binding });
         }
     });
 }
 
-pub fn prepare_sdf_shader_build(mut cmds: Commands, mut new_sdfs: EventReader<NewSdfFlag>) {
-    new_sdfs.read().for_each(|new| {
+pub fn prepare_sdf_shader_build(
+    mut cmds: Commands,
+    mut new_keys: EventReader<NewRenderableSdfType>,
+) {
+    new_keys.read().for_each(|new| {
         cmds.entity(new.entity)
-            .insert(VariantShaderBuilder::new(new.binding));
+            .insert(SdfCalculationBuilder::new(new.binding));
     })
 }
 
 pub fn create_new_bind_group_buffers(
     mut pipeline: ResMut<SdfPipeline>,
-    mut new_sdfs: EventReader<NewSdfFlag>,
+    mut new_sdfs: EventReader<NewRenderableSdfType>,
 ) {
     new_sdfs.read().for_each(|_| {
         let buffer = BufferVec::new(BufferUsages::STORAGE);
@@ -91,70 +114,45 @@ pub fn create_new_bind_group_buffers(
     })
 }
 
-pub fn prepare_render_shader_build(mut cmds: Commands, mut new_sdfs: EventReader<NewPipelineKey>) {
-    new_sdfs.read().for_each(|new| {
-        cmds.entity(new.entity).insert(SdfShaderBuilder::new());
-    })
-}
-
-#[derive(Event)]
-pub struct NewPipelineKey {
-    entity: Entity,
-    key: SdfPipelineKey,
-}
-
-pub fn trigger_new_key_events(
-    query: Query<(Entity, &SdfPipelineKey)>,
-    mut shaders: ResMut<SdfShaderRegister>,
-    mut new_keys: EventWriter<NewPipelineKey>,
-) {
-    for (entity, key) in query.iter() {
-        if shaders.shaders.contains(key) {
-            continue;
-        }
-        shaders.shaders.insert(key.clone());
-        new_keys.send(NewPipelineKey {
-            entity,
-            key: key.clone(),
-        });
-    }
-}
-
 pub fn gather_loaded_calculations(
     mut cmds: Commands,
-    query: Query<(Entity, &RenderableSdf, &VariantShaderBuilder)>,
+    query: Query<(Entity, &SdfBinding, &SdfCalculationBuilder)>,
     mut shaders: ResMut<SdfShaderRegister>,
 ) {
-    query.iter().for_each(|(entity, variant, calculation)| {
-        shaders
-            .loaded_calcs
-            .insert(variant.binding, calculation.clone());
-        cmds.entity(entity).remove::<VariantShaderBuilder>();
-    });
+    query
+        .iter()
+        .for_each(|(entity, SdfBinding(bind), calculation)| {
+            shaders.loaded_calcs.insert(*bind, calculation.clone());
+            cmds.entity(entity).remove::<SdfCalculationBuilder>();
+        });
 }
 
 pub fn build_new_shaders(
     mut cmds: Commands,
     render_device: Res<RenderDevice>,
-    mut query: Query<(Entity, &SdfPipelineKey, &mut SdfShaderBuilder)>,
-    mut shaders: ResMut<SdfShaderRegister>,
+    query: Query<(Entity, &SdfPipelineKey, &SdfBinding, &SdfBindings), With<RenderSdf>>,
+    mut new_keys: EventReader<NewPipeline>,
+    shaders: ResMut<SdfShaderRegister>,
     mut pipeline: ResMut<SdfPipeline>,
     assets: ResMut<AssetServer>,
 ) {
-    for (entity, key, mut shader) in query.iter_mut() {
-        if shaders.loaded_shaders.contains(key) {
-            error!("Sdf Shader was already loaded for key '{key:?}'");
+    for new_key in new_keys.read() {
+        let Ok((entity, key, SdfBinding(bind), bindings)) = query.get(new_key.entity) else {
+            error!("Entity {:?}, which was the first with key {:?} disappeared before the pipeline could be built", new_key.key, new_key.entity);
             continue;
         };
 
+        let mut shader_builder = SdfShaderBuilder::new(*bind);
+
         let Some(entrys) =
-            key.0
+            bindings
+                .0
                 .iter()
-                .unique_by(|(_, b)| b)
-                .try_fold(Vec::new(), |mut entrys, (_, binding)| {
+                .unique()
+                .try_fold(Vec::new(), |mut entrys, binding| {
                     let sdf_calc = shaders.loaded_calcs.get(binding)?;
                     entrys.push(sdf_calc.bindgroup_layout_entry());
-                    shader.add_sdf_calculation(sdf_calc.clone());
+                    shader_builder.add_sdf_calculation(sdf_calc.clone());
                     Some(entrys)
                 })
         else {
@@ -162,11 +160,11 @@ pub fn build_new_shaders(
             continue;
         };
 
-        shaders.loaded_shaders.insert(key.clone());
-        let vertex_layout = shader.vertex_buffer_layout();
-        let shader = shader.to_shader(key, &shaders.snippets);
+        let vertex_layout = shader_builder.vertex_buffer_layout();
+        let shader = shader_builder.to_shader(key, &shaders.snippets);
         let shader = assets.add(shader);
-        let bind_group_layout = render_device.create_bind_group_layout(None, &entrys);
+        let bind_group_layout =
+            render_device.create_bind_group_layout(format!("{:?}", key).as_str(), &entrys);
 
         pipeline.specialization.insert(
             key.clone(),
@@ -182,35 +180,52 @@ pub fn build_new_shaders(
 }
 
 fn build_sdf_bindgroups(
-    mut new_sdfs: EventReader<NewPipelineKey>,
+    bindings: Query<&SdfBindings, With<RenderSdf>>,
+    mut new_sdfs: EventReader<NewPipeline>,
     device: Res<RenderDevice>,
     mut pipeline: ResMut<SdfPipeline>,
 ) {
-    for NewPipelineKey { key, .. } in new_sdfs.read() {
-        let variant_entrys = key
+    let mut build_bindgroup = |NewPipeline { entity, key }: &NewPipeline| -> Result<(), &str> {
+        let variant_entrys = bindings
+            .get(*entity)
+            .map_err(|_| "Entity no longer exists or has no SdfBindings and RenderSdf components")?
             .0
             .iter()
-            .map(|(_, i)| i)
             .unique()
-            .map(|i| BindGroupEntry {
-                binding: *i,
-                resource: pipeline.bind_group_buffers[*i as usize]
-                    .buffer()
-                    .unwrap()
-                    .as_entire_binding(),
+            .map(|i| {
+                Ok(BindGroupEntry {
+                    binding: *i,
+                    resource: pipeline
+                        .bind_group_buffers
+                        .get(*i as usize)
+                        .ok_or("binding out of bounds for pipeline.bind_group_buffers")?
+                        .buffer()
+                        .ok_or("Bindgroup buffer was not written to")?
+                        .as_entire_binding(),
+                })
             })
-            .collect_vec();
+            .collect::<Result<Vec<_>, &str>>()?;
 
-        let Some(specialization) = pipeline.specialization.get(key) else {
-            error!("No specialization entry for sdf pipeline key '{key:?}' found");
-            continue;
-        };
-
+        let specialization = pipeline
+            .specialization
+            .get(key)
+            .ok_or("No specialization entry found")?;
         let bind_group = device.create_bind_group(
             format!("Sdf {key:?}").as_str(),
             &specialization.bind_group_layout,
             &variant_entrys,
         );
         pipeline.bind_groups.insert(key.clone(), bind_group);
+
+        Ok(())
+    };
+
+    for new_pipeline @ NewPipeline { entity, key } in new_sdfs.read() {
+        if let Err(err) = build_bindgroup(new_pipeline) {
+            error!(
+                "Failed to build bindgroup for Entity '{:?}' with sdf key: '{:?}' due to: '{}'",
+                entity, key, err
+            )
+        }
     }
 }
