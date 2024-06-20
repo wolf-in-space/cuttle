@@ -1,11 +1,9 @@
-use bevy_app::prelude::*;
-use bevy_ecs::prelude::*;
-use bevy_reflect::prelude::*;
-use bevy_render::color::Color;
+use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<Fill>();
     app.register_type::<Gradient>();
+    app.register_type::<Border>();
 }
 
 #[derive(Debug, Default, Clone, Component, Reflect)]

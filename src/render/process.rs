@@ -1,36 +1,28 @@
 use super::pipeline::SdfPipeline;
-use super::shader::buffers::SdfStorageBuffer;
-use super::shader::loading::SdfBinding;
-use crate::flag::SdfPipelineKey;
-use crate::prelude::SdfStorageIndex;
-use crate::scheduling::ComdfRenderSet::*;
-use crate::RenderSdf;
-use bevy_app::App;
-use bevy_comdf_core::aabb::AABB;
-use bevy_ecs::prelude::*;
-use bevy_render::Render;
-use bevy_render::RenderApp;
-use bevy_render::{
+use super::pipeline::SdfPipelineKey;
+use bevy::prelude::*;
+use bevy::render::RenderApp;
+use bevy::render::{
     render_resource::{BindGroup, BindGroupEntries, BufferUsages, BufferVec},
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, ViewUniforms},
 };
+use bevy_comdf_core::aabb::AABB;
 use bytemuck::Pod;
 use bytemuck::Zeroable;
-use glam::Vec2;
 use itertools::Itertools;
 
 pub fn plugin(app: &mut App) {
     let render_app = app.sub_app_mut(RenderApp);
 
-    render_app.add_systems(
-        Render,
-        (
-            batch_render_sdfs.in_set(PrepareBuffers),
-            (process_sdfs, prepare_view_bind_groups).in_set(PrepareBatches),
-            write_buffers.chain().in_set(WriteBuffers),
-        ),
-    );
+    // render_app.add_systems(
+    //     Render,
+    //     (
+    //         // batch_render_sdfs.in_set(PrepareBuffers),
+    //         // (process_sdfs, prepare_view_bind_groups).in_set(PrepareBatches),
+    //         // write_buffers.chain().in_set(WriteBuffers),
+    //     ),
+    // );
 }
 
 #[derive(Clone, Copy, Zeroable, Pod)]
@@ -47,7 +39,7 @@ pub struct SdfBatch {
     pub key: SdfPipelineKey,
     pub vertex_buffer: BufferVec<SdfInstance>,
 }
-
+/*
 pub fn batch_render_sdfs(
     mut cmds: Commands,
     render_sdfs: Query<(&SdfPipelineKey, &AABB, &SdfStorageIndex), With<RenderSdf>>,
@@ -83,7 +75,6 @@ pub fn batch_render_sdfs(
 
     cmds.spawn_batch(instances);
 }
-
 pub fn process_sdfs(
     mut sdfs: Query<(&SdfBinding, &SdfStorageIndex, &mut SdfStorageBuffer)>,
     mut pipeline: ResMut<SdfPipeline>,
@@ -111,6 +102,7 @@ pub fn write_buffers(
     });
 }
 
+*/
 #[derive(Component)]
 pub struct SdfViewBindGroup {
     pub value: BindGroup,

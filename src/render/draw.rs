@@ -2,12 +2,12 @@ use super::{
     pipeline::SdfPipeline,
     process::{SdfBatch, SdfViewBindGroup},
 };
-use bevy_ecs::system::{
+use bevy::ecs::system::{
     lifetimeless::{Read, SRes},
     SystemParamItem,
 };
-use bevy_log::error;
-use bevy_render::{
+use bevy::log::error;
+use bevy::render::{
     render_phase::{
         PhaseItem, RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
     },

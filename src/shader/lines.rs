@@ -1,8 +1,7 @@
+use itertools::Itertools;
 use std::fmt::Display;
 
-use itertools::Itertools;
-
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Lines {
     pub lines: Vec<String>,
 }
@@ -51,6 +50,13 @@ impl<const I: usize> From<[Lines; I]> for Lines {
     }
 }
 
+impl FromIterator<Lines> for Lines {
+    fn from_iter<T: IntoIterator<Item = Lines>>(iter: T) -> Self {
+        iter.into_iter()
+            .fold(Lines::new(), |prev, new| prev.merge(new))
+    }
+}
+
 impl Display for Lines {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.clone().into_file_str())
@@ -59,21 +65,21 @@ impl Display for Lines {
 
 #[macro_export]
 macro_rules! linefy {
-    ($($name:ident => $replace:expr),+; $($text:tt)*) => {
-        Lines::from_linefy(stringify!($($text)*)
-        $(
-            .replace(stringify!({$name}), &ToString::to_string(&$replace))
-        )*)
-    };
-
     ($($text:tt)*) => {
         Lines::from_linefy(stringify!($($text)*))
     };
 }
 
+#[macro_export]
+macro_rules! line_f {
+    ($($text:tt)*) => {
+        Lines::from(format!($($text)*))
+    };
+}
+
 impl Lines {
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new() -> Self {
+        Self { lines: Vec::new() }
     }
 
     pub fn from_linefy(string: impl Into<String>) -> Self {

@@ -1,11 +1,11 @@
-use crate::flag::SdfPipelineKey;
-use bevy_asset::Handle;
-use bevy_ecs::{
+// use crate::flag::SdfPipelineKey;
+use bevy::asset::Handle;
+use bevy::ecs::{
     prelude::*,
     system::Resource,
     world::{FromWorld, World},
 };
-use bevy_render::{
+use bevy::render::{
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupLayout, BindGroupLayoutEntries,
         BlendState, BufferUsages, BufferVec, ColorTargetState, ColorWrites, FragmentState,
@@ -17,7 +17,7 @@ use bevy_render::{
     texture::BevyDefault,
     view::ViewUniform,
 };
-use bevy_utils::hashbrown::HashMap;
+use bevy::utils::hashbrown::HashMap;
 
 #[derive(Event, Debug, PartialEq, Clone)]
 pub struct SdfSpecializationData {
@@ -26,6 +26,7 @@ pub struct SdfSpecializationData {
     pub bind_group_layout: BindGroupLayout,
 }
 
+pub type SdfPipelineKey = usize;
 #[derive(Resource)]
 pub struct SdfPipeline {
     pub view_layout: BindGroupLayout,

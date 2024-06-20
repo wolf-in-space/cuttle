@@ -1,15 +1,15 @@
-use bevy_ecs::component::Component;
-use bevy_render::render_resource::{
+use bevy::ecs::component::Component;
+use bevy::render::render_resource::{
     BindGroupLayoutEntry, BindingType, BufferBindingType, ShaderStages,
 };
-use bevy_utils::{default, HashMap, HashSet};
+use bevy::utils::{default, HashMap, HashSet};
 
 #[derive(Default, Debug, Clone, Component)]
 pub struct SdfCalculationBuilder {
     input: Vec<(String, String)>,
-    pub(crate) extra: HashMap<RenderableSdf, Lines>,
+    pub(crate) extra: HashMap<RenderSdfFlag, Lines>,
     calculations: HashMap<Calculation, Vec<String>>,
-    pub operation_snippets: HashSet<OperationsFlag>,
+    // pub operation_snippets: HashSet<OperationsFlag>,
     pub(crate) binding: u32,
 }
 
@@ -47,12 +47,13 @@ impl SdfCalculationBuilder {
     }
 
     fn sdf_struct(&self) -> Lines {
-        gen_struct(
-            &self.input,
-            format!("Sdf{}", self.binding),
-            Lines::new(),
-            |_| "".into(),
-        )
+        // gen_struct(
+        //     &self.input,
+        //     format!("Sdf{}", self.binding),
+        //     Lines::new(),
+        //     |_| "".into(),
+        // )
+        todo!()
     }
 
     fn calculations(&self) -> Lines {
@@ -69,7 +70,7 @@ impl SdfCalculationBuilder {
         self.calculations.entry(kind).or_default().push(calc.into());
     }
 
-    pub fn extra(&mut self, flag: RenderableSdf, extra: Lines) {
+    pub fn extra(&mut self, flag: RenderSdfFlag, extra: Lines) {
         self.extra.insert(flag, extra);
     }
 
@@ -114,8 +115,7 @@ pub enum Calculation {
 }
 pub use Calculation::*;
 
-use super::{building::gen_struct, lines::Lines};
-use crate::{flag::RenderableSdf, operations::OperationsFlag};
+use crate::shader::lines::Lines;
 
 impl Calculation {
     fn var_name(&self) -> &str {

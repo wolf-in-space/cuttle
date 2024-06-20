@@ -1,12 +1,12 @@
 use super::{draw::DrawSdf, pipeline::SdfPipeline, process::SdfBatch};
-use bevy_core_pipeline::core_2d::Transparent2d;
-use bevy_ecs::prelude::*;
-use bevy_render::{
+use bevy::core_pipeline::core_2d::Transparent2d;
+use bevy::ecs::prelude::*;
+use bevy::render::{
     render_phase::{DrawFunctions, RenderPhase},
     render_resource::{PipelineCache, SpecializedRenderPipelines},
     view::ExtractedView,
 };
-use bevy_utils::FloatOrd;
+use bevy::utils::FloatOrd;
 
 pub fn queue_sdfs(
     sdfs: Query<(Entity, &SdfBatch)>,

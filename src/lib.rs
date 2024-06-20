@@ -1,38 +1,63 @@
 #![allow(clippy::type_complexity)]
 
+pub mod builder;
 pub mod components;
-pub mod flag;
-mod implementations;
+mod flag;
+pub mod implementations;
 pub mod operations;
-mod render;
-mod scheduling;
-
-use bevy_app::prelude::*;
-use bevy_comdf_core::prepare::{add_a_if_with_b_and_without_a, Sdf};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_reflect::prelude::*;
-use core::fmt::Debug;
-use render::SdfRenderPlugin;
+mod pipeline;
+mod shader;
+mod utils;
 
 pub mod prelude {
-    pub use crate::components::{Fill, Gradient};
-    pub use crate::render::shader::buffers::SdfStorageIndex;
+    pub use crate::builder::*;
+    pub use crate::components::colors::{Fill, Gradient};
     pub use bevy_comdf_core::prelude::*;
 }
 
+use bevy::prelude::*;
+use bevy::render::{ExtractSchedule, RenderApp};
+use pipeline::SdfPipelinePlugin;
+
+use ComdfExtractSet::*;
+use ComdfPostUpdateSet::*;
+
 pub fn plugin(app: &mut App) {
-    app.add_systems(PreUpdate, add_a_if_with_b_and_without_a::<Sdf, RenderSdf>);
     app.add_plugins((
-        SdfRenderPlugin,
+        SdfPipelinePlugin,
         bevy_comdf_core::plugin,
-        flag::plugin,
         components::plugin,
         operations::plugin,
+        shader::plugin,
+        flag::plugin,
         implementations::plugin,
-        scheduling::plugin,
     ));
+    app.configure_sets(
+        PostUpdate,
+        (
+            BuildFlag,
+            UpdateFlags,
+            AssignBindings,
+            AssignIndices,
+            BuildShaders,
+        )
+            .chain(),
+    );
+    app.sub_app_mut(RenderApp)
+        .configure_sets(ExtractSchedule, (PrepareExtract, Extract).chain());
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, Component, Reflect)]
-#[reflect(Component)]
-pub struct RenderSdf;
+#[derive(SystemSet, Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum ComdfExtractSet {
+    PrepareExtract,
+    Extract,
+}
+
+#[derive(SystemSet, Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum ComdfPostUpdateSet {
+    BuildFlag,
+    UpdateFlags,
+    AssignBindings,
+    AssignIndices,
+    BuildShaders,
+}

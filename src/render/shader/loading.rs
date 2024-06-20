@@ -1,16 +1,13 @@
 use super::{building::SdfShaderBuilder, lines::Lines, variants::SdfCalculationBuilder};
+use crate::operations::OperationsFlag;
 use crate::render::pipeline::{SdfPipeline, SdfSpecializationData};
 use crate::scheduling::ComdfRenderSet::*;
 use crate::RenderSdf;
-use crate::{flag::SdfPipelineKey, operations::OperationsFlag};
-use bevy_app::prelude::*;
-use bevy_asset::AssetServer;
-use bevy_ecs::prelude::*;
-use bevy_log::error;
-use bevy_render::render_resource::{BindGroupEntry, BufferUsages, BufferVec};
-use bevy_render::renderer::RenderDevice;
-use bevy_render::{Render, RenderApp};
-use bevy_utils::{HashMap, HashSet};
+use bevy::prelude::*;
+use bevy::render::render_resource::{BindGroupEntry, BufferUsages, BufferVec};
+use bevy::render::renderer::RenderDevice;
+use bevy::render::{Render, RenderApp};
+use bevy::utils::{HashMap, HashSet};
 use itertools::Itertools;
 
 pub fn plugin(app: &mut App) {

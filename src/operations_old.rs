@@ -1,18 +1,13 @@
-use crate::flag::{RenderableSdf, SdfPipelineKey};
-use crate::render::extract::EntityTranslator;
-use crate::render::shader::buffers::{SdfStorageBuffer, SdfStorageIndex};
 use crate::render::shader::lines::*;
-use crate::render::shader::loading::{SdfBinding, SdfBindings, SdfShaderRegister};
-use crate::render::shader::variants::{Calculation, SdfCalculationBuilder};
 use crate::scheduling::ComdfRenderSet::*;
 use crate::{linefy, RenderSdf};
 use aery::prelude::*;
-use bevy_app::prelude::*;
+use bevy::app::prelude::*;
+use bevy::ecs::entity::EntityHashMap;
+use bevy::ecs::prelude::*;
+use bevy::reflect::Reflect;
+use bevy::render::{Extract, ExtractSchedule, Render, RenderApp};
 use bevy_comdf_core::prelude::*;
-use bevy_ecs::entity::EntityHashMap;
-use bevy_ecs::prelude::*;
-use bevy_reflect::Reflect;
-use bevy_render::{Extract, ExtractSchedule, Render, RenderApp};
 use std::marker::PhantomData;
 use std::ops::Deref;
 
@@ -453,6 +448,7 @@ impl RenderSdfOperation for Subtract {
         }
     }
 }
+
 impl BasicSdfOperation for Subtract {}
 
 impl RenderSdfOperation for SmoothSubtract {

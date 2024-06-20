@@ -1,12 +1,9 @@
 use super::{lines::Lines, variants::SdfCalculationBuilder};
-use crate::{
-    flag::{RenderableSdf, SdfPipelineKey},
-    linefy,
-    operations::OperationsFlag,
-};
-use bevy_ecs::component::Component;
-use bevy_render::render_resource::{Shader, VertexBufferLayout, VertexFormat, VertexStepMode};
-use bevy_utils::{default, HashMap, HashSet};
+use crate::components::RenderSdfFlag;
+use crate::{linefy, operations::OperationsFlag};
+use bevy::ecs::component::Component;
+use bevy::render::render_resource::{Shader, VertexBufferLayout, VertexFormat, VertexStepMode};
+use bevy::utils::{default, HashMap, HashSet};
 use itertools::Itertools;
 use std::{fs::File, io::Write};
 
@@ -15,7 +12,7 @@ pub struct SdfShaderBuilder {
     variants: HashMap<u32, SdfCalculationBuilder>,
     binding: u32,
     //
-    variants_extras: HashMap<RenderableSdf, Lines>,
+    variants_extras: HashMap<RenderSdfFlag, Lines>,
     operation_snippets: HashSet<OperationsFlag>,
 }
 
