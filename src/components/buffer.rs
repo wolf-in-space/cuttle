@@ -36,8 +36,8 @@ impl SdfBuffer {
             .get_mut(self.current_index..(self.current_index + bytes.len()))
         else {
             error_once!(
-                "Pushing to Buffer out of range: type = {}, start = {}, amount = {}. buffer_len = {}",
-                type_name::<T>(), self.current_index, bytes.len(), self.buffer.len()
+                "Pushing to Buffer out of range: type = {}, start = {}, amount = {}, stride={}, buffer_len = {}",
+                type_name::<T>(), self.current_index, bytes.len(), self.stride, self.buffer.len()
             );
             return;
         };
@@ -55,6 +55,10 @@ impl SdfBuffer {
 
         let align_offset = |offset: &mut usize, align: usize| {
             let remaining = *offset % align;
+            // println!(
+            //     "offset={offset}, align={align}, remaining={remaining}, paddings={}",
+            //     align - remaining
+            // );
             if remaining != 0 {
                 *offset += align - remaining
             }
@@ -143,8 +147,8 @@ impl_storage_buf_type!(Vec3, 16, 12, "vec3<f32>");
 impl_storage_buf_type!(Vec4, 16, 16, "vec4<f32>");
 impl_storage_buf_type!(Mat2, 8, 16, "mat2x2<f32>");
 impl_storage_buf_type!(Mat4, 16, 64, "mat4x4<f32>");
-type Mat4Array = [f32; 16];
-impl_storage_buf_type!(Mat4Array, 16, 64, "vec4<f32>");
+// type Mat4Array = [f32; 16];
+// impl_storage_buf_type!(Mat4Array, 16, 64, "vec4<f32>");
 impl_storage_buf_type!(SdfResult, 4, 8, "SdfResult");
 
 #[cfg(test)]
@@ -155,6 +159,7 @@ mod tests {
         prelude::Fill,
         shader::CompShaderInfos,
     };
+    use bevy::transform::components::GlobalTransform;
     use bevy_comdf_core::components::*;
 
     fn prep_buffer_infos() -> CompShaderInfos {
@@ -165,14 +170,15 @@ mod tests {
         infos.register(Fill::shader_info());
         infos.register(Added::shader_info());
         infos.register(Rotated::shader_info());
+        infos.register(GlobalTransform::shader_info());
         infos
     }
 
     fn test(flag: Flag<Comp>, expected: (usize, Vec<(u8, usize)>)) {
         let infos = prep_buffer_infos();
         assert_eq!(
-            expected,
-            SdfBuffer::stride_and_offsets_for_flag(&flag, &infos)
+            SdfBuffer::stride_and_offsets_for_flag(&flag, &infos),
+            expected
         );
     }
 
@@ -188,5 +194,13 @@ mod tests {
             (48, vec![(0, 0), (1, 0), (2, 8), (3, 16), (4, 28), (5, 32)]),
         );
         test(Flag::<Comp>::new(0b1010), (32, vec![(1, 0), (3, 16)]));
+        test(
+            Flag::<Comp>::new(0b1001010),
+            (96, vec![(1, 0), (3, 16), (6, 32)]),
+        );
+        test(
+            Flag::<Comp>::new(0b1001010),
+            (96, vec![(1, 0), (3, 16), (6, 32)]),
+        );
     }
 }

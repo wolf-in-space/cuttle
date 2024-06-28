@@ -1,8 +1,4 @@
-use super::lines::Lines;
-use crate::{
-    flag::{Comp, Flag, Op, SdfFlags},
-    line_f,
-};
+use crate::flag::{Comp, Flag, Op};
 use bevy::render::{
     render_resource::{
         BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BindingType,
@@ -59,28 +55,4 @@ pub fn bind_group(
 
 pub fn flags_to_index_name((op, comp): &(Flag<Op>, Flag<Comp>)) -> String {
     format!("i_{}_{}", op.as_str(), comp.as_str())
-}
-
-pub fn gen_indices_struct(flags: &SdfFlags) -> Lines {
-    Lines::block(
-        "struct Indices".into(),
-        flags
-            .iter()
-            .map(flags_to_index_name)
-            .map(|name| line_f!("{name}: u32,"))
-            .collect::<Lines>(),
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::gen_indices_struct;
-    use crate::{flag::SdfFlags, shader::lines::Lines};
-
-    #[test]
-    fn no_ops() {
-        let expected = Lines::from(vec!["struct Indices", "{", "}"]);
-        let generated = gen_indices_struct(&SdfFlags::default());
-        assert_eq!(expected, generated);
-    }
 }

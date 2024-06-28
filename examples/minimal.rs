@@ -11,6 +11,7 @@ pub fn main() {
 pub fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2dBundle::default());
     cmds.spawn((
+        // TransformBundle::default(),
         RenderSdfBundle::default(),
         Point,
         Added(50.),

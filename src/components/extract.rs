@@ -1,6 +1,7 @@
 use super::{buffer::SdfBuffer, RenderSdfComponent};
 use crate::{
     flag::{BitPosition, Comp, Flag, FlagStorage},
+    operations::Operations,
     shader::CompShaderInfos,
     ComdfExtractSet::*,
     ComdfPostUpdateSet::*,
@@ -23,6 +24,7 @@ pub fn plugin(app: &mut App) {
             (
                 assign_bindings.in_set(AssignBindings),
                 assign_indices.in_set(AssignIndices),
+                gather_indices.after(AssignIndices),
                 CompOffsets::add_new_offsets.after(AssignBindings),
             ),
         );
@@ -45,6 +47,7 @@ pub fn extract_sdf_comp<Comp: RenderSdfComponent>(
     comps: Extract<Query<(&SdfBinding, &SdfBufferIndex, &Comp)>>,
     mut buffers: ResMut<SdfBuffers>,
 ) {
+    // dbg!(offsets.as_ref());
     let offsets = &offsets[flag_bit.position as usize];
     for (binding, index, comp) in comps.into_iter() {
         let buffer = &mut buffers[binding.0];
@@ -73,18 +76,23 @@ fn prepare_buffers_for_extract(
 ) {
     for new_binding in new_bindings.read() {
         debug_assert_eq!(buffers.len(), new_binding.binding);
+        trace!(
+            "New sdf Buffer for binding={}, with stride={}",
+            new_binding.binding,
+            new_binding.stride
+        );
         buffers.push(SdfBuffer::new(new_binding.stride))
     }
 
     for event in resizes.read() {
         let buffer = &mut buffers[event.binding];
         let new_size = event.new_size * buffer.stride;
-        // println!(
-        //     "RESIZE from {} to {}, for binding={}",
-        //     buffer.buffer.len(),
-        //     new_size,
-        //     event.binding
-        // );
+        trace!(
+            "Resize sdf buffer from {} to {}, for binding={}",
+            buffer.buffer.len(),
+            new_size,
+            event.binding
+        );
         buffer.buffer.values_mut().resize(new_size, 0);
     }
 }
@@ -114,7 +122,7 @@ impl CompOffsets {
 #[derive(Component, Default, Clone, Copy)]
 pub struct SdfBinding(pub usize);
 
-#[derive(Resource, Clone, Default, Deref, DerefMut)]
+#[derive(Resource, Clone, Deref, DerefMut, Default)]
 pub struct SdfBindings(pub HashMap<Flag<Comp>, usize>);
 
 fn extract_bindings(
@@ -140,6 +148,15 @@ pub(crate) fn assign_bindings(
                 bindings.insert(*flag, new_binding);
                 *binding = SdfBinding(new_binding);
                 let (stride, offsets) = SdfBuffer::stride_and_offsets_for_flag(flag, &infos);
+
+                trace!(
+                    "New binding for flag={:?}: stride={}, binding={}, offsets={:?}",
+                    flag,
+                    stride,
+                    new_binding,
+                    offsets
+                );
+
                 events.send(NewBinding {
                     binding: new_binding,
                     offsets,
@@ -187,7 +204,6 @@ fn assign_indices(
                 });
             }
             EitherOrBoth::Right(size) => {
-                // println!("INCREASE");
                 size_events.send(IncreaseSdfBufferSize {
                     binding,
                     new_size: *size,
@@ -198,4 +214,24 @@ fn assign_indices(
     }
 
     *max = new_max;
+}
+
+#[derive(Component, Debug, Default, Deref, DerefMut)]
+pub struct SdfBufferIndices(pub Vec<u32>);
+
+fn gather_indices(
+    mut query: Query<(&mut SdfBufferIndices, &SdfBufferIndex, &Operations)>,
+    targets: Query<&SdfBufferIndex>,
+) {
+    for (mut indices, index, operations) in query.iter_mut() {
+        indices.clear();
+        indices.push(index.0 as u32);
+        for (target, _) in operations.iter().sorted_by_key(|(_, i)| i.order) {
+            let Ok(op_index) = targets.get(*target) else {
+                error!("Operations Component held an Entry for Entity {target:?} which no longer exists / has the SdfBufferIndex Component");
+                continue;
+            };
+            indices.push(op_index.0 as u32);
+        }
+    }
 }

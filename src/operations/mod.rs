@@ -1,11 +1,10 @@
-use std::{any::type_name, array::from_fn};
-
 use crate::{
     flag::{BitPosition, Flag, FlagStorage, Op},
     shader::lines::Lines,
     utils::GetOrInitResourceWorldExt,
 };
 use bevy::{ecs::entity::EntityHashMap, prelude::*};
+use std::{any::type_name, array::from_fn};
 
 pub fn plugin(app: &mut App) {
     app.init_resource::<OperationInfos>();
@@ -20,8 +19,14 @@ impl RegisterSdfRenderOpAppExt for App {
         let world = self.world_mut();
         let mut infos = world.resource_or_init::<OperationInfos>();
         let bit = infos.register(O::operation_info());
-        println!("Register op: {} with pos {}", type_name::<O>(), bit);
         world.insert_resource(BitPosition::<O>::new(bit));
+
+        trace!(
+            "Registered op {}: pos={}, {:#?}",
+            type_name::<O>(),
+            bit,
+            O::operation_info()
+        );
 
         self
     }
@@ -65,7 +70,7 @@ impl Default for OperationInfos {
                 snippets: Lines::default(),
                 operation: format!("UNINITIALIZED{i}"),
             }),
-            count: 1,
+            count: 0,
         }
     }
 }
@@ -76,16 +81,6 @@ pub struct OperationInfo {
     pub snippets: Lines,
     pub operation: String,
 }
-
-// impl Default for OperationInfo {
-//     fn default() -> Self {
-//         Self {
-//             value: None,
-//             snippets: Lines::default(),
-//             operation: "UNINITIALIZED",
-//         }
-//     }
-// }
 
 pub trait Operation: Send + Sync + 'static {
     fn operation_info() -> OperationInfo;

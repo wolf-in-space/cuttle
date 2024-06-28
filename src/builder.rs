@@ -10,7 +10,7 @@ cmds.sdf((Point, Added(10.), Fill()))
 */
 
 use crate::{
-    components::extract::{SdfBinding, SdfBufferIndex},
+    components::extract::{SdfBinding, SdfBufferIndex, SdfBufferIndices},
     flag::{BitPosition, Comp, Flag, Op, SdfFlags},
     operations::{Operation, OperationEntry, OperationTarget, Operations},
 };
@@ -22,6 +22,7 @@ use std::any::type_name;
 pub struct RenderSdfBundle {
     operations: Operations,
     flags: SdfFlags,
+    indices: SdfBufferIndices,
     sdf: SdfBundle,
 }
 

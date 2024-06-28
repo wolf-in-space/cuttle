@@ -9,6 +9,7 @@ use crate::{
     ComdfExtractSet, ComdfPostUpdateSet,
 };
 use bevy::{prelude::*, render::RenderApp};
+use std::any::type_name;
 
 pub mod buffer;
 pub mod colors;
@@ -37,6 +38,13 @@ impl RegisterSdfRenderCompAppExt for App {
         self.sub_app_mut(RenderApp).add_systems(
             ExtractSchedule,
             extract_sdf_comp::<C>.in_set(ComdfExtractSet::Extract),
+        );
+
+        trace!(
+            "Registered comp {}: index={}, {:#?}",
+            type_name::<C>(),
+            bit_index,
+            C::shader_info()
         );
 
         self

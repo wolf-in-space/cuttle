@@ -1,7 +1,11 @@
 use crate::{operations::Operations, shader::lines::Lines, ComdfPostUpdateSet};
 use bevy::{prelude::*, utils::HashSet};
 use itertools::Itertools;
-use std::{array::from_fn, marker::PhantomData};
+use std::{
+    array::from_fn,
+    fmt::{self, Debug},
+    marker::PhantomData,
+};
 
 pub fn plugin(app: &mut App) {
     app.add_systems(
@@ -13,7 +17,7 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(
-    Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Component, Hash, Deref, DerefMut,
+    Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Component, Hash, Deref, DerefMut,
 )]
 pub struct SdfFlags(Vec<(Flag<Op>, Flag<Comp>)>);
 
@@ -80,10 +84,16 @@ pub struct Comp;
 #[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Op;
 
-#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Component)]
+#[derive(Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Component)]
 pub struct Flag<M> {
     bits: u64,
     marker: PhantomData<M>,
+}
+
+impl<M> Debug for Flag<M> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(format!("{:b}", self.bits).as_str())
+    }
 }
 
 impl<M> Flag<M> {
@@ -102,7 +112,7 @@ impl<M> Flag<M> {
         self.bits
     }
 
-    pub const SIZE: usize = 65;
+    pub const SIZE: usize = 64;
 
     pub fn set(&mut self, position: u8) {
         self.bits |= 1 << position;
@@ -147,7 +157,7 @@ impl<T: Default, const C: usize> Default for FlagStorage<T, C> {
     fn default() -> Self {
         Self {
             storage: from_fn(|_| T::default()),
-            count: 1,
+            count: 0,
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::components::extract::{SdfBindings, SdfBufferIndex, SdfBuffers};
+use crate::components::extract::{SdfBufferIndices, SdfBuffers};
 use crate::flag::SdfFlags;
 use crate::shader::bindgroups::bind_group;
 use crate::shader::NewShader;
@@ -30,7 +30,7 @@ use bevy::render::{
 };
 use bevy::utils::hashbrown::HashMap;
 use bevy_comdf_core::aabb::AABB;
-use bytemuck::{bytes_of, Pod, Zeroable};
+use bytemuck::bytes_of;
 use itertools::Itertools;
 
 pub struct SdfPipelinePlugin;
@@ -67,7 +67,7 @@ impl Plugin for SdfPipelinePlugin {
 
 #[derive(Debug)]
 struct ExtractedSdf {
-    index: u32,
+    indices: Vec<u32>,
     aabb: AABB,
     key: SdfPipelineKey,
 }
@@ -76,17 +76,17 @@ struct ExtractedSdf {
 struct ExtractedSdfs(Vec<ExtractedSdf>);
 
 fn extract_render_sdf(
-    query: Extract<Query<(&SdfBufferIndex, &AABB, &SdfFlags)>>,
+    query: Extract<Query<(&SdfBufferIndices, &AABB, &SdfFlags)>>,
     mut extracted: ResMut<ExtractedSdfs>,
 ) {
     extracted.0 = query
         .into_iter()
-        .map(|(index, aabb, flags)| ExtractedSdf {
+        .map(|(indices, aabb, flags)| ExtractedSdf {
             key: SdfPipelineKey {
                 flags: flags.clone(),
             },
             aabb: aabb.clone(),
-            index: index.0 as u32,
+            indices: indices.0.clone(),
         })
         .collect();
 }
@@ -98,22 +98,14 @@ pub struct SdfBatch {
     pub vertex_buffer: RawBufferVec<u8>,
 }
 
-#[derive(Clone, Copy, Zeroable, Pod)]
-#[repr(C)]
-pub struct SdfInstance {
-    size: Vec2,
-    position: Vec2,
-    index: u32,
-}
-
-fn sort_sdfs_into_batches(
-    mut cmds: Commands,
-    mut sdfs: ResMut<ExtractedSdfs>,
-    bindings: Res<SdfBindings>,
-) {
+fn sort_sdfs_into_batches(mut cmds: Commands, mut sdfs: ResMut<ExtractedSdfs>) {
     let batches = sdfs
         .drain(..)
-        .sorted_unstable_by(|sdf1, sdf2| sdf1.key.cmp(&sdf2.key).then(sdf1.index.cmp(&sdf2.index)))
+        .sorted_unstable_by(|sdf1, sdf2| {
+            sdf1.key
+                .cmp(&sdf2.key)
+                .then(sdf1.indices[0].cmp(&sdf2.indices[0]))
+        })
         .chunk_by(|sdf| sdf.key.clone())
         .into_iter()
         .map(|(key, sdfs)| {
@@ -124,8 +116,8 @@ fn sort_sdfs_into_batches(
                 count += 1;
                 buffer.extend_from_slice(bytes_of(&sdf.aabb.size()));
                 buffer.extend_from_slice(bytes_of(&sdf.aabb.pos()));
-                for (_, flag) in key.flags.iter() {
-                    buffer.extend_from_slice(bytes_of(&bindings[flag]))
+                for index in sdf.indices {
+                    buffer.extend_from_slice(bytes_of(&index));
                 }
             }
 
