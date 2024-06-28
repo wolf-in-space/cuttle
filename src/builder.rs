@@ -10,6 +10,7 @@ cmds.sdf((Point, Added(10.), Fill()))
 */
 
 use crate::{
+    aabb::CombinedAABB,
     components::extract::{SdfBinding, SdfBufferIndex, SdfBufferIndices},
     flag::{BitPosition, Comp, Flag, Op, SdfFlags},
     operations::{Operation, OperationEntry, OperationTarget, Operations},
@@ -24,6 +25,7 @@ pub struct RenderSdfBundle {
     flags: SdfFlags,
     indices: SdfBufferIndices,
     sdf: SdfBundle,
+    combined: CombinedAABB,
 }
 
 #[derive(Bundle, Default)]
@@ -35,13 +37,13 @@ pub struct SdfBundle {
     size: SdfSize,
 }
 
-pub struct SdfOperationSpawner<'a, 'b> {
-    cmds: Commands<'a, 'b>,
+pub struct SdfOperationSpawner<'a, 'b, 'c> {
+    cmds: &'c mut Commands<'a, 'b>,
     origin: Entity,
     order: usize,
 }
 
-impl<'a, 'b> SdfOperationSpawner<'a, 'b> {
+impl<'a, 'b, 'c> SdfOperationSpawner<'a, 'b, 'c> {
     pub fn operation<O: Operation>(mut self, bundle: impl Bundle) -> Self {
         let op_entity = self
             .cmds
@@ -65,7 +67,7 @@ impl<'a, 'b> SdfOperationSpawner<'a, 'b> {
             {
                 None => error!("Resources for Sdf Operation {} not found, you probably need to register it with app.register_sdf_render_operation", type_name::<Op>()),
                 Some(flag) => {
-                    println!("Insert op: {} with flag {flag:?}", type_name::<O>());
+                    trace!("Insert op: {} with flag {flag:?}", type_name::<O>());
                     world
                         .get_mut::<Operations>(self.origin)
                         .unwrap()
@@ -79,12 +81,12 @@ impl<'a, 'b> SdfOperationSpawner<'a, 'b> {
     }
 }
 
-pub trait SpawnSdfCmdExt<'a, 'b> {
-    fn sdf(self, bundle: impl Bundle) -> SdfOperationSpawner<'a, 'b>;
+pub trait SpawnSdfCmdExt<'a, 'b, 'c> {
+    fn sdf(&'c mut self, bundle: impl Bundle) -> SdfOperationSpawner<'a, 'b, 'c>;
 }
 
-impl<'a, 'b> SpawnSdfCmdExt<'a, 'b> for Commands<'a, 'b> {
-    fn sdf(mut self, bundle: impl Bundle) -> SdfOperationSpawner<'a, 'b> {
+impl<'a, 'b, 'c> SpawnSdfCmdExt<'a, 'b, 'c> for Commands<'a, 'b> {
+    fn sdf(&'c mut self, bundle: impl Bundle) -> SdfOperationSpawner<'a, 'b, 'c> {
         let origin = self.spawn((bundle, RenderSdfBundle::default())).id();
 
         SdfOperationSpawner {

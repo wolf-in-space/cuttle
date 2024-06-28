@@ -36,7 +36,10 @@ fn gen_snippets(
     op_infos: &OperationInfos,
 ) -> Lines {
     Lines::from([
-        flags.map_to_lines(|flag| shader_infos.gather(*flag, |i| i.snippets.clone()).collect()),
+        flags
+            .iter()
+            .map(|(_, flag)| shader_infos.gather(*flag, |i| i.snippets.clone()).collect())
+            .collect(),
         flags
             .iter()
             .skip(1)
@@ -90,19 +93,23 @@ fn gen_sdf_functions(
     shader_infos: &CompShaderInfos,
     structures: &CalculationStructures,
 ) -> Lines {
-    flags.map_to_lines(|flag| {
-        if flag.bits() == 0 {
-            Lines::new()
-        } else {
-            gen_sdf_function(
-                *flag,
-                shader_infos
-                    .gather(*flag, |i| i.calculations.iter())
-                    .flatten(),
-                structures,
-            )
-        }
-    })
+    flags
+        .iter()
+        .skip(1)
+        .map(|(_, flag)| {
+            if flag.bits() == 0 {
+                Lines::new()
+            } else {
+                gen_sdf_function(
+                    *flag,
+                    shader_infos
+                        .gather(*flag, |i| i.calculations.iter())
+                        .flatten(),
+                    structures,
+                )
+            }
+        })
+        .collect()
 }
 
 /// Generates the wgsl code for calculating an sdf made out of
@@ -238,16 +245,15 @@ fn gen_fragment_shader(
         .iter()
         .skip(1)
         .flat_map(|flag @ (op, comp)| {
-            dbg!(&flag);
             let info = &op_infos[op.bits().trailing_zeros() as usize];
-            dbg!([
+            [
                 line_f!(
                     "op = sdf{}(vertex.{}, vertex.world_position);",
                     comp.as_str(),
                     flags_to_index_name(flag)
                 ),
                 line_f!("result = {};", info.operation.to_string()),
-            ])
+            ]
         })
         .collect();
 

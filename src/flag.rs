@@ -1,4 +1,4 @@
-use crate::{operations::Operations, shader::lines::Lines, ComdfPostUpdateSet};
+use crate::{operations::Operations, ComdfPostUpdateSet};
 use bevy::{prelude::*, utils::HashSet};
 use itertools::Itertools;
 use std::{
@@ -20,12 +20,6 @@ pub fn plugin(app: &mut App) {
     Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Component, Hash, Deref, DerefMut,
 )]
 pub struct SdfFlags(Vec<(Flag<Op>, Flag<Comp>)>);
-
-impl SdfFlags {
-    pub fn map_to_lines<FN: Fn(&Flag<Comp>) -> Lines>(&self, func: FN) -> Lines {
-        self.iter().map(|(_, f)| f).map(func).collect()
-    }
-}
 
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FlagsRegistry(HashSet<SdfFlags>);
@@ -74,7 +68,7 @@ impl<M> BitPosition<M> {
     }
 
     pub fn as_flag<T>(&self) -> Flag<T> {
-        Flag::<T>::new(self.position as u64)
+        Flag::<T>::new(1 << self.position)
     }
 }
 

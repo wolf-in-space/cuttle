@@ -1,3 +1,4 @@
+use crate::aabb::CombinedAABB;
 use crate::components::extract::{SdfBufferIndices, SdfBuffers};
 use crate::flag::SdfFlags;
 use crate::shader::bindgroups::bind_group;
@@ -76,7 +77,7 @@ struct ExtractedSdf {
 struct ExtractedSdfs(Vec<ExtractedSdf>);
 
 fn extract_render_sdf(
-    query: Extract<Query<(&SdfBufferIndices, &AABB, &SdfFlags)>>,
+    query: Extract<Query<(&SdfBufferIndices, &CombinedAABB, &SdfFlags)>>,
     mut extracted: ResMut<ExtractedSdfs>,
 ) {
     extracted.0 = query
@@ -85,7 +86,7 @@ fn extract_render_sdf(
             key: SdfPipelineKey {
                 flags: flags.clone(),
             },
-            aabb: aabb.clone(),
+            aabb: aabb.0.clone(),
             indices: indices.0.clone(),
         })
         .collect();

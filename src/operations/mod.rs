@@ -4,7 +4,7 @@ use crate::{
     utils::GetOrInitResourceWorldExt,
 };
 use bevy::{ecs::entity::EntityHashMap, prelude::*};
-use std::{any::type_name, array::from_fn};
+use std::{any::type_name, array};
 
 pub fn plugin(app: &mut App) {
     app.init_resource::<OperationInfos>();
@@ -65,7 +65,7 @@ pub type OperationInfos = FlagStorage<OperationInfo, { Flag::<Op>::SIZE }>;
 impl Default for OperationInfos {
     fn default() -> Self {
         Self {
-            storage: from_fn(|i| OperationInfo {
+            storage: array::from_fn(|i| OperationInfo {
                 value: None,
                 snippets: Lines::default(),
                 operation: format!("UNINITIALIZED{i}"),

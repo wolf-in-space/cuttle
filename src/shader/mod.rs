@@ -70,20 +70,21 @@ fn build_new_shaders(
             error!("Flag not registered in SdfBindings: {:?}", new);
             continue;
         };
+
+        trace!(
+            "Generating shader: flags={:?}, bindings={:?}",
+            new.0,
+            bindings
+        );
+
         let shader_wgsl = gen_shader_wgsl(new, &bindings, &comp_infos, &op_infos, &calc_structures)
             .into_file_str();
-        // println!("{shader_wgsl}");
+        println!("{shader_wgsl}");
         let shader = Shader::from_wgsl(
             shader_wgsl,
             format!("Generated in {} for flags {:?}", file!(), new),
         );
         let handle = shaders.add(shader);
-
-        trace!(
-            "Generated sdf shader: flags={:?}, bindings={:?}",
-            new.0,
-            bindings
-        );
 
         new_shaders.send(NewShader {
             flags: new.0.clone(),

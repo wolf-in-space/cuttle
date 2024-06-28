@@ -1,5 +1,6 @@
 #![allow(clippy::type_complexity)]
 
+mod aabb;
 pub mod builder;
 pub mod components;
 mod flag;
@@ -31,6 +32,7 @@ pub fn plugin(app: &mut App) {
         shader::plugin,
         flag::plugin,
         implementations::plugin,
+        aabb::plugin,
     ));
     app.configure_sets(
         PostUpdate,

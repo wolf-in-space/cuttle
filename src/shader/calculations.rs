@@ -106,7 +106,7 @@ pub(crate) fn gen_calculations<'a>(
 
     for calc in calcs {
         match calc_map.get_mut(&calc.id) {
-            Some((_, calcs)) => calcs.push(calc),
+            Some((_, infos)) => infos.push(calc),
             None => error!("CalculationStructure not found for {calc:?}, you probably need to register it with 'app.register_sdf_calculation'"),
         }
     }

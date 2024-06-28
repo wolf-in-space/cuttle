@@ -176,6 +176,7 @@ mod tests {
 
     fn test(flag: Flag<Comp>, expected: (usize, Vec<(u8, usize)>)) {
         let infos = prep_buffer_infos();
+        dbg!(&infos);
         assert_eq!(
             SdfBuffer::stride_and_offsets_for_flag(&flag, &infos),
             expected
