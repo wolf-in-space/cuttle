@@ -10,16 +10,18 @@ pub fn plugin(app: &mut App) {
 pub struct CombinedAABB(pub AABB);
 
 fn combine_aabbs(
-    mut query: Query<(&mut CombinedAABB, &Operations), With<SdfFlags>>,
+    mut query: Query<(&mut CombinedAABB, &AABB, &Operations), With<SdfFlags>>,
     aabbs: Query<&AABB>,
 ) {
-    for (mut aabb, operations) in query.iter_mut() {
+    for (mut combined, aabb, operations) in query.iter_mut() {
+        combined.0 = AABB::default();
+        combined.0 = combined.combine(aabb);
         for target in operations.keys() {
             let Ok(other) = aabbs.get(*target) else {
                 error!("Operations Component held an Entry for Entity {target:?} which no longer exists / has the AABB Component");
                 continue;
             };
-            aabb.0 = aabb.combine(other);
+            combined.0 = combined.combine(other);
         }
     }
 }

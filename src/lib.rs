@@ -7,7 +7,7 @@ mod flag;
 pub mod implementations;
 pub mod operations;
 mod pipeline;
-mod shader;
+pub mod shader;
 mod utils;
 
 pub mod prelude {

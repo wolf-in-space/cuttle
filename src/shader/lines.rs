@@ -126,17 +126,12 @@ impl Lines {
             .0
     }
 
-    pub fn add(mut self, line: impl Into<String>) -> Self {
-        self.lines.push(line.into());
-        self
-    }
-
     pub fn merge(mut self, other: impl Into<Self>) -> Self {
         self.lines.extend(other.into().lines);
         self
     }
 
     pub fn block(self, other: impl Into<Self>) -> Self {
-        self.add("{").merge(other).add("}")
+        Self::from([self, "{".into(), other.into(), "}".into()])
     }
 }
