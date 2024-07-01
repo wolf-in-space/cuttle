@@ -3,10 +3,10 @@ use bevy_comdf::prelude::*;
 use rand::{thread_rng, Rng};
 use std::time::Duration;
 
-pub fn main() {
+fn main() {
     App::new()
         .add_plugins((DefaultPlugins, bevy_comdf::plugin))
-        .add_systems(Startup, spawn)
+        .add_systems(Startup, setup)
         .add_systems(
             Update,
             delete_and_spawn.run_if(on_timer(Duration::from_secs(1))),
@@ -14,11 +14,11 @@ pub fn main() {
         .run();
 }
 
-pub fn spawn(mut cmds: Commands) {
+fn setup(mut cmds: Commands) {
     cmds.spawn(Camera2dBundle::default());
 }
 
-pub fn delete_and_spawn(current: Query<Entity, With<Point>>, mut cmds: Commands) {
+fn delete_and_spawn(current: Query<Entity, With<Point>>, mut cmds: Commands) {
     for entity in current.into_iter() {
         cmds.entity(entity).despawn();
     }

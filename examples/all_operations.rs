@@ -4,14 +4,14 @@ use bevy_comdf::{
     prelude::*,
 };
 
-pub fn main() {
+fn main() {
     App::new()
         .add_plugins((DefaultPlugins, bevy_comdf::plugin))
         .add_systems(Startup, spawn)
         .run();
 }
 
-pub fn spawn(mut cmds: Commands) {
+fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2dBundle::default());
     cmds.sdf(())
         .operation::<Base>((Point, Added(50.), Fill(css::SKY_BLUE.into())))
