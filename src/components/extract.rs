@@ -47,7 +47,6 @@ pub fn extract_sdf_comp<Comp: RenderSdfComponent>(
     comps: Extract<Query<(&SdfBinding, &SdfBufferIndex, &Comp)>>,
     mut buffers: ResMut<SdfBuffers>,
 ) {
-    // dbg!(offsets.as_ref());
     let offsets = &offsets[flag_bit.position as usize];
     for (binding, index, comp) in comps.into_iter() {
         let buffer = &mut buffers[binding.0];
@@ -195,25 +194,30 @@ fn assign_indices(
 
     // dbg!(&new_max);
 
-    for (binding, val) in max.iter().zip_longest(new_max.iter()).enumerate() {
-        match val {
+    *max = max
+        .iter()
+        .zip_longest(new_max.iter())
+        .enumerate()
+        .map(|(binding, val)| match val {
             EitherOrBoth::Both(prev, new) if new > prev => {
+                debug!("INCREASE: EXTEND {prev} => {new}");
                 size_events.send(IncreaseSdfBufferSize {
                     binding,
                     new_size: *new,
                 });
+                *new
             }
+            EitherOrBoth::Both(prev, _) | EitherOrBoth::Left(prev) => *prev,
             EitherOrBoth::Right(size) => {
+                debug!("INCREASE: NEW {size}");
                 size_events.send(IncreaseSdfBufferSize {
                     binding,
                     new_size: *size,
                 });
+                *size
             }
-            _ => (),
-        }
-    }
-
-    *max = new_max;
+        })
+        .collect();
 }
 
 #[derive(Component, Debug, Default, Deref, DerefMut)]

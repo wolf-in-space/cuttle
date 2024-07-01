@@ -50,6 +50,7 @@ impl Plugin for SdfPipelinePlugin {
                         (sort_sdfs_into_batches, add_new_sdf_to_pipeline),
                         queue_sdfs,
                         write_buffers,
+                        redo_bindgroups,
                     )
                         .chain(),
                     prepare_view_bind_groups,
@@ -173,6 +174,27 @@ pub struct SdfSpecializationData {
     pub vertex_layout: VertexBufferLayout,
     pub shader: Handle<Shader>,
     pub bind_group_layout: BindGroupLayout,
+    pub bindings: Vec<usize>,
+}
+
+fn redo_bindgroups(
+    device: Res<RenderDevice>,
+    mut pipeline: ResMut<SdfPipeline>,
+    buffers: Res<SdfBuffers>,
+) {
+    let keys = pipeline.bind_groups.keys().cloned().collect_vec();
+    for key in keys {
+        let specialization = &pipeline.specialization[&key];
+        let bindings_buffers = specialization
+            .bindings
+            .iter()
+            .filter(|b| !buffers[**b].buffer.is_empty())
+            .map(|b| (*b as u32, &buffers[*b].buffer))
+            .collect_vec();
+        let (_, new_bindgroup) = bind_group(&bindings_buffers, &device);
+        let bindgroup = pipeline.bind_groups.get_mut(&key).unwrap();
+        *bindgroup = new_bindgroup;
+    }
 }
 
 fn add_new_sdf_to_pipeline(
@@ -199,6 +221,7 @@ fn add_new_sdf_to_pipeline(
         pipeline.specialization.insert(
             key.clone(),
             SdfSpecializationData {
+                bindings: new.bindings.clone(),
                 vertex_layout: VertexBufferLayout::from_vertex_formats(
                     VertexStepMode::Instance,
                     [VertexFormat::Float32x2, VertexFormat::Float32x2]
