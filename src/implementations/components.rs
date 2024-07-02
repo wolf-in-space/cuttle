@@ -127,7 +127,7 @@ impl RenderSdfComponent for GlobalTransform {
     }
 
     fn push_to_buffer(&self, buffer: &mut SdfBuffer) {
-        buffer.push(&self.compute_matrix());
+        buffer.push(&self.compute_matrix().inverse());
     }
 }
 

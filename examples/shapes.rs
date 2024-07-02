@@ -1,5 +1,6 @@
 use bevy::{color::palettes::css, prelude::*};
 use bevy_comdf::prelude::*;
+use std::f32::consts::PI;
 
 fn main() {
     App::new()
@@ -11,7 +12,7 @@ fn main() {
 fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2dBundle::default());
 
-    //Circle
+    // Circle
     cmds.spawn((
         TransformBundle::from_transform(Transform::from_translation(Vec3::new(0., 0., 0.))),
         RenderSdfBundle::default(),
@@ -20,7 +21,7 @@ fn spawn(mut cmds: Commands) {
         Fill(css::RED.into()),
     ));
 
-    //Annular circle
+    // Donut / Annular Circle
     cmds.spawn((
         TransformBundle::from_transform(Transform::from_translation(Vec3::new(0., 200., 0.))),
         RenderSdfBundle::default(),
@@ -30,7 +31,20 @@ fn spawn(mut cmds: Commands) {
         Fill(css::REBECCA_PURPLE.into()),
     ));
 
-    //Rounded square
+    // Gradient Circle
+    cmds.spawn((
+        TransformBundle::from_transform(Transform::from_translation(Vec3::new(0., -200., 0.))),
+        RenderSdfBundle::default(),
+        Point,
+        Added(50.),
+        Fill(css::BLACK.into()),
+        Gradient {
+            color: css::MEDIUM_ORCHID.into(),
+            intervall: 1.,
+        },
+    ));
+
+    // Rounded square
     cmds.spawn((
         TransformBundle::from_transform(Transform::from_translation(Vec3::new(-200., -200., 0.))),
         RenderSdfBundle::default(),
@@ -39,7 +53,7 @@ fn spawn(mut cmds: Commands) {
         Fill(css::TURQUOISE.into()),
     ));
 
-    //Square
+    // Square
     cmds.spawn((
         TransformBundle::from_transform(Transform::from_translation(Vec3::new(-200., 0., 0.))),
         RenderSdfBundle::default(),
@@ -47,7 +61,7 @@ fn spawn(mut cmds: Commands) {
         Fill(css::GREEN.into()),
     ));
 
-    //Rectangle
+    // Rectangle
     cmds.spawn((
         TransformBundle::from_transform(Transform::from_translation(Vec3::new(-200., 200., 0.))),
         RenderSdfBundle::default(),
@@ -55,12 +69,58 @@ fn spawn(mut cmds: Commands) {
         Fill(css::LAWN_GREEN.into()),
     ));
 
-    //Line
+    // Annular square
+    cmds.spawn((
+        TransformBundle::from_transform(Transform::from_translation(Vec3::new(-400., -200., 0.))),
+        RenderSdfBundle::default(),
+        Rectangle(Vec2::new(30., 30.)),
+        Added(10.),
+        Annular(10.),
+        Fill(css::STEEL_BLUE.into()),
+    ));
+
+    // Rotated square
+    cmds.spawn((
+        TransformBundle::from_transform(
+            Transform::from_translation(Vec3::new(-400., 0., 0.))
+                .with_rotation(Quat::from_rotation_z(PI * 0.25)),
+        ),
+        RenderSdfBundle::default(),
+        Rectangle(Vec2::new(30., 30.)),
+        Added(20.),
+        Fill(css::ROYAL_BLUE.into()),
+    ));
+
+    // Gradient Line
+    cmds.spawn((
+        TransformBundle::from_transform(Transform::from_translation(Vec3::new(200., 200., 0.))),
+        RenderSdfBundle::default(),
+        Line(32.),
+        Annular(10.),
+        Added(22.),
+        Fill(css::CADET_BLUE.into()),
+        Gradient {
+            color: css::BLACK.into(),
+            intervall: 1.25,
+        },
+    ));
+
+    // Line
     cmds.spawn((
         TransformBundle::from_transform(Transform::from_translation(Vec3::new(200., 0., 0.))),
         RenderSdfBundle::default(),
-        Line(22.),
-        Added(8.),
+        Line(32.),
+        Added(32.),
         Fill(css::BLUE.into()),
+    ));
+
+    // Annular Line
+    cmds.spawn((
+        TransformBundle::from_transform(Transform::from_translation(Vec3::new(200., -200., 0.))),
+        RenderSdfBundle::default(),
+        Line(32.),
+        Annular(10.),
+        Added(22.),
+        Fill(css::LIGHT_YELLOW.into()),
     ));
 }

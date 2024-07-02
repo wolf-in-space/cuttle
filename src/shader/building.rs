@@ -192,7 +192,7 @@ fn gen_vertex_shader(flags: &SdfFlags) -> Lines {
         let vertex_direction = vec2<f32>(vertex_x, vertex_y);
 
         var out: VertexOut;
-        out.world_position = vertex_direction * input.size * 2.0;
+        out.world_position = vertex_direction * input.size * 20.0;
         out.world_position += input.translation;
         out.position = world_to_clip(vec4(out.world_position, 0.0, 1.0));
     };
