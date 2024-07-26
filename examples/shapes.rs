@@ -14,8 +14,7 @@ fn spawn(mut cmds: Commands) {
 
     // Circle
     cmds.spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::new(0., 0., 0.))),
-        RenderSdfBundle::default(),
+        RenderSdfBundle::new().with_pos([0., 0.]),
         Point,
         Added(50.),
         Fill(css::RED.into()),
@@ -23,8 +22,7 @@ fn spawn(mut cmds: Commands) {
 
     // Donut / Annular Circle
     cmds.spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::new(0., 200., 0.))),
-        RenderSdfBundle::default(),
+        RenderSdfBundle::new().with_pos([0., 200.]),
         Point,
         Added(35.),
         Annular(15.),
@@ -33,8 +31,7 @@ fn spawn(mut cmds: Commands) {
 
     // Gradient Circle
     cmds.spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::new(0., -200., 0.))),
-        RenderSdfBundle::default(),
+        RenderSdfBundle::new().with_pos([0., -200.]),
         Point,
         Added(50.),
         Fill(css::BLACK.into()),
@@ -46,8 +43,7 @@ fn spawn(mut cmds: Commands) {
 
     // Rounded square
     cmds.spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::new(-200., -200., 0.))),
-        RenderSdfBundle::default(),
+        RenderSdfBundle::new().with_pos([-200., -200.]),
         Rectangle(Vec2::new(30., 30.)),
         Added(20.),
         Fill(css::TURQUOISE.into()),
@@ -55,24 +51,21 @@ fn spawn(mut cmds: Commands) {
 
     // Square
     cmds.spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::new(-200., 0., 0.))),
-        RenderSdfBundle::default(),
+        RenderSdfBundle::new().with_pos([-200., 0.]),
         Rectangle(Vec2::new(50., 50.)),
         Fill(css::GREEN.into()),
     ));
 
     // Rectangle
     cmds.spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::new(-200., 200., 0.))),
-        RenderSdfBundle::default(),
+        RenderSdfBundle::new().with_pos([-200., 200.]),
         Rectangle(Vec2::new(70., 30.)),
         Fill(css::LAWN_GREEN.into()),
     ));
 
     // Annular square
     cmds.spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::new(-400., -200., 0.))),
-        RenderSdfBundle::default(),
+        RenderSdfBundle::new().with_pos([-400., 200.]),
         Rectangle(Vec2::new(30., 30.)),
         Added(10.),
         Annular(10.),
@@ -81,11 +74,16 @@ fn spawn(mut cmds: Commands) {
 
     // Rotated square
     cmds.spawn((
-        TransformBundle::from_transform(
-            Transform::from_translation(Vec3::new(-400., 0., 0.))
-                .with_rotation(Quat::from_rotation_z(PI * 0.25)),
-        ),
-        RenderSdfBundle::default(),
+        RenderSdfBundle {
+            sdf: SdfBundle {
+                transform: TransformBundle::from_transform(
+                    Transform::from_translation(Vec3::new(-400., 0., 0.))
+                        .with_rotation(Quat::from_rotation_z(PI * 0.25)),
+                ),
+                ..default()
+            },
+            ..default()
+        },
         Rectangle(Vec2::new(30., 30.)),
         Added(20.),
         Fill(css::ROYAL_BLUE.into()),
@@ -93,8 +91,7 @@ fn spawn(mut cmds: Commands) {
 
     // Gradient Line
     cmds.spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::new(200., 200., 0.))),
-        RenderSdfBundle::default(),
+        RenderSdfBundle::new().with_pos([200., 200.]),
         Line(32.),
         Annular(10.),
         Added(22.),
@@ -107,8 +104,7 @@ fn spawn(mut cmds: Commands) {
 
     // Line
     cmds.spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::new(200., 0., 0.))),
-        RenderSdfBundle::default(),
+        RenderSdfBundle::new().with_pos([200., 0.]),
         Line(32.),
         Added(32.),
         Fill(css::BLUE.into()),
@@ -116,8 +112,7 @@ fn spawn(mut cmds: Commands) {
 
     // Annular Line
     cmds.spawn((
-        TransformBundle::from_transform(Transform::from_translation(Vec3::new(200., -200., 0.))),
-        RenderSdfBundle::default(),
+        RenderSdfBundle::new().with_pos([200., -200.]),
         Line(32.),
         Annular(10.),
         Added(22.),

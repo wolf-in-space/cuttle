@@ -6,15 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies.bevy]
-version = "0.14.0-rc.4"
+version = "0.14"
 default-features = false
 features = ["bevy_asset", "bevy_render", "bevy_core_pipeline"]
 
 [dependencies]
 bevy_comdf_core = { path = "../bevy_comdf_core" }
-
-bytemuck = "1.15"
+bytemuck = "1"
 itertools = "0.13"
 
 [dev-dependencies]
 rand = "0.8"
+# bevy_editor_pls = { git = "https://github.com/zhaop/bevy_editor_pls", branch = "bevy-0.14" }

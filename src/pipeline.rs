@@ -53,7 +53,7 @@ impl Plugin for SdfPipelinePlugin {
                         redo_bindgroups,
                     )
                         .chain(),
-                    prepare_view_bind_groups,
+                    prepare_view_bind_groups.after(RenderSet::PrepareBindGroups),
                 )
                     .after(RenderSet::ExtractCommands)
                     .before(RenderSet::Render),
@@ -72,23 +72,32 @@ struct ExtractedSdf {
     indices: Vec<u32>,
     aabb: AABB,
     key: SdfPipelineKey,
+    sort: f32,
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
 struct ExtractedSdfs(Vec<ExtractedSdf>);
 
 fn extract_render_sdf(
-    query: Extract<Query<(&SdfBufferIndices, &CombinedAABB, &SdfFlags)>>,
+    query: Extract<
+        Query<(
+            &SdfBufferIndices,
+            &CombinedAABB,
+            &SdfFlags,
+            &GlobalTransform,
+        )>,
+    >,
     mut extracted: ResMut<ExtractedSdfs>,
 ) {
     extracted.0 = query
         .into_iter()
-        .map(|(indices, aabb, flags)| ExtractedSdf {
+        .map(|(indices, aabb, flags, tranform)| ExtractedSdf {
             key: SdfPipelineKey {
                 flags: flags.clone(),
             },
             aabb: aabb.0.clone(),
             indices: indices.0.clone(),
+            sort: tranform.translation().z,
         })
         .collect();
 }
@@ -98,6 +107,7 @@ pub struct SdfBatch {
     pub instance_count: u32,
     pub key: SdfPipelineKey,
     pub vertex_buffer: RawBufferVec<u8>,
+    pub sort: f32,
 }
 
 fn sort_sdfs_into_batches(mut cmds: Commands, mut sdfs: ResMut<ExtractedSdfs>) {
@@ -114,7 +124,9 @@ fn sort_sdfs_into_batches(mut cmds: Commands, mut sdfs: ResMut<ExtractedSdfs>) {
             let mut count = 0;
             let mut vertex_buffer = RawBufferVec::new(BufferUsages::VERTEX);
             let buffer = vertex_buffer.values_mut();
+            let mut sort = 0.0;
             for sdf in sdfs {
+                sort += sdf.sort;
                 count += 1;
                 buffer.extend_from_slice(bytes_of(&sdf.aabb.size()));
                 buffer.extend_from_slice(bytes_of(&sdf.aabb.pos()));
@@ -127,6 +139,7 @@ fn sort_sdfs_into_batches(mut cmds: Commands, mut sdfs: ResMut<ExtractedSdfs>) {
                 vertex_buffer,
                 instance_count: count,
                 key: key.clone(),
+                sort,
             }
         })
         .collect_vec();
@@ -134,7 +147,6 @@ fn sort_sdfs_into_batches(mut cmds: Commands, mut sdfs: ResMut<ExtractedSdfs>) {
     cmds.spawn_batch(batches);
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_sdfs(
     sdfs: Query<(Entity, &SdfBatch)>,
     views: Query<Entity, With<ExtractedView>>,
@@ -158,7 +170,7 @@ pub fn queue_sdfs(
             // println!("QUEUE");
             let pipeline = pipelines.specialize(&cache, &sdf_pipeline, sdf.key.clone());
             render_phase.add(Transparent2d {
-                sort_key: FloatOrd(1.0),
+                sort_key: FloatOrd(sdf.sort),
                 entity,
                 pipeline,
                 draw_function,

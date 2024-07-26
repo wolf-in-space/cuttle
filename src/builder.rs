@@ -21,20 +21,98 @@ use std::any::type_name;
 
 #[derive(Bundle, Default)]
 pub struct RenderSdfBundle {
-    operations: Operations,
-    flags: SdfFlags,
-    indices: SdfBufferIndices,
-    sdf: SdfBundle,
-    combined: CombinedAABB,
+    pub operations: Operations,
+    pub flags: SdfFlags,
+    pub indices: SdfBufferIndices,
+    pub sdf: SdfBundle,
+    pub combined: CombinedAABB,
+}
+
+impl RenderSdfBundle {
+    pub fn new() -> Self {
+        default()
+    }
+
+    pub fn with_pos(self, pos: impl Into<Vec2>) -> Self {
+        Self {
+            sdf: self.sdf.with_pos(pos),
+            ..self
+        }
+    }
+
+    pub fn with_z_index(self, index: f32) -> Self {
+        Self {
+            sdf: self.sdf.with_z_index(index),
+            ..self
+        }
+    }
+
+    pub fn with_rot(self, rot: f32) -> Self {
+        Self {
+            sdf: self.sdf.with_rot(rot),
+            ..self
+        }
+    }
 }
 
 #[derive(Bundle, Default)]
 pub struct SdfBundle {
-    binding: SdfBinding,
-    index: SdfBufferIndex,
-    flag: Flag<Comp>,
-    aabb: AABB,
-    size: SdfSize,
+    pub transform: TransformBundle,
+    pub binding: SdfBinding,
+    pub index: SdfBufferIndex,
+    pub flag: Flag<Comp>,
+    pub aabb: AABB,
+    pub size: SdfSize,
+}
+
+impl SdfBundle {
+    pub fn with_pos(self, pos: impl Into<Vec2>) -> Self {
+        let pos = pos.into();
+
+        Self {
+            transform: TransformBundle {
+                local: Transform {
+                    translation: Vec3 {
+                        x: pos.x,
+                        y: pos.y,
+                        ..self.transform.local.translation
+                    },
+                    ..self.transform.local
+                },
+                ..self.transform
+            },
+            ..self
+        }
+    }
+
+    pub fn with_z_index(self, index: f32) -> Self {
+        Self {
+            transform: TransformBundle {
+                local: Transform {
+                    translation: Vec3 {
+                        z: index,
+                        ..self.transform.local.translation
+                    },
+                    ..self.transform.local
+                },
+                ..self.transform
+            },
+            ..self
+        }
+    }
+
+    pub fn with_rot(self, rot: f32) -> Self {
+        Self {
+            transform: TransformBundle {
+                local: self
+                    .transform
+                    .local
+                    .with_rotation(Quat::from_rotation_z(rot)),
+                ..self.transform
+            },
+            ..self
+        }
+    }
 }
 
 pub struct SdfOperationSpawner<'a, 'b, 'c> {
