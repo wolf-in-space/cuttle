@@ -4,35 +4,34 @@ use crate::flag::SdfFlags;
 use crate::shader::bindgroups::bind_group;
 use crate::shader::NewShader;
 use bevy::core_pipeline::core_2d::Transparent2d;
+use bevy::ecs::entity::EntityHashMap;
 use bevy::ecs::system::lifetimeless::{Read, SRes};
 use bevy::ecs::system::SystemParamItem;
 use bevy::math::FloatOrd;
 use bevy::prelude::*;
-use bevy::render::render_phase::{PhaseItemExtraIndex, ViewSortedRenderPhases};
-use bevy::render::render_resource::{VertexFormat, VertexStepMode};
-use bevy::render::renderer::RenderQueue;
 use bevy::render::{
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
-        SetItemPipeline, TrackedRenderPass,
+        AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
+        RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewSortedRenderPhases,
     },
     render_resource::{
-        binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
-        BindGroupLayoutEntries, BlendState, BufferUsages, ColorTargetState, ColorWrites,
-        FragmentState, FrontFace, IndexFormat, MultisampleState, PipelineCache, PolygonMode,
-        PrimitiveState, PrimitiveTopology, RawBufferVec, RenderPipelineDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
-        VertexBufferLayout, VertexState,
+        binding_types::{storage_buffer_read_only, uniform_buffer},
+        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendState,
+        BufferUsages, BufferVec, ColorTargetState, ColorWrites, FragmentState, FrontFace,
+        IndexFormat, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
+        PrimitiveTopology, RawBufferVec, RenderPipelineDescriptor, Shader, ShaderStages,
+        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
+        VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
     },
-    renderer::RenderDevice,
+    renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, Render, RenderApp, RenderSet,
 };
-use bevy::utils::hashbrown::HashMap;
+use bevy::utils::HashMap;
 use bevy_comdf_core::aabb::AABB;
-use bytemuck::bytes_of;
 use itertools::Itertools;
+use std::ops::Range;
 
 pub struct SdfPipelinePlugin;
 impl Plugin for SdfPipelinePlugin {
@@ -45,16 +44,17 @@ impl Plugin for SdfPipelinePlugin {
             .add_systems(ExtractSchedule, extract_render_sdf)
             .add_systems(
                 Render,
-                (
+                ((
+                    add_new_sdf_to_pipeline,
+                    queue_sdfs,
+                    prepare_sdfs,
+                    write_buffers,
                     (
-                        (sort_sdfs_into_batches, add_new_sdf_to_pipeline),
-                        queue_sdfs,
-                        write_buffers,
                         redo_bindgroups,
-                    )
-                        .chain(),
-                    prepare_view_bind_groups.after(RenderSet::PrepareBindGroups),
+                        prepare_view_bind_groups.after(RenderSet::PrepareBindGroups),
+                    ),
                 )
+                    .chain(),)
                     .after(RenderSet::ExtractCommands)
                     .before(RenderSet::Render),
             );
@@ -76,11 +76,12 @@ struct ExtractedSdf {
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-struct ExtractedSdfs(Vec<ExtractedSdf>);
+struct ExtractedSdfs(EntityHashMap<ExtractedSdf>);
 
 fn extract_render_sdf(
     query: Extract<
         Query<(
+            Entity,
             &SdfBufferIndices,
             &CombinedAABB,
             &SdfFlags,
@@ -91,78 +92,34 @@ fn extract_render_sdf(
 ) {
     extracted.0 = query
         .into_iter()
-        .map(|(indices, aabb, flags, tranform)| ExtractedSdf {
-            key: SdfPipelineKey {
-                flags: flags.clone(),
-            },
-            aabb: aabb.0.clone(),
-            indices: indices.0.clone(),
-            sort: tranform.translation().z,
+        .map(|(entity, indices, aabb, flags, tranform)| {
+            (
+                entity,
+                ExtractedSdf {
+                    key: SdfPipelineKey {
+                        flags: flags.clone(),
+                    },
+                    aabb: aabb.0.clone(),
+                    indices: indices.0.clone(),
+                    sort: tranform.translation().z,
+                },
+            )
         })
         .collect();
 }
 
-#[derive(Component)]
-pub struct SdfBatch {
-    pub instance_count: u32,
-    pub key: SdfPipelineKey,
-    pub vertex_buffer: RawBufferVec<u8>,
-    pub sort: f32,
-}
-
-fn sort_sdfs_into_batches(mut cmds: Commands, mut sdfs: ResMut<ExtractedSdfs>) {
-    let batches = sdfs
-        .drain(..)
-        .sorted_unstable_by(|sdf1, sdf2| {
-            sdf1.key
-                .cmp(&sdf2.key)
-                .then(sdf1.indices[0].cmp(&sdf2.indices[0]))
-        })
-        .chunk_by(|sdf| sdf.key.clone())
-        .into_iter()
-        .map(|(key, sdfs)| {
-            let mut count = 0;
-            let mut vertex_buffer = RawBufferVec::new(BufferUsages::VERTEX);
-            let buffer = vertex_buffer.values_mut();
-            let mut sort = 0.0;
-            for sdf in sdfs {
-                sort += sdf.sort;
-                count += 1;
-                buffer.extend_from_slice(bytes_of(&sdf.aabb.size()));
-                buffer.extend_from_slice(bytes_of(&sdf.aabb.pos()));
-                for index in sdf.indices {
-                    buffer.extend_from_slice(bytes_of(&index));
-                }
-            }
-
-            SdfBatch {
-                vertex_buffer,
-                instance_count: count,
-                key: key.clone(),
-                sort,
-            }
-        })
-        .collect_vec();
-
-    cmds.spawn_batch(batches);
-}
-
-pub fn queue_sdfs(
-    sdfs: Query<(Entity, &SdfBatch)>,
+fn queue_sdfs(
+    sdfs: Res<ExtractedSdfs>,
     views: Query<Entity, With<ExtractedView>>,
     sdf_pipeline: Res<SdfPipeline>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SdfPipeline>>,
     cache: Res<PipelineCache>,
     mut render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    view_uniforms: Res<ViewUniforms>,
 ) {
-    if view_uniforms.uniforms.binding().is_none() {
-        return;
-    }
     let draw_function = draw_functions.read().id::<DrawSdf>();
     for view_entity in views.into_iter() {
-        for (entity, sdf) in sdfs.into_iter() {
+        for (&entity, sdf) in sdfs.iter() {
             let Some(render_phase) = render_phases.get_mut(&view_entity) else {
                 //warn!("Renderphase not found for queue sdfs");
                 continue;
@@ -174,16 +131,92 @@ pub fn queue_sdfs(
                 entity,
                 pipeline,
                 draw_function,
-                batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex(0),
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::NONE,
             });
         }
     }
 }
 
+#[derive(Component, Debug)]
+pub struct SdfBatch {
+    range: Range<u32>,
+    key: SdfPipelineKey,
+}
+
+#[derive(Debug, ShaderType)]
+pub struct SdfInstance {
+    size: Vec2,
+    pos: Vec2,
+    indices_start: u32,
+}
+
+fn prepare_sdfs(
+    mut cmds: Commands,
+    mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut pipeline: ResMut<SdfPipeline>,
+    sdfs: Res<ExtractedSdfs>,
+) {
+    let mut batches = Vec::new();
+    // let mut vertex_buffer = Vec::new();
+    pipeline.sdf_data_indices.clear();
+    pipeline.vertex_buffer.clear();
+
+    for transparent_phase in phases.values_mut() {
+        let mut batch_index = 0;
+        let mut batch_key = None;
+
+        for index in 0..transparent_phase.items.len() {
+            let item = &transparent_phase.items[index];
+            let Some(sdf) = sdfs.get(&item.entity) else {
+                batch_key = None;
+                continue;
+            };
+
+            if batch_key != Some(&sdf.key) {
+                batch_index = index;
+                batch_key = Some(&sdf.key);
+                let index = index as u32;
+                batches.push((
+                    item.entity,
+                    SdfBatch {
+                        key: sdf.key.clone(),
+                        range: index..index,
+                    },
+                ));
+            }
+
+            let indices_start = pipeline.sdf_data_indices.len() as u32;
+            let instance = SdfInstance {
+                size: sdf.aabb.size(),
+                pos: sdf.aabb.pos(),
+                indices_start,
+            };
+
+            println!(
+                "i={index}, b={batch_index}, indices={:?}, \ninstance={instance:?}, \nsdf={sdf:?}",
+                sdf.indices
+            );
+
+            pipeline.vertex_buffer.push(instance);
+
+            pipeline
+                .sdf_data_indices
+                .extend(sdf.indices.iter().copied());
+
+            transparent_phase.items[batch_index].batch_range_mut().end += 1;
+            batches.last_mut().unwrap().1.range.end += 1;
+        }
+    }
+
+    // dbg!(&batches);
+    // dbg!(vertex_buffer);
+    // dbg!(pipeline.sdf_data_indices.values());
+    cmds.insert_or_spawn_batch(batches);
+}
+
 #[derive(Event, Debug, PartialEq, Clone)]
 pub struct SdfSpecializationData {
-    pub vertex_layout: VertexBufferLayout,
     pub shader: Handle<Shader>,
     pub bind_group_layout: BindGroupLayout,
     pub bindings: Vec<usize>,
@@ -234,12 +267,6 @@ fn add_new_sdf_to_pipeline(
             key.clone(),
             SdfSpecializationData {
                 bindings: new.bindings.clone(),
-                vertex_layout: VertexBufferLayout::from_vertex_formats(
-                    VertexStepMode::Instance,
-                    [VertexFormat::Float32x2, VertexFormat::Float32x2]
-                        .into_iter()
-                        .chain((0..(new.bindings.len())).map(|_| VertexFormat::Uint32)),
-                ),
                 shader: new.shader.clone(),
                 bind_group_layout,
             },
@@ -255,10 +282,12 @@ pub struct SdfPipelineKey {
 
 #[derive(Resource)]
 pub struct SdfPipeline {
-    pub view_layout: BindGroupLayout,
+    pub global_layout: BindGroupLayout,
     pub bind_groups: HashMap<SdfPipelineKey, BindGroup>,
     pub indices: RawBufferVec<u16>,
     pub specialization: HashMap<SdfPipelineKey, SdfSpecializationData>,
+    pub vertex_buffer: BufferVec<SdfInstance>,
+    pub sdf_data_indices: RawBufferVec<u32>,
 }
 
 impl FromWorld for SdfPipeline {
@@ -266,21 +295,26 @@ impl FromWorld for SdfPipeline {
         let render_device = world.resource::<RenderDevice>();
 
         let mut indices = RawBufferVec::new(BufferUsages::INDEX);
-        indices.values_mut().append(&mut vec![2, 0, 1, 1, 3, 2]);
+        *indices.values_mut() = vec![2, 0, 1, 1, 3, 2];
 
         let view_layout = render_device.create_bind_group_layout(
             "sdf_pipeline_view_uniform_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX,
-                uniform_buffer::<ViewUniform>(true),
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::VERTEX_FRAGMENT,
+                (
+                    uniform_buffer::<ViewUniform>(true),
+                    storage_buffer_read_only::<u32>(false),
+                ),
             ),
         );
 
         SdfPipeline {
             indices,
-            view_layout,
+            global_layout: view_layout,
             bind_groups: HashMap::new(),
             specialization: HashMap::new(),
+            vertex_buffer: BufferVec::new(BufferUsages::VERTEX),
+            sdf_data_indices: RawBufferVec::new(BufferUsages::STORAGE),
         }
     }
 }
@@ -292,19 +326,27 @@ impl SpecializedRenderPipeline for SdfPipeline {
         let Some(SdfSpecializationData {
             shader,
             bind_group_layout,
-            vertex_layout,
             ..
         }) = self.specialization.get(&key)
         else {
             panic!("Specialize data not loaded into sdf pipeline for key {key:?}");
         };
 
+        let vertex_layout = VertexBufferLayout::from_vertex_formats(
+            VertexStepMode::Instance,
+            [
+                VertexFormat::Float32x2,
+                VertexFormat::Float32x2,
+                VertexFormat::Uint32,
+            ],
+        );
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: shader.clone(),
                 entry_point: "vertex".into(),
                 shader_defs: Vec::new(),
-                buffers: vec![vertex_layout.clone()],
+                buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 shader: shader.clone(),
@@ -316,7 +358,7 @@ impl SpecializedRenderPipeline for SdfPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: vec![self.view_layout.clone(), bind_group_layout.clone()],
+            layout: vec![self.global_layout.clone(), bind_group_layout.clone()],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -354,11 +396,15 @@ pub fn prepare_view_bind_groups(
         return;
     };
 
+    let Some(indices_binding) = pipeline.sdf_data_indices.binding() else {
+        return;
+    };
+
     for entity in &views {
         let view_bind_group = render_device.create_bind_group(
             "sdf_view_bind_group",
-            &pipeline.view_layout,
-            &BindGroupEntries::single(view_binding.clone()),
+            &pipeline.global_layout,
+            &BindGroupEntries::sequential((view_binding.clone(), indices_binding.clone())),
         );
 
         commands.entity(entity).insert(SdfViewBindGroup {
@@ -372,14 +418,12 @@ pub fn write_buffers(
     queue: Res<RenderQueue>,
     mut buffers: ResMut<SdfBuffers>,
     mut pipeline: ResMut<SdfPipeline>,
-    mut instances: Query<&mut SdfBatch>,
 ) {
     pipeline.indices.write_buffer(&device, &queue);
+    pipeline.sdf_data_indices.write_buffer(&device, &queue);
+    pipeline.vertex_buffer.write_buffer(&device, &queue);
     buffers.iter_mut().for_each(|buffer| {
         buffer.buffer.write_buffer(&device, &queue);
-    });
-    instances.iter_mut().for_each(|mut instance| {
-        instance.vertex_buffer.write_buffer(&device, &queue);
     });
 }
 
@@ -419,14 +463,14 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSdfDispatch {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let Some(instance) = sdf_instance else {
-            error!("Cancelled draw: 'item not found'");
-            return RenderCommandResult::Failure;
-        };
-        let Some(vertices) = instance.vertex_buffer.buffer() else {
-            error!("Cancelled draw: 'bevy_comdf sdf vertices buffer not available'");
+            // error!("Cancelled draw: 'item not found'");
             return RenderCommandResult::Failure;
         };
         let pipeline = pipeline.into_inner();
+        let Some(vertices) = pipeline.vertex_buffer.buffer() else {
+            error!("Cancelled draw: 'bevy_comdf sdf vertices buffer not available'");
+            return RenderCommandResult::Failure;
+        };
         let Some(indices) = pipeline.indices.buffer() else {
             error!("Cancelled draw: 'bevy_comdf sdf indices buffer not available'");
             return RenderCommandResult::Failure;
@@ -442,7 +486,8 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSdfDispatch {
         pass.set_vertex_buffer(0, vertices.slice(..));
         pass.set_bind_group(1, bind_group, &[]);
         pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint16);
-        pass.draw_indexed(0..6, 0, 0..instance.instance_count);
+        pass.draw_indexed(0..6, 0, instance.range.clone());
+        info!("DRAW {:?}", instance.range);
         RenderCommandResult::Success
     }
 }

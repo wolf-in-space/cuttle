@@ -1,10 +1,11 @@
 use bevy::{color::palettes::css, prelude::*};
 use bevy_comdf::prelude::*;
+use bevy_editor_pls::EditorPlugin;
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, bevy_comdf::plugin))
+        .add_plugins((DefaultPlugins, bevy_comdf::plugin, EditorPlugin::new()))
         .add_systems(Startup, spawn)
         .run();
 }
@@ -12,16 +13,16 @@ fn main() {
 fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2dBundle::default());
 
-    // Circle
     cmds.spawn((
+        Name::new("Circle"),
         RenderSdfBundle::new().with_pos([0., 0.]),
         Point,
         Added(50.),
         Fill(css::RED.into()),
     ));
 
-    // Donut / Annular Circle
     cmds.spawn((
+        Name::new("Donut"),
         RenderSdfBundle::new().with_pos([0., 200.]),
         Point,
         Added(35.),
@@ -29,8 +30,8 @@ fn spawn(mut cmds: Commands) {
         Fill(css::REBECCA_PURPLE.into()),
     ));
 
-    // Gradient Circle
     cmds.spawn((
+        Name::new("Gradient Circle"),
         RenderSdfBundle::new().with_pos([0., -200.]),
         Point,
         Added(50.),
@@ -41,30 +42,30 @@ fn spawn(mut cmds: Commands) {
         },
     ));
 
-    // Rounded square
     cmds.spawn((
+        Name::new("Rounded Square"),
         RenderSdfBundle::new().with_pos([-200., -200.]),
         Rectangle(Vec2::new(30., 30.)),
         Added(20.),
         Fill(css::TURQUOISE.into()),
     ));
 
-    // Square
     cmds.spawn((
+        Name::new("Square"),
         RenderSdfBundle::new().with_pos([-200., 0.]),
         Rectangle(Vec2::new(50., 50.)),
         Fill(css::GREEN.into()),
     ));
 
-    // Rectangle
     cmds.spawn((
+        Name::new("Rectangle"),
         RenderSdfBundle::new().with_pos([-200., 200.]),
         Rectangle(Vec2::new(70., 30.)),
         Fill(css::LAWN_GREEN.into()),
     ));
 
-    // Annular square
     cmds.spawn((
+        Name::new("Annular Square"),
         RenderSdfBundle::new().with_pos([-400., 200.]),
         Rectangle(Vec2::new(30., 30.)),
         Added(10.),
@@ -72,8 +73,8 @@ fn spawn(mut cmds: Commands) {
         Fill(css::STEEL_BLUE.into()),
     ));
 
-    // Rotated square
     cmds.spawn((
+        Name::new("Rotated Square"),
         RenderSdfBundle {
             sdf: SdfBundle {
                 transform: TransformBundle::from_transform(
@@ -89,8 +90,8 @@ fn spawn(mut cmds: Commands) {
         Fill(css::ROYAL_BLUE.into()),
     ));
 
-    // Gradient Line
     cmds.spawn((
+        Name::new("Gradient Line"),
         RenderSdfBundle::new().with_pos([200., 200.]),
         Line(32.),
         Annular(10.),
@@ -102,16 +103,16 @@ fn spawn(mut cmds: Commands) {
         },
     ));
 
-    // Line
     cmds.spawn((
+        Name::new("Line"),
         RenderSdfBundle::new().with_pos([200., 0.]),
         Line(32.),
         Added(32.),
         Fill(css::BLUE.into()),
     ));
 
-    // Annular Line
     cmds.spawn((
+        Name::new("Annular Line"),
         RenderSdfBundle::new().with_pos([200., -200.]),
         Line(32.),
         Annular(10.),

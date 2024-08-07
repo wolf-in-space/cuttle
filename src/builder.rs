@@ -127,7 +127,6 @@ impl<'a, 'b, 'c> SdfOperationSpawner<'a, 'b, 'c> {
             .cmds
             .spawn((
                 bundle,
-                SdfBundle::default(),
                 OperationTarget::single(
                     self.origin,
                     O::operation_info()
@@ -165,7 +164,7 @@ pub trait SpawnSdfCmdExt<'a, 'b, 'c> {
 
 impl<'a, 'b, 'c> SpawnSdfCmdExt<'a, 'b, 'c> for Commands<'a, 'b> {
     fn sdf(&'c mut self, bundle: impl Bundle) -> SdfOperationSpawner<'a, 'b, 'c> {
-        let origin = self.spawn((bundle, RenderSdfBundle::default())).id();
+        let origin = self.spawn(bundle).id();
 
         SdfOperationSpawner {
             cmds: self,

@@ -20,12 +20,15 @@ pub mod calculations;
 pub mod lines;
 
 pub fn plugin(app: &mut App) {
-    app.add_plugins(calculations::plugin)
+    app.register_type::<ShaderCodeCollection>()
+        .init_resource::<ShaderCodeCollection>()
+        .add_plugins(calculations::plugin)
         .add_systems(
             PostUpdate,
             build_new_shaders.in_set(ComdfPostUpdateSet::BuildShaders),
         )
         .add_event::<NewShader>();
+
     app.sub_app_mut(RenderApp)
         .add_event::<NewShader>()
         .add_systems(ExtractSchedule, extract_new_shader_events);
@@ -52,6 +55,10 @@ impl CompShaderInfos {
     }
 }
 
+#[derive(Resource, Reflect, Deref, DerefMut, Default)]
+#[reflect(Resource)]
+struct ShaderCodeCollection(String);
+
 fn build_new_shaders(
     mut events: EventReader<NewSdfFlags>,
     calc_structures: Res<CalculationStructures>,
@@ -60,6 +67,7 @@ fn build_new_shaders(
     bindings: Res<SdfBindings>,
     mut shaders: ResMut<Assets<Shader>>,
     mut new_shaders: EventWriter<NewShader>,
+    mut collection: ResMut<ShaderCodeCollection>,
 ) {
     for new in events.read() {
         let Some(bindings) = new
@@ -79,6 +87,7 @@ fn build_new_shaders(
 
         let shader_wgsl = gen_shader_wgsl(new, &bindings, &comp_infos, &op_infos, &calc_structures)
             .into_file_str();
+        collection.0.clone_from(&shader_wgsl);
         // println!("{shader_wgsl}");
         let shader = Shader::from_wgsl(
             shader_wgsl,

@@ -1,5 +1,4 @@
 use super::{
-    bindgroups::flags_to_index_name,
     calculations::{gen_calculations, CalculationInfo, CalculationStructures, SdfCalculation},
     lines::Lines,
     CompShaderInfos,
@@ -21,11 +20,11 @@ pub fn gen_shader_wgsl(
     structures: &CalculationStructures,
 ) -> Lines {
     Lines::from([
-        gen_structs(flags),
+        gen_structs(),
         gen_inputs(flags, bindings, comp_infos),
         gen_snippets(flags, comp_infos, op_infos),
         gen_sdf_functions(flags, comp_infos, structures),
-        gen_vertex_shader(flags),
+        gen_vertex_shader(),
         gen_fragment_shader(flags, comp_infos, op_infos, structures),
     ])
 }
@@ -139,78 +138,47 @@ fn gen_sdf_function<'a>(
     )
 }
 
-fn gen_structs(flags: &SdfFlags) -> Lines {
-    let result = linefy! {
+fn gen_structs() -> Lines {
+    linefy! {
         struct SdfResult {
             distance: f32,
             color: vec3<f32>,
         }
-    };
 
-    let indices = |offset: usize| {
-        flags
-            .iter()
-            .map(flags_to_index_name)
-            .enumerate()
-            .map(|(i, name)| line_f!("@location({}) {name}: u32,", offset + i))
-            .collect::<Lines>()
-    };
+        struct VertexIn {
+            @builtin(vertex_index) index: u32,
+            @location(0) size: vec2<f32>,
+            @location(1) translation: vec2<f32>,
+            @location(2) data_index: u32,
+        }
 
-    let vertex_in = Lines::block(
-        "struct VertexIn".into(),
-        [
-            "@builtin(vertex_index) index: u32,".into(),
-            "@location(0) size: vec2<f32>,".into(),
-            "@location(1) translation: vec2<f32>,".into(),
-            indices(2),
-        ],
-    );
-
-    let vertex_out = Lines::block(
-        "struct VertexOut".into(),
-        [
-            "@builtin(position) position: vec4<f32>,".into(),
-            "@location(0) world_position: vec2<f32>,".into(),
-            indices(1),
-        ],
-    );
-
-    Lines::from([result, vertex_in, vertex_out])
+        struct VertexOut {
+            @builtin(position) position: vec4<f32>,
+            @location(0) world_position: vec2<f32>,
+            @location(2) data_index: u32,
+        }
+    }
 }
 
-fn gen_vertex_shader(flags: &SdfFlags) -> Lines {
-    let first = linefy! {
+fn gen_vertex_shader() -> Lines {
+    linefy! {
         #import bevy_sprite::mesh2d_functions::mesh2d_position_world_to_clip as world_to_clip;
 
         @vertex
-        fn vertex(input: VertexIn) -> VertexOut
-    };
+        fn vertex(input: VertexIn) -> VertexOut {
+            let vertex_x = f32(input.index & 0x1u) - 0.5;
+            let vertex_y = f32((input.index & 0x2u) >> 1u) - 0.5;
+            let vertex_direction = vec2<f32>(vertex_x, vertex_y);
 
-    let second = linefy! {
-        let vertex_x = f32(input.index & 0x1u) - 0.5;
-        let vertex_y = f32((input.index & 0x2u) >> 1u) - 0.5;
-        let vertex_direction = vec2<f32>(vertex_x, vertex_y);
+            var out: VertexOut;
+            out.world_position = vertex_direction * input.size * 200.0;
+            out.world_position -= input.translation;
+            out.position = world_to_clip(vec4(out.world_position, 0.0, 1.0));
+            out.data_index = input.data_index;
 
-        var out: VertexOut;
-        out.world_position = vertex_direction * input.size * 2.0;
-        out.world_position -= input.translation;
-        out.position = world_to_clip(vec4(out.world_position, 0.0, 1.0));
-    };
-
-    let index_assigns = flags
-        .iter()
-        .map(flags_to_index_name)
-        .map(|name| line_f!("out.{name} = input.{name};"))
-        .collect::<Lines>();
-
-    Lines::from([
-        first,
-        "{".into(),
-        second,
-        index_assigns,
-        "return out;".into(),
-        "}".into(),
-    ])
+            return out;
+        }
+    }
 }
 
 ///
@@ -243,14 +211,14 @@ fn gen_fragment_shader(
 
     let op_calcs = flags
         .iter()
+        .enumerate()
         .skip(1)
-        .flat_map(|flag @ (op, comp)| {
+        .flat_map(|(i, (op, comp))| {
             let info = &op_infos[op.bits().trailing_zeros() as usize];
             [
                 line_f!(
-                    "op = sdf{}(vertex.{}, vertex.world_position);",
+                    "op = sdf{}(indices[vertex.data_index + {i}], vertex.world_position);",
                     comp.as_str(),
-                    flags_to_index_name(flag)
                 ),
                 line_f!("result = {};", info.operation.to_string()),
             ]
@@ -258,16 +226,21 @@ fn gen_fragment_shader(
         .collect();
 
     Lines::block(
-        "@fragment fn fragment(vertex: VertexOut) -> @location(0) vec4<f32>".into(),
+        vec![
+            "@group(0) @binding(1) var<storage, read> indices: array<u32>;",
+            "@fragment fn fragment(vertex: VertexOut) -> @location(0) vec4<f32>",
+        ]
+        .into(),
         [
             if flag.1.bits() == 0 {
                 Lines::new()
             } else {
-                line_f!(
-                    "let input = data{}[vertex.{}];",
-                    comp_flag.as_str(),
-                    flags_to_index_name(&flag)
-                )
+                // line_f!(
+                //     "let input = data{}[indices[vertex.data_index]];",
+                //     comp_flag.as_str(),
+                // )
+
+                line_f!("let input = data{}[0];", comp_flag.as_str(),)
             },
             line_f!("let world_position = vertex.world_position;"),
             line_f!("var op: SdfResult;"),
@@ -277,6 +250,7 @@ fn gen_fragment_shader(
             gen_calculations(after_ops.iter().copied(), structures, false),
             linefy! {
                 let alpha = step(0.0, -result.distance);
+                // return vec4(vec3(result.distance / 100.0), 0.5);
                 return vec4(result.color, alpha);
             },
             // let alpha = smoothstep(0.0, 1.0, -result.distance);
