@@ -17,11 +17,11 @@ use bevy::render::{
     render_resource::{
         binding_types::{storage_buffer_read_only, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendState,
-        BufferUsages, BufferVec, ColorTargetState, ColorWrites, FragmentState, FrontFace,
-        IndexFormat, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-        PrimitiveTopology, RawBufferVec, RenderPipelineDescriptor, Shader, ShaderStages,
-        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
-        VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+        BufferUsages, ColorTargetState, ColorWrites, FragmentState, FrontFace, IndexFormat,
+        MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
+        RawBufferVec, RenderPipelineDescriptor, Shader, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, VertexBufferLayout,
+        VertexFormat, VertexState, VertexStepMode,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::BevyDefault,
@@ -30,6 +30,7 @@ use bevy::render::{
 };
 use bevy::utils::HashMap;
 use bevy_comdf_core::aabb::AABB;
+use bytemuck::NoUninit;
 use itertools::Itertools;
 use std::ops::Range;
 
@@ -119,12 +120,10 @@ fn queue_sdfs(
 ) {
     let draw_function = draw_functions.read().id::<DrawSdf>();
     for view_entity in views.into_iter() {
+        let Some(render_phase) = render_phases.get_mut(&view_entity) else {
+            continue;
+        };
         for (&entity, sdf) in sdfs.iter() {
-            let Some(render_phase) = render_phases.get_mut(&view_entity) else {
-                //warn!("Renderphase not found for queue sdfs");
-                continue;
-            };
-            // println!("QUEUE");
             let pipeline = pipelines.specialize(&cache, &sdf_pipeline, sdf.key.clone());
             render_phase.add(Transparent2d {
                 sort_key: FloatOrd(sdf.sort),
@@ -144,7 +143,8 @@ pub struct SdfBatch {
     key: SdfPipelineKey,
 }
 
-#[derive(Debug, ShaderType)]
+#[derive(Debug, ShaderType, NoUninit, Clone, Copy)]
+#[repr(C)]
 pub struct SdfInstance {
     size: Vec2,
     pos: Vec2,
@@ -162,7 +162,9 @@ fn prepare_sdfs(
     pipeline.sdf_data_indices.clear();
     pipeline.vertex_buffer.clear();
 
+    println!("AAAAAAAAAA");
     for transparent_phase in phases.values_mut() {
+        println!("HASIDUGH");
         let mut batch_index = 0;
         let mut batch_key = None;
 
@@ -193,16 +195,18 @@ fn prepare_sdfs(
                 indices_start,
             };
 
-            println!(
-                "i={index}, b={batch_index}, indices={:?}, \ninstance={instance:?}, \nsdf={sdf:?}",
-                sdf.indices
-            );
+            // println!(
+            //     "i={index}, b={batch_index}, indices={:?}, \ninstance={instance:?}, \nsdf={sdf:?}",
+            //     sdf.indices
+            // );
 
             pipeline.vertex_buffer.push(instance);
 
             pipeline
                 .sdf_data_indices
                 .extend(sdf.indices.iter().copied());
+
+            // pipeline.sdf_data_indices.push(0);
 
             transparent_phase.items[batch_index].batch_range_mut().end += 1;
             batches.last_mut().unwrap().1.range.end += 1;
@@ -286,7 +290,7 @@ pub struct SdfPipeline {
     pub bind_groups: HashMap<SdfPipelineKey, BindGroup>,
     pub indices: RawBufferVec<u16>,
     pub specialization: HashMap<SdfPipelineKey, SdfSpecializationData>,
-    pub vertex_buffer: BufferVec<SdfInstance>,
+    pub vertex_buffer: RawBufferVec<SdfInstance>,
     pub sdf_data_indices: RawBufferVec<u32>,
 }
 
@@ -313,7 +317,7 @@ impl FromWorld for SdfPipeline {
             global_layout: view_layout,
             bind_groups: HashMap::new(),
             specialization: HashMap::new(),
-            vertex_buffer: BufferVec::new(BufferUsages::VERTEX),
+            vertex_buffer: RawBufferVec::new(BufferUsages::VERTEX),
             sdf_data_indices: RawBufferVec::new(BufferUsages::STORAGE),
         }
     }
@@ -487,7 +491,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSdfDispatch {
         pass.set_bind_group(1, bind_group, &[]);
         pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint16);
         pass.draw_indexed(0..6, 0, instance.range.clone());
-        info!("DRAW {:?}", instance.range);
+        // info!("DRAW {:?}", instance.range);
         RenderCommandResult::Success
     }
 }

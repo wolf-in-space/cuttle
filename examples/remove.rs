@@ -24,12 +24,8 @@ fn delete_and_spawn(current: Query<Entity, With<Point>>, mut cmds: Commands) {
     }
     for i in 0..thread_rng().gen_range(0..30) {
         cmds.spawn((
-            RenderSdfBundle::default(),
-            TransformBundle::from_transform(Transform::from_translation(Vec3::new(
-                (i % 10) as f32 * 100. - 500.,
-                (i / 10) as f32 * 100. - 100.,
-                0.,
-            ))),
+            RenderSdfBundle::new()
+                .with_pos([(i % 10) as f32 * 100. - 500., (i / 10) as f32 * 100. - 100.]),
             Point,
             Added(40.),
             Fill(css::SKY_BLUE.into()),
