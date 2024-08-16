@@ -171,7 +171,7 @@ fn gen_vertex_shader() -> Lines {
             let vertex_direction = vec2<f32>(vertex_x, vertex_y);
 
             var out: VertexOut;
-            out.world_position = vertex_direction * input.size * 2.0;
+            out.world_position = vertex_direction * input.size;
             out.world_position -= input.translation;
             out.position = world_to_clip(vec4(out.world_position, 0.0, 1.0));
             out.data_index = input.data_index;
@@ -239,8 +239,6 @@ fn gen_fragment_shader(
                     "let input = data{}[indices[vertex.data_index]];",
                     comp_flag.as_str(),
                 )
-
-                // line_f!("let input = data{}[0];", comp_flag.as_str(),)
             },
             line_f!("let world_position = vertex.world_position;"),
             line_f!("var op: SdfResult;"),

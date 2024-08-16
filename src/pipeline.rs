@@ -162,9 +162,7 @@ fn prepare_sdfs(
     pipeline.sdf_data_indices.clear();
     pipeline.vertex_buffer.clear();
 
-    println!("AAAAAAAAAA");
     for transparent_phase in phases.values_mut() {
-        println!("HASIDUGH");
         let mut batch_index = 0;
         let mut batch_key = None;
 
@@ -205,8 +203,6 @@ fn prepare_sdfs(
             pipeline
                 .sdf_data_indices
                 .extend(sdf.indices.iter().copied());
-
-            // pipeline.sdf_data_indices.push(0);
 
             transparent_phase.items[batch_index].batch_range_mut().end += 1;
             batches.last_mut().unwrap().1.range.end += 1;

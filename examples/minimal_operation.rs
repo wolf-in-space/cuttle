@@ -13,10 +13,15 @@ fn main() {
 
 fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2dBundle::default());
-    cmds.sdf(())
-        .operation::<Base>((Point, Added(50.), Fill(css::SKY_BLUE.into())))
+    cmds.sdf(RenderSdfBundle::new())
+        .operation::<Base>((
+            SdfBundle::default(),
+            Point,
+            Added(50.),
+            Fill(css::SKY_BLUE.into()),
+        ))
         .operation::<Subtract>((
-            TransformBundle::from_transform(Transform::from_translation(Vec3::new(35., 10., 0.))),
+            SdfBundle::default().with_pos([35., 10.]),
             Rectangle(Vec2::new(30., 30.)),
         ));
 }
