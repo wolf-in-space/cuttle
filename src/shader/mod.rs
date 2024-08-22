@@ -5,7 +5,7 @@ use self::{
 };
 use crate::{
     components::{buffer::ShaderInput, extract::SdfBindings},
-    flag::{Comp, Flag, FlagStorage, NewSdfFlags, SdfFlags},
+    flag::{CompFlag, FlagStorage, NewSdfFlags, SdfFlags},
     operations::OperationInfos,
     ComdfPostUpdateSet,
 };
@@ -41,17 +41,15 @@ pub struct CompShaderInfo {
     pub calculations: Vec<CalculationInfo>,
 }
 
-pub type CompShaderInfos = FlagStorage<CompShaderInfo, { Flag::<Comp>::SIZE }>;
+pub type CompShaderInfos = FlagStorage<CompShaderInfo, 64>;
 
 impl CompShaderInfos {
     fn gather<'a, T, FN: Fn(&'a CompShaderInfo) -> T + 'a>(
         &'a self,
-        flag: Flag<Comp>,
+        flag: &'a CompFlag,
         func: FN,
     ) -> impl Iterator<Item = T> + 'a {
-        flag.iter_indices_of_set_bits()
-            .map(|i| &self[i as usize])
-            .map(func)
+        flag.ones().map(|i| &self[i]).map(func)
     }
 }
 

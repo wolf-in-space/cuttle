@@ -511,6 +511,7 @@ dependencies = [
  "bevy_comdf_core",
  "bevy_editor_pls",
  "bytemuck",
+ "fixedbitset 0.5.7",
  "itertools 0.13.0",
  "rand",
 ]

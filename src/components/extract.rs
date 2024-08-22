@@ -1,6 +1,6 @@
 use super::{buffer::SdfBuffer, RenderSdfComponent};
 use crate::{
-    flag::{BitPosition, Comp, Flag, FlagStorage},
+    flag::{BitPosition, CompFlag, FlagStorage},
     operations::Operations,
     shader::CompShaderInfos,
     ComdfExtractSet::*,
@@ -103,7 +103,7 @@ pub struct NewBinding {
     offsets: Vec<(u8, usize)>,
 }
 
-pub type CompOffsets = FlagStorage<Vec<usize>, { Flag::<Comp>::SIZE }>;
+pub type CompOffsets = FlagStorage<Vec<usize>, 64>;
 
 impl CompOffsets {
     pub fn add_new_offsets(mut this: ResMut<CompOffsets>, mut event: EventReader<NewBinding>) {
@@ -122,7 +122,7 @@ impl CompOffsets {
 pub struct SdfBinding(pub usize);
 
 #[derive(Resource, Clone, Deref, DerefMut, Default)]
-pub struct SdfBindings(pub HashMap<Flag<Comp>, usize>);
+pub struct SdfBindings(pub HashMap<CompFlag, usize>);
 
 fn extract_bindings(
     main_bindings: Extract<Res<SdfBindings>>,
@@ -135,7 +135,7 @@ fn extract_bindings(
 
 pub(crate) fn assign_bindings(
     mut bindings: ResMut<SdfBindings>,
-    mut query: Query<(&Flag<Comp>, &mut SdfBinding), Changed<Flag<Comp>>>,
+    mut query: Query<(&CompFlag, &mut SdfBinding), Changed<CompFlag>>,
     mut events: EventWriter<NewBinding>,
     infos: Res<CompShaderInfos>,
 ) {
@@ -144,7 +144,7 @@ pub(crate) fn assign_bindings(
             Some(new_binding) => *binding = SdfBinding(*new_binding),
             None => {
                 let new_binding = bindings.len();
-                bindings.insert(*flag, new_binding);
+                bindings.insert(flag.clone(), new_binding);
                 *binding = SdfBinding(new_binding);
                 let (stride, offsets) = SdfBuffer::stride_and_offsets_for_flag(flag, &infos);
 

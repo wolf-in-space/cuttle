@@ -5,7 +5,7 @@ use super::{
 };
 use crate::{
     components::buffer::ShaderInput,
-    flag::{Comp, Flag, SdfFlags},
+    flag::{CompFlag, SdfFlags},
     implementations::calculations::Position,
     line_f, linefy,
     operations::OperationInfos,
@@ -37,13 +37,13 @@ fn gen_snippets(
     Lines::from([
         flags
             .iter()
-            .map(|(_, flag)| shader_infos.gather(*flag, |i| i.snippets.clone()).collect())
+            .map(|(_, flag)| shader_infos.gather(flag, |i| i.snippets.clone()).collect())
             .collect(),
         flags
             .iter()
             .skip(1)
             .map(|(op, _)| {
-                op_infos[op.bits().trailing_zeros() as usize]
+                op_infos[op.minimum().unwrap_or(op.len()) - 1]
                     .snippets
                     .clone()
             })
@@ -56,13 +56,13 @@ fn gen_inputs(flags: &SdfFlags, bindings: &[usize], shader_infos: &CompShaderInf
         .iter()
         .zip_eq(bindings)
         .map(|((_, flag), binding)| {
-            if flag.bits() == 0 {
+            if flag.is_empty() {
                 Lines::new()
             } else {
                 gen_shader_input(
-                    *flag,
+                    flag,
                     *binding,
-                    shader_infos.gather(*flag, |i| i.inputs.iter()).flatten(),
+                    shader_infos.gather(flag, |i| i.inputs.iter()).flatten(),
                 )
             }
         })
@@ -70,11 +70,11 @@ fn gen_inputs(flags: &SdfFlags, bindings: &[usize], shader_infos: &CompShaderInf
 }
 
 fn gen_shader_input<'a>(
-    flag: Flag<Comp>,
+    flag: &CompFlag,
     binding: usize,
     inputs: impl Iterator<Item = &'a ShaderInput>,
 ) -> Lines {
-    let flag = u64::to_string(&flag.bits());
+    let flag = flag.to_string();
     Lines::from([
         line_f!(
             "@group(1) @binding({binding}) var<storage, read> data{flag}: array<SdfInput{flag}>;"
@@ -96,13 +96,13 @@ fn gen_sdf_functions(
         .iter()
         .skip(1)
         .map(|(_, flag)| {
-            if flag.bits() == 0 {
+            if flag.is_empty() {
                 Lines::new()
             } else {
                 gen_sdf_function(
-                    *flag,
+                    flag,
                     shader_infos
-                        .gather(*flag, |i| i.calculations.iter())
+                        .gather(flag, |i| i.calculations.iter())
                         .flatten(),
                     structures,
                 )
@@ -122,11 +122,11 @@ fn gen_sdf_functions(
 ///    return result;
 /// }
 fn gen_sdf_function<'a>(
-    flag: Flag<Comp>,
+    flag: &CompFlag,
     calcs: impl Iterator<Item = &'a CalculationInfo>,
     structures: &CalculationStructures,
 ) -> Lines {
-    let flag = u64::to_string(&flag.bits());
+    let flag = flag.to_string();
     Lines::block(
         line_f!("fn sdf{flag}(index: u32, world_position: vec2<f32>) -> SdfResult"),
         [
@@ -195,7 +195,7 @@ fn gen_fragment_shader(
     op_infos: &OperationInfos,
     structures: &CalculationStructures,
 ) -> Lines {
-    let flag @ (_, comp_flag) = flags[0];
+    let flag @ (_, comp_flag) = &flags[0];
     let comp_calcs = comp_infos
         .gather(comp_flag, |i| i)
         .flat_map(|i| i.calculations.iter())
@@ -215,11 +215,11 @@ fn gen_fragment_shader(
         .enumerate()
         .skip(1)
         .flat_map(|(i, (op, comp))| {
-            let info = &op_infos[op.bits().trailing_zeros() as usize];
+            let info = &op_infos[op.minimum().unwrap_or(op.len()) - 1];
             [
                 line_f!(
                     "op = sdf{}(indices[vertex.data_index + {i}], vertex.world_position);",
-                    comp.as_str(),
+                    comp.to_string(),
                 ),
                 line_f!("result = {};", info.operation.to_string()),
             ]
@@ -233,12 +233,12 @@ fn gen_fragment_shader(
         ]
         .into(),
         [
-            if flag.1.bits() == 0 {
+            if flag.1.is_empty() {
                 Lines::new()
             } else {
                 line_f!(
                     "let input = data{}[indices[vertex.data_index]];",
-                    comp_flag.as_str(),
+                    comp_flag.to_string(),
                 )
             },
             line_f!("let world_position = vertex.world_position;"),

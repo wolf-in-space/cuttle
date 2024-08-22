@@ -1,5 +1,5 @@
 use crate::{
-    flag::{BitPosition, Flag, FlagStorage, Op},
+    flag::{BitPosition, FlagStorage, OpFlag},
     shader::lines::Lines,
     utils::GetOrInitResourceWorldExt,
 };
@@ -38,11 +38,11 @@ pub struct Operations(EntityHashMap<OperationEntry>);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OperationEntry {
     pub order: usize,
-    pub operation: Flag<Op>,
+    pub operation: OpFlag,
 }
 
 impl OperationEntry {
-    pub fn new(order: usize, operation: Flag<Op>) -> Self {
+    pub fn new(order: usize, operation: OpFlag) -> Self {
         Self { order, operation }
     }
 }
@@ -60,7 +60,7 @@ impl OperationTarget {
     }
 }
 
-pub type OperationInfos = FlagStorage<OperationInfo, { Flag::<Op>::SIZE }>;
+pub type OperationInfos = FlagStorage<OperationInfo, 64>;
 
 impl Default for OperationInfos {
     fn default() -> Self {

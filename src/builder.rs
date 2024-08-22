@@ -12,11 +12,12 @@ cmds.sdf((Point, Added(10.), Fill()))
 use crate::{
     aabb::CombinedAABB,
     components::extract::{SdfBinding, SdfBufferIndex, SdfBufferIndices},
-    flag::{BitPosition, Comp, Flag, Op, SdfFlags},
+    flag::{BitPosition, CompFlag, OpFlag, SdfFlags},
     operations::{Operation, OperationEntry, OperationTarget, Operations},
 };
 use bevy::prelude::*;
 use bevy_comdf_core::aabb::{SdfSize, AABB};
+use fixedbitset::FixedBitSet;
 use std::any::type_name;
 
 #[derive(Bundle, Default)]
@@ -60,7 +61,7 @@ pub struct SdfBundle {
     pub transform: TransformBundle,
     pub binding: SdfBinding,
     pub index: SdfBufferIndex,
-    pub flag: Flag<Comp>,
+    pub flag: CompFlag,
     pub aabb: AABB,
     pub size: SdfSize,
 }
@@ -138,11 +139,16 @@ impl<'a, 'b, 'c> SdfOperationSpawner<'a, 'b, 'c> {
             .id();
 
         self.cmds.add(move |world: &mut World| {
-            match world
+            let bit = world
                 .get_resource::<BitPosition<O>>()
-                .map(|p| p.as_flag::<Op>())
-            {
-                None => error!("Resources for Sdf Operation {} not found, you probably need to register it with app.register_sdf_render_operation", type_name::<Op>()),
+                .map(|p| {
+                    let mut set = FixedBitSet::with_capacity(64);
+                    set.set(p.position as usize, true);
+                    OpFlag(set)
+                });
+
+            match bit {
+                None => error!("Resources for Sdf Operation {} not found, you probably need to register it with app.register_sdf_render_operation", type_name::<O>()),
                 Some(flag) => {
                     trace!("Insert op: {} with flag {flag:?}", type_name::<O>());
                     world

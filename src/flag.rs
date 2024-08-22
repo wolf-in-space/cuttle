@@ -1,11 +1,8 @@
 use crate::{operations::Operations, ComdfPostUpdateSet};
 use bevy::{prelude::*, utils::HashSet};
+use fixedbitset::FixedBitSet;
 use itertools::Itertools;
-use std::{
-    array::from_fn,
-    fmt::{self, Debug},
-    marker::PhantomData,
-};
+use std::{array::from_fn, fmt::Debug, marker::PhantomData};
 
 pub fn plugin(app: &mut App) {
     app.add_systems(
@@ -19,29 +16,29 @@ pub fn plugin(app: &mut App) {
 #[derive(
     Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Component, Hash, Deref, DerefMut,
 )]
-pub struct SdfFlags(Vec<(Flag<Op>, Flag<Comp>)>);
+pub struct SdfFlags(Vec<(OpFlag, CompFlag)>);
 
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FlagsRegistry(HashSet<SdfFlags>);
 
 fn update_sdf_flags(
     mut hosts: Query<
-        (&Operations, &Flag<Comp>, &mut SdfFlags),
-        Or<(Changed<Operations>, Changed<Flag<Comp>>)>,
+        (&Operations, &CompFlag, &mut SdfFlags),
+        Or<(Changed<Operations>, Changed<CompFlag>)>,
     >,
-    targets: Query<&Flag<Comp>>,
+    targets: Query<&CompFlag>,
     mut registry: ResMut<FlagsRegistry>,
     mut new_sdf: EventWriter<NewSdfFlags>,
 ) {
     for (operations, flag, mut flags) in hosts.iter_mut() {
         flags.clear();
-        flags.push((Flag::default(), *flag));
+        flags.push((OpFlag::default(), flag.clone()));
         for (target, info) in operations.iter().sorted_by_key(|(_, i)| i.order) {
             let Ok(flag) = targets.get(*target) else {
                 error!("Operations Component held an Entry for Entity {target:?} which no longer exists / has the CompFlag Component");
                 continue;
             };
-            flags.push((info.operation, *flag));
+            flags.push((info.operation.clone(), flag.clone()));
         }
         if !registry.contains(&flags.clone()) {
             registry.insert(flags.clone());
@@ -66,68 +63,23 @@ impl<M> BitPosition<M> {
             marker: PhantomData,
         }
     }
+}
 
-    pub fn as_flag<T>(&self) -> Flag<T> {
-        Flag::<T>::new(1 << self.position)
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Component, Deref, DerefMut)]
+pub struct CompFlag(pub FixedBitSet);
+
+impl Default for CompFlag {
+    fn default() -> Self {
+        Self(FixedBitSet::with_capacity(64))
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Comp;
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Component, Deref, DerefMut)]
+pub struct OpFlag(pub FixedBitSet);
 
-#[derive(Debug, Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Op;
-
-#[derive(Default, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Component)]
-pub struct Flag<M> {
-    bits: u64,
-    marker: PhantomData<M>,
-}
-
-impl<M> Debug for Flag<M> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(format!("{:b}", self.bits).as_str())
-    }
-}
-
-impl<M> Flag<M> {
-    pub fn new(bits: u64) -> Self {
-        Self {
-            bits,
-            marker: PhantomData,
-        }
-    }
-
-    pub fn as_str(&self) -> String {
-        self.bits().to_string()
-    }
-
-    pub fn bits(&self) -> u64 {
-        self.bits
-    }
-
-    pub const SIZE: usize = 64;
-
-    pub fn set(&mut self, position: u8) {
-        self.bits |= 1 << position;
-    }
-
-    pub fn iter_indices_of_set_bits(&self) -> SetFlagBitPositionsIterator {
-        SetFlagBitPositionsIterator(self.bits)
-    }
-}
-
-pub struct SetFlagBitPositionsIterator(u64);
-impl Iterator for SetFlagBitPositionsIterator {
-    type Item = u8;
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.0 == 0 {
-            None
-        } else {
-            let next = self.0.trailing_zeros();
-            self.0 &= self.0 - 1;
-            Some(next as u8)
-        }
+impl Default for OpFlag {
+    fn default() -> Self {
+        Self(FixedBitSet::with_capacity(64))
     }
 }
 
@@ -153,37 +105,5 @@ impl<T: Default, const C: usize> Default for FlagStorage<T, C> {
             storage: from_fn(|_| T::default()),
             count: 0,
         }
-    }
-}
-
-#[cfg(test)]
-mod test_iter_indices_of_set_bits {
-    use super::Flag;
-    use crate::flag::Comp;
-
-    #[test]
-    fn empty() {
-        let mut iter = Flag::<Comp>::new(0).iter_indices_of_set_bits();
-        assert_eq!(iter.next(), None)
-    }
-
-    #[test]
-    fn three() {
-        let mut iter = Flag::<Comp>::new(0b111).iter_indices_of_set_bits();
-        assert_eq!(iter.next(), Some(0));
-        assert_eq!(iter.next(), Some(1));
-        assert_eq!(iter.next(), Some(2));
-        assert_eq!(iter.next(), None);
-    }
-
-    #[test]
-    fn lots() {
-        let mut iter = Flag::<Comp>::new(0b1100101100).iter_indices_of_set_bits();
-        assert_eq!(iter.next(), Some(2));
-        assert_eq!(iter.next(), Some(3));
-        assert_eq!(iter.next(), Some(5));
-        assert_eq!(iter.next(), Some(8));
-        assert_eq!(iter.next(), Some(9));
-        assert_eq!(iter.next(), None);
     }
 }

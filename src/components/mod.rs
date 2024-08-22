@@ -3,7 +3,7 @@ use self::{
     extract::{extract_sdf_comp, CompOffsets},
 };
 use crate::{
-    flag::{BitPosition, Comp, Flag},
+    flag::{BitPosition, CompFlag},
     shader::{CompShaderInfo, CompShaderInfos},
     utils::GetOrInitResourceWorldExt,
     ComdfExtractSet, ComdfPostUpdateSet,
@@ -52,12 +52,9 @@ impl RegisterSdfRenderCompAppExt for App {
 }
 
 pub trait RenderSdfComponent: Sized + Component + Clone {
-    fn set_flag_bit(
-        mut query: Query<&mut Flag<Comp>, With<Self>>,
-        comp_bit: Res<BitPosition<Self>>,
-    ) {
+    fn set_flag_bit(mut query: Query<&mut CompFlag, With<Self>>, comp_bit: Res<BitPosition<Self>>) {
         query.iter_mut().for_each(|mut flag| {
-            flag.set(comp_bit.position);
+            flag.set(comp_bit.position as usize, true);
         });
     }
 

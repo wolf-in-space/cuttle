@@ -1,4 +1,3 @@
-use crate::flag::{Comp, Flag, Op};
 use bevy::render::{
     render_resource::{
         BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BindingType,
@@ -7,6 +6,8 @@ use bevy::render::{
     renderer::RenderDevice,
 };
 use itertools::Itertools;
+
+use crate::flag::{CompFlag, OpFlag};
 
 fn bind_group_layout_entry(binding: u32) -> BindGroupLayoutEntry {
     BindGroupLayoutEntry {
@@ -53,6 +54,6 @@ pub fn bind_group(
     (layout, bind_group)
 }
 
-pub fn flags_to_index_name((op, comp): &(Flag<Op>, Flag<Comp>)) -> String {
-    format!("i_{}_{}", op.as_str(), comp.as_str())
+pub fn flags_to_index_name((op, comp): &(OpFlag, CompFlag)) -> String {
+    format!("i_{}_{}", op.0, comp.0)
 }
