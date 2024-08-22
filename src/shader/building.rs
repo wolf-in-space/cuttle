@@ -162,7 +162,8 @@ fn gen_structs() -> Lines {
 
 fn gen_vertex_shader() -> Lines {
     linefy! {
-        #import bevy_sprite::mesh2d_functions::mesh2d_position_world_to_clip as world_to_clip;
+        #import bevy_render::view::View;
+        @group(0) @binding(0) var<uniform> view: View;
 
         @vertex
         fn vertex(input: VertexIn) -> VertexOut {
@@ -173,7 +174,7 @@ fn gen_vertex_shader() -> Lines {
             var out: VertexOut;
             out.world_position = vertex_direction * input.size;
             out.world_position -= input.translation;
-            out.position = world_to_clip(vec4(out.world_position, 0.0, 1.0));
+            out.position = view.clip_from_world * vec4(out.world_position, 0.0, 1.0);
             out.data_index = input.data_index;
 
             return out;
@@ -247,8 +248,8 @@ fn gen_fragment_shader(
             op_calcs,
             gen_calculations(after_ops.iter().copied(), structures, false),
             linefy! {
-                let alpha = step(0.0, -result.distance);
-                // return vec4(vec3(result.distance / 100.0), 0.5);
+                let alpha = clamp(0.0, 1.0, (-result.distance / view.frustum[0].w) * 250.0);
+                //let alpha = step(0.0, -result.distance);
                 return vec4(result.color, alpha);
             },
             // let alpha = smoothstep(0.0, 1.0, -result.distance);

@@ -1,10 +1,9 @@
-use bevy::app::App;
-
 use crate::{
     linefy,
     operations::{Operation, OperationInfo, RegisterSdfRenderOpAppExt},
     shader::lines::Lines,
 };
+use bevy::app::App;
 
 pub fn plugin(app: &mut App) {
     app.register_sdf_render_operation::<Base>()

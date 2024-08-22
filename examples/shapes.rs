@@ -1,10 +1,11 @@
 use bevy::{color::palettes::css, prelude::*};
 use bevy_comdf::prelude::*;
+use bevy_editor_pls::EditorPlugin;
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, bevy_comdf::plugin))
+        .add_plugins((DefaultPlugins, bevy_comdf::plugin, EditorPlugin::new()))
         .add_systems(Startup, spawn)
         .run();
 }
