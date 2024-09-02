@@ -144,8 +144,6 @@ impl_storage_buf_type!(Vec3, 16, 12, "vec3<f32>");
 impl_storage_buf_type!(Vec4, 16, 16, "vec4<f32>");
 impl_storage_buf_type!(Mat2, 8, 16, "mat2x2<f32>");
 impl_storage_buf_type!(Mat4, 16, 64, "mat4x4<f32>");
-// type Mat4Array = [f32; 16];
-// impl_storage_buf_type!(Mat4Array, 16, 64, "vec4<f32>");
 impl_storage_buf_type!(SdfResult, 4, 8, "SdfResult");
 
 #[cfg(test)]
@@ -158,6 +156,7 @@ mod tests {
     };
     use bevy::transform::components::GlobalTransform;
     use bevy_comdf_core::components::*;
+    use fixedbitset::FixedBitSet;
 
     fn prep_buffer_infos() -> CompShaderInfos {
         let mut infos = CompShaderInfos::default();
@@ -171,34 +170,28 @@ mod tests {
         infos
     }
 
-    fn test(flag: CompFlag, expected: (usize, Vec<(u8, usize)>)) {
+    fn test(flag: usize, expected: (usize, Vec<(u8, usize)>)) {
+        let flag = CompFlag(FixedBitSet::with_capacity_and_blocks(64, [flag]));
         let infos = prep_buffer_infos();
-        dbg!(&infos);
         assert_eq!(
             SdfBuffer::stride_and_offsets_for_flag(&flag, &infos),
             expected
         );
     }
 
-    // #[test]
-    // fn stride_and_offset() {
-    //     test(Flag::<Comp>::new(0), (0, vec![]));
-    //     test(Flag::<Comp>::new(1), (0, vec![(0, 0)]));
-    //     test(Flag::<Comp>::new(0b10), (4, vec![(1, 0)]));
-    //     test(Flag::<Comp>::new(0b11), (4, vec![(0, 0), (1, 0)]));
-    //     test(Flag::<Comp>::new(0b111), (16, vec![(0, 0), (1, 0), (2, 8)]));
-    //     test(
-    //         Flag::<Comp>::new(0b111111),
-    //         (48, vec![(0, 0), (1, 0), (2, 8), (3, 16), (4, 28), (5, 32)]),
-    //     );
-    //     test(Flag::<Comp>::new(0b1010), (32, vec![(1, 0), (3, 16)]));
-    //     test(
-    //         Flag::<Comp>::new(0b1001010),
-    //         (96, vec![(1, 0), (3, 16), (6, 32)]),
-    //     );
-    //     test(
-    //         Flag::<Comp>::new(0b1001010),
-    //         (96, vec![(1, 0), (3, 16), (6, 32)]),
-    //     );
-    // }
+    #[test]
+    fn stride_and_offset() {
+        test(0, (0, vec![]));
+        test(1, (0, vec![(0, 0)]));
+        test(0b10, (4, vec![(1, 0)]));
+        test(0b11, (4, vec![(0, 0), (1, 0)]));
+        test(0b111, (16, vec![(0, 0), (1, 0), (2, 8)]));
+        test(
+            0b111111,
+            (48, vec![(0, 0), (1, 0), (2, 8), (3, 16), (4, 28), (5, 32)]),
+        );
+        test(0b1010, (32, vec![(1, 0), (3, 16)]));
+        test(0b1001010, (96, vec![(1, 0), (3, 16), (6, 32)]));
+        test(0b1001010, (96, vec![(1, 0), (3, 16), (6, 32)]));
+    }
 }

@@ -13,10 +13,19 @@ pub fn plugin(app: &mut App) {
     .add_event::<NewSdfFlags>();
 }
 
-#[derive(
-    Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Component, Hash, Deref, DerefMut,
-)]
-pub struct SdfFlags(Vec<(OpFlag, CompFlag)>);
+#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Component, Hash)]
+pub struct SdfFlags {
+    pub flag: CompFlag,
+    pub operations: Vec<(OpFlag, CompFlag)>,
+}
+
+impl SdfFlags {
+    pub fn iter_comps(&self) -> impl Iterator<Item = &CompFlag> {
+        [&self.flag]
+            .into_iter()
+            .chain(self.operations.iter().map(|(_, f)| f))
+    }
+}
 
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FlagsRegistry(HashSet<SdfFlags>);
@@ -31,14 +40,16 @@ fn update_sdf_flags(
     mut new_sdf: EventWriter<NewSdfFlags>,
 ) {
     for (operations, flag, mut flags) in hosts.iter_mut() {
-        flags.clear();
-        flags.push((OpFlag::default(), flag.clone()));
+        flags.operations.clear();
+        flags.flag = flag.clone();
         for (target, info) in operations.iter().sorted_by_key(|(_, i)| i.order) {
             let Ok(flag) = targets.get(*target) else {
                 error!("Operations Component held an Entry for Entity {target:?} which no longer exists / has the CompFlag Component");
                 continue;
             };
-            flags.push((info.operation.clone(), flag.clone()));
+            flags
+                .operations
+                .push((info.operation.clone(), flag.clone()));
         }
         if !registry.contains(&flags.clone()) {
             registry.insert(flags.clone());

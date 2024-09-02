@@ -69,8 +69,8 @@ fn build_new_shaders(
 ) {
     for new in events.read() {
         let Some(bindings) = new
-            .iter()
-            .map(|(_, flag)| bindings.get(flag).copied())
+            .iter_comps()
+            .map(|flag| bindings.get(flag).copied())
             .collect::<Option<Vec<_>>>()
         else {
             error!("Flag not registered in SdfBindings: {:?}", new);

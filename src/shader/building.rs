@@ -36,16 +36,15 @@ fn gen_snippets(
 ) -> Lines {
     Lines::from([
         flags
-            .iter()
-            .map(|(_, flag)| shader_infos.gather(flag, |i| i.snippets.clone()).collect())
+            .iter_comps()
+            .map(|flag| shader_infos.gather(flag, |i| i.snippets.clone()).collect())
             .collect(),
         flags
+            .operations
             .iter()
-            .skip(1)
             .map(|(op, _)| {
-                op_infos[op.minimum().unwrap_or(op.len()) - 1]
-                    .snippets
-                    .clone()
+                println!("{}", op.0);
+                op_infos[op.minimum().unwrap()].snippets.clone()
             })
             .collect(),
     ])
@@ -53,9 +52,9 @@ fn gen_snippets(
 
 fn gen_inputs(flags: &SdfFlags, bindings: &[usize], shader_infos: &CompShaderInfos) -> Lines {
     flags
-        .iter()
+        .iter_comps()
         .zip_eq(bindings)
-        .map(|((_, flag), binding)| {
+        .map(|(flag, binding)| {
             if flag.is_empty() {
                 Lines::new()
             } else {
@@ -93,9 +92,8 @@ fn gen_sdf_functions(
     structures: &CalculationStructures,
 ) -> Lines {
     flags
-        .iter()
-        .skip(1)
-        .map(|(_, flag)| {
+        .iter_comps()
+        .map(|flag| {
             if flag.is_empty() {
                 Lines::new()
             } else {
@@ -195,9 +193,8 @@ fn gen_fragment_shader(
     op_infos: &OperationInfos,
     structures: &CalculationStructures,
 ) -> Lines {
-    let flag @ (_, comp_flag) = &flags[0];
     let comp_calcs = comp_infos
-        .gather(comp_flag, |i| i)
+        .gather(&flags.flag, |i| i)
         .flat_map(|i| i.calculations.iter())
         .sorted_by_cached_key(|i| structures[&i.id].order)
         .collect_vec();
@@ -211,15 +208,16 @@ fn gen_fragment_shader(
     let (before_ops, after_ops) = comp_calcs.split_at(split);
 
     let op_calcs = flags
+        .operations
         .iter()
         .enumerate()
-        .skip(1)
         .flat_map(|(i, (op, comp))| {
-            let info = &op_infos[op.minimum().unwrap_or(op.len()) - 1];
+            let info = &op_infos[op.minimum().unwrap_or(op.len())];
             [
                 line_f!(
-                    "op = sdf{}(indices[vertex.data_index + {i}], vertex.world_position);",
+                    "op = sdf{}(indices[vertex.data_index + {}], vertex.world_position);",
                     comp.to_string(),
+                    i + 1
                 ),
                 line_f!("result = {};", info.operation.to_string()),
             ]
@@ -233,12 +231,12 @@ fn gen_fragment_shader(
         ]
         .into(),
         [
-            if flag.1.is_empty() {
+            if flags.flag.is_empty() {
                 Lines::new()
             } else {
                 line_f!(
                     "let input = data{}[indices[vertex.data_index]];",
-                    comp_flag.to_string(),
+                    flags.flag.to_string(),
                 )
             },
             line_f!("let world_position = vertex.world_position;"),
