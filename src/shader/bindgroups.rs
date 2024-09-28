@@ -33,10 +33,9 @@ fn bind_group_layout(
 fn bind_group_entrys<'a>(entrys: &[(u32, &'a RawBufferVec<u8>)]) -> Vec<BindGroupEntry<'a>> {
     entrys
         .iter()
-        .map(|entry| BindGroupEntry {
-            binding: entry.0,
-            resource: entry
-                .1
+        .map(|&(binding, buffer)| BindGroupEntry {
+            binding,
+            resource: buffer
                 .buffer()
                 .expect("Bindgroup buffer was not written to")
                 .as_entire_binding(),
@@ -48,6 +47,8 @@ pub fn bind_group(
     entries: &[(u32, &RawBufferVec<u8>)],
     device: &RenderDevice,
 ) -> (BindGroupLayout, BindGroup) {
+    // entries.iter().for_each(|(n, _)| print!("{n}, "));
+    // println!(";");
     let layout = bind_group_layout(entries.iter().map(|(b, _)| b).copied(), device);
     let entries = bind_group_entrys(entries);
     let bind_group = device.create_bind_group(None, &layout, &entries);

@@ -28,6 +28,7 @@ use bevy::render::{
     view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, Render, RenderApp, RenderSet,
 };
+use bevy::ui::TransparentUi;
 use bevy::utils::HashMap;
 use bevy_comdf_core::aabb::AABB;
 use bytemuck::NoUninit;
@@ -41,7 +42,7 @@ impl Plugin for SdfPipelinePlugin {
             .init_resource::<SpecializedRenderPipelines<SdfPipeline>>()
             .init_resource::<ExtractedSdfs>()
             .add_event::<SdfSpecializationData>()
-            .add_render_command::<Transparent2d, DrawSdf>()
+            .add_render_command::<TransparentUi, DrawSdf>()
             .add_systems(ExtractSchedule, extract_render_sdf)
             .add_systems(
                 Render,
@@ -113,10 +114,10 @@ fn queue_sdfs(
     sdfs: Res<ExtractedSdfs>,
     views: Query<Entity, With<ExtractedView>>,
     sdf_pipeline: Res<SdfPipeline>,
-    draw_functions: Res<DrawFunctions<Transparent2d>>,
+    draw_functions: Res<DrawFunctions<TransparentUi>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SdfPipeline>>,
     cache: Res<PipelineCache>,
-    mut render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawSdf>();
     for view_entity in views.into_iter() {
@@ -125,8 +126,8 @@ fn queue_sdfs(
         };
         for (&entity, sdf) in sdfs.iter() {
             let pipeline = pipelines.specialize(&cache, &sdf_pipeline, sdf.key.clone());
-            render_phase.add(Transparent2d {
-                sort_key: FloatOrd(sdf.sort),
+            render_phase.add(TransparentUi {
+                sort_key: (FloatOrd(sdf.sort), 0),
                 entity,
                 pipeline,
                 draw_function,
@@ -153,7 +154,7 @@ pub struct SdfInstance {
 
 fn prepare_sdfs(
     mut cmds: Commands,
-    mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut pipeline: ResMut<SdfPipeline>,
     sdfs: Res<ExtractedSdfs>,
 ) {
@@ -230,16 +231,26 @@ fn redo_bindgroups(
     let keys = pipeline.bind_groups.keys().cloned().collect_vec();
     for key in keys {
         let specialization = &pipeline.specialization[&key];
-        let bindings_buffers = specialization
-            .bindings
-            .iter()
-            .filter(|b| !buffers[**b].buffer.is_empty())
-            .map(|b| (*b as u32, &buffers[*b].buffer))
-            .collect_vec();
+        let bindings_buffers = bindings_to_bindrgoup_entries(&specialization.bindings, &buffers);
+
         let (_, new_bindgroup) = bind_group(&bindings_buffers, &device);
         let bindgroup = pipeline.bind_groups.get_mut(&key).unwrap();
         *bindgroup = new_bindgroup;
     }
+}
+
+fn bindings_to_bindrgoup_entries<'a>(
+    bindings: &[usize],
+    buffers: &'a SdfBuffers,
+) -> Vec<(u32, &'a RawBufferVec<u8>)> {
+    bindings
+        .iter()
+        .copied()
+        .filter(|b| !buffers[*b].buffer.is_empty())
+        .sorted()
+        .dedup()
+        .map(|b| (b as u32, &buffers[b].buffer))
+        .collect_vec()
 }
 
 fn add_new_sdf_to_pipeline(
@@ -253,12 +264,7 @@ fn add_new_sdf_to_pipeline(
         for i in new.bindings.iter() {
             buffers[*i].buffer.write_buffer(&device, &queue)
         }
-        let bindings_buffers = new
-            .bindings
-            .iter()
-            .filter(|b| !buffers[**b].buffer.is_empty())
-            .map(|b| (*b as u32, &buffers[*b].buffer))
-            .collect_vec();
+        let bindings_buffers = bindings_to_bindrgoup_entries(&new.bindings, &buffers);
         let key = SdfPipelineKey {
             flags: new.flags.clone(),
         };
@@ -329,7 +335,7 @@ impl SpecializedRenderPipeline for SdfPipeline {
             ..
         }) = self.specialization.get(&key)
         else {
-            panic!("Specialize data not loaded into sdf pipeline for key {key:?}");
+            panic!("Specialize data not loaded into sdf pipeline");
         };
 
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
@@ -370,7 +376,7 @@ impl SpecializedRenderPipeline for SdfPipeline {
             },
             depth_stencil: None,
             multisample: MultisampleState {
-                count: 4,
+                count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },

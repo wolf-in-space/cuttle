@@ -25,6 +25,10 @@ impl SdfFlags {
             .into_iter()
             .chain(self.operations.iter().map(|(_, f)| f))
     }
+
+    pub fn iter_unique_comps(&self) -> impl Iterator<Item = &CompFlag> {
+        self.iter_comps().sorted().dedup()
+    }
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]

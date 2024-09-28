@@ -10,10 +10,12 @@ use crate::{
     line_f, linefy,
     operations::OperationInfos,
 };
+use fixedbitset::FixedBitSet;
 use itertools::Itertools;
 
 pub fn gen_shader_wgsl(
     flags: &SdfFlags,
+    unique_comps: Vec<&CompFlag>,
     bindings: &[usize],
     comp_infos: &CompShaderInfos,
     op_infos: &OperationInfos,
@@ -21,9 +23,9 @@ pub fn gen_shader_wgsl(
 ) -> Lines {
     Lines::from([
         gen_structs(),
-        gen_inputs(flags, bindings, comp_infos),
-        gen_snippets(flags, comp_infos, op_infos),
-        gen_sdf_functions(flags, comp_infos, structures),
+        gen_inputs(&unique_comps, bindings, comp_infos),
+        gen_snippets(flags, &unique_comps, comp_infos, op_infos),
+        gen_sdf_functions(&unique_comps, comp_infos, structures),
         gen_vertex_shader(),
         gen_fragment_shader(flags, comp_infos, op_infos, structures),
     ])
@@ -31,28 +33,41 @@ pub fn gen_shader_wgsl(
 
 fn gen_snippets(
     flags: &SdfFlags,
+    unique_comps: &[&CompFlag],
     shader_infos: &CompShaderInfos,
     op_infos: &OperationInfos,
 ) -> Lines {
     Lines::from([
-        flags
-            .iter_comps()
-            .map(|flag| shader_infos.gather(flag, |i| i.snippets.clone()).collect())
+        shader_infos
+            .gather(
+                &CompFlag(unique_comps.iter().fold(
+                    FixedBitSet::with_capacity(64),
+                    |mut accu, set| {
+                        accu.union_with(&set.0);
+                        accu
+                    },
+                )),
+                |i| i.snippets.clone(),
+            )
             .collect(),
         flags
             .operations
             .iter()
-            .map(|(op, _)| {
-                println!("{}", op.0);
-                op_infos[op.minimum().unwrap()].snippets.clone()
-            })
+            .map(|(op, _)| op)
+            .sorted()
+            .dedup()
+            .map(|op| op_infos[op.minimum().unwrap()].snippets.clone())
             .collect(),
     ])
 }
 
-fn gen_inputs(flags: &SdfFlags, bindings: &[usize], shader_infos: &CompShaderInfos) -> Lines {
-    flags
-        .iter_comps()
+fn gen_inputs(
+    unique_comps: &[&CompFlag],
+    bindings: &[usize],
+    shader_infos: &CompShaderInfos,
+) -> Lines {
+    unique_comps
+        .iter()
         .zip_eq(bindings)
         .map(|(flag, binding)| {
             if flag.is_empty() {
@@ -87,12 +102,12 @@ fn gen_shader_input<'a>(
 }
 
 fn gen_sdf_functions(
-    flags: &SdfFlags,
+    unique_comps: &[&CompFlag],
     shader_infos: &CompShaderInfos,
     structures: &CalculationStructures,
 ) -> Lines {
-    flags
-        .iter_comps()
+    unique_comps
+        .iter()
         .map(|flag| {
             if flag.is_empty() {
                 Lines::new()
@@ -246,11 +261,10 @@ fn gen_fragment_shader(
             op_calcs,
             gen_calculations(after_ops.iter().copied(), structures, false),
             linefy! {
-                let alpha = clamp(0.0, 1.0, (-result.distance / view.frustum[0].w) * 250.0);
+                let alpha = clamp(0.0, 1.0, (-result.distance / view.frustum[0].w) * 1000.0);
                 //let alpha = step(0.0, -result.distance);
                 return vec4(result.color, alpha);
             },
-            // let alpha = smoothstep(0.0, 1.0, -result.distance);
         ],
     )
 }

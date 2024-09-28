@@ -13,6 +13,7 @@ use bevy::{
     prelude::*,
     render::{render_resource::Shader, Extract, RenderApp},
 };
+use itertools::Itertools;
 
 pub mod bindgroups;
 mod building;
@@ -68,9 +69,10 @@ fn build_new_shaders(
     mut collection: ResMut<ShaderCodeCollection>,
 ) {
     for new in events.read() {
-        let Some(bindings) = new
-            .iter_comps()
-            .map(|flag| bindings.get(flag).copied())
+        let comps = new.iter_unique_comps().collect_vec();
+        let Some(bindings) = comps
+            .iter()
+            .map(|&flag| bindings.get(flag).copied())
             .collect::<Option<Vec<_>>>()
         else {
             error!("Flag not registered in SdfBindings: {:?}", new);
@@ -83,10 +85,17 @@ fn build_new_shaders(
             bindings
         );
 
-        let shader_wgsl = gen_shader_wgsl(new, &bindings, &comp_infos, &op_infos, &calc_structures)
-            .into_file_str();
+        let shader_wgsl = gen_shader_wgsl(
+            new,
+            comps,
+            &bindings,
+            &comp_infos,
+            &op_infos,
+            &calc_structures,
+        )
+        .into_file_str();
         collection.0.clone_from(&shader_wgsl);
-        // println!("{shader_wgsl}");
+
         let shader = Shader::from_wgsl(
             shader_wgsl,
             format!("Generated in {} for flags {:?}", file!(), new),
