@@ -14,14 +14,21 @@ use crate::{
     components::extract::{SdfBinding, SdfBufferIndex, SdfBufferIndices},
     flag::{BitPosition, CompFlag, OpFlag, SdfFlags},
     operations::{Operation, OperationEntry, OperationTarget, Operations},
+    pipeline::UsePipeline,
 };
 use bevy::prelude::*;
 use bevy_comdf_core::aabb::{SdfSize, AABB};
 use fixedbitset::FixedBitSet;
 use std::any::type_name;
 
+#[derive(Component, Default)]
+pub struct RenderSdf {
+    pub pipeline: UsePipeline,
+}
+
 #[derive(Bundle, Default)]
 pub struct RenderSdfBundle {
+    pub render: RenderSdf,
     pub operations: Operations,
     pub flags: SdfFlags,
     pub indices: SdfBufferIndices,
@@ -32,6 +39,15 @@ pub struct RenderSdfBundle {
 impl RenderSdfBundle {
     pub fn new() -> Self {
         default()
+    }
+
+    pub fn ui() -> Self {
+        Self {
+            render: RenderSdf {
+                pipeline: UsePipeline::Ui,
+            },
+            ..default()
+        }
     }
 
     pub fn with_pos(self, pos: impl Into<Vec2>) -> Self {

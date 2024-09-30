@@ -1,6 +1,6 @@
 use crate::aabb::CombinedAABB;
 use crate::components::extract::{SdfBufferIndices, SdfBuffers};
-use crate::flag::SdfFlags;
+use crate::flag::Sdf;
 use crate::shader::bindgroups::bind_group;
 use crate::shader::NewShader;
 use bevy::core_pipeline::core_2d::Transparent2d;
@@ -43,6 +43,7 @@ impl Plugin for SdfPipelinePlugin {
             .init_resource::<ExtractedSdfs>()
             .add_event::<SdfSpecializationData>()
             .add_render_command::<TransparentUi, DrawSdf>()
+            .add_render_command::<Transparent2d, DrawSdf>()
             .add_systems(ExtractSchedule, extract_render_sdf)
             .add_systems(
                 Render,
@@ -86,7 +87,7 @@ fn extract_render_sdf(
             Entity,
             &SdfBufferIndices,
             &CombinedAABB,
-            &SdfFlags,
+            &Sdf,
             &GlobalTransform,
         )>,
     >,
@@ -283,7 +284,7 @@ fn add_new_sdf_to_pipeline(
 
 #[derive(Debug, Component, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub struct SdfPipelineKey {
-    flags: SdfFlags,
+    flags: Sdf,
 }
 
 #[derive(Resource)]

@@ -19,14 +19,14 @@ pub mod prelude {
 
 use bevy::prelude::*;
 use bevy::render::{ExtractSchedule, RenderApp};
-use pipeline::SdfPipelinePlugin;
 
+use pipeline::PipelinePlugin;
 use ComdfExtractSet::*;
 use ComdfPostUpdateSet::*;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((
-        SdfPipelinePlugin,
+        PipelinePlugin,
         bevy_comdf_core::plugin,
         components::plugin,
         operations::plugin,

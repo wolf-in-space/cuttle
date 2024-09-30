@@ -13,7 +13,7 @@ pub fn plugin(app: &mut App) {
     .add_event::<NewSdfFlags>();
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Component, Hash)]
+#[derive(Default, Debug, Clone, Component, Hash, PartialEq, Eq)]
 pub struct SdfFlags {
     pub flag: CompFlag,
     pub operations: Vec<(OpFlag, CompFlag)>,
