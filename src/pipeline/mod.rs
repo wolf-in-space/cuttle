@@ -39,7 +39,7 @@ pub struct SdfPipelineKey {
     flags: SdfFlags,
 }
 
-trait RenderPhase: Send + SortedPhaseItem + CachedRenderPipelinePhaseItem {
+pub trait RenderPhase: Send + SortedPhaseItem + CachedRenderPipelinePhaseItem {
     fn phase_item(
         sort: f32,
         entity: Entity,
@@ -107,7 +107,6 @@ impl Plugin for PipelinePlugin {
             )
             .init_resource::<SpecializedRenderPipelines<SdfPipeline>>()
             .add_event::<SdfSpecializationData>()
-            .add_systems(ExtractSchedule, extract_render_sdf)
             .add_systems(
                 Render,
                 (
@@ -139,6 +138,7 @@ fn render_phase_plugin<P: RenderPhase>(app: &mut App) {
         .init_resource::<ExtractedSdfs<P>>()
         .init_resource::<RenderPhaseBuffers<P>>()
         .add_render_command::<P, DrawSdf>()
+        .add_systems(ExtractSchedule, extract_render_sdf::<P>)
         .add_systems(
             Render,
             (

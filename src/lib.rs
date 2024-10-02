@@ -7,7 +7,7 @@ pub mod components;
 mod flag;
 pub mod implementations;
 pub mod operations;
-mod pipeline;
+pub mod pipeline;
 pub mod shader;
 mod utils;
 

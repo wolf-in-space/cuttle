@@ -1,53 +1,63 @@
-/*
-THE PLAN:
-
-cmds.sdf((Point, Added(10.), Fill()))
-
-cmds.sdf((Point, Added(10.), Fill()))
-.operation::<Union>((Line, Added(5.)))
-.operation::<SmoothSubtract>((Line, Added(5.), Transform::default()))
-
-*/
-
 use crate::{
     aabb::CombinedAABB,
     components::extract::{SdfBinding, SdfBufferIndex, SdfBufferIndices},
     flag::{BitPosition, CompFlag, OpFlag, SdfFlags},
     operations::{Operation, OperationEntry, OperationTarget, Operations},
-    pipeline::UsePipeline,
+    pipeline::{RenderPhase, UsePipeline},
 };
-use bevy::prelude::*;
+use bevy::{core_pipeline::core_2d::Transparent2d, prelude::*, ui::TransparentUi};
 use bevy_comdf_core::aabb::{SdfSize, AABB};
 use fixedbitset::FixedBitSet;
-use std::any::type_name;
+use std::{any::type_name, marker::PhantomData};
 
-#[derive(Component, Default)]
-pub struct RenderSdf {
+#[derive(Component)]
+pub struct RenderSdf<P: RenderPhase> {
     pub pipeline: UsePipeline,
+    marker: PhantomData<P>,
+}
+
+impl<P: RenderPhase> RenderSdf<P> {
+    pub fn new(pipeline: UsePipeline) -> Self {
+        Self {
+            pipeline,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<P: RenderPhase> Default for RenderSdf<P> {
+    fn default() -> Self {
+        Self {
+            pipeline: UsePipeline::World,
+            marker: PhantomData,
+        }
+    }
+}
+
+#[derive(Bundle, Default)]
+pub struct UiSdfBundle {
+    render: RenderSdf<TransparentUi>,
+    bundle: RenderSdfBundle,
+}
+
+#[derive(Bundle, Default)]
+pub struct WorldSdfBundle {
+    render: RenderSdf<Transparent2d>,
+    bundle: RenderSdfBundle,
 }
 
 #[derive(Bundle, Default)]
 pub struct RenderSdfBundle {
-    pub render: RenderSdf,
     pub operations: Operations,
     pub flags: SdfFlags,
     pub indices: SdfBufferIndices,
-    pub sdf: SdfBundle,
+    pub sdf: BaseSdfBundle,
     pub combined: CombinedAABB,
 }
 
 impl RenderSdfBundle {
     pub fn new() -> Self {
         default()
-    }
-
-    pub fn ui() -> Self {
-        Self {
-            render: RenderSdf {
-                pipeline: UsePipeline::Ui,
-            },
-            ..default()
-        }
     }
 
     pub fn with_pos(self, pos: impl Into<Vec2>) -> Self {
@@ -73,7 +83,7 @@ impl RenderSdfBundle {
 }
 
 #[derive(Bundle, Default)]
-pub struct SdfBundle {
+pub struct BaseSdfBundle {
     pub transform: TransformBundle,
     pub binding: SdfBinding,
     pub index: SdfBufferIndex,
@@ -82,7 +92,7 @@ pub struct SdfBundle {
     pub size: SdfSize,
 }
 
-impl SdfBundle {
+impl BaseSdfBundle {
     pub fn with_pos(self, pos: impl Into<Vec2>) -> Self {
         let pos = pos.into();
 

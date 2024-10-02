@@ -1,11 +1,10 @@
 use bevy::{color::palettes::css, prelude::*};
 use bevy_comdf::prelude::*;
-use bevy_editor_pls::EditorPlugin;
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, bevy_comdf::plugin, EditorPlugin::new()))
+        .add_plugins((DefaultPlugins, bevy_comdf::plugin))
         .add_systems(Startup, spawn)
         .run();
 }
@@ -76,7 +75,7 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn((
         Name::new("Rotated Square"),
         RenderSdfBundle {
-            sdf: SdfBundle {
+            sdf: BaseSdfBundle {
                 transform: TransformBundle::from_transform(
                     Transform::from_translation(Vec3::new(-400., 0., 0.))
                         .with_rotation(Quat::from_rotation_z(PI * 0.25)),

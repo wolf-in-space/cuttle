@@ -1,14 +1,10 @@
-use std::marker::PhantomData;
-
-use super::{SdfPipelineKey, UsePipeline};
+use super::{RenderPhase, SdfPipelineKey};
 use crate::{
     aabb::CombinedAABB, builder::RenderSdf, components::extract::SdfBufferIndices, flag::SdfFlags,
 };
-use bevy::{
-    core_pipeline::core_2d::Transparent2d, ecs::entity::EntityHashMap, prelude::*, render::Extract,
-    ui::TransparentUi,
-};
+use bevy::{ecs::entity::EntityHashMap, prelude::*, render::Extract};
 use bevy_comdf_core::aabb::AABB;
+use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct ExtractedSdf {
@@ -34,37 +30,34 @@ impl<P> Default for ExtractedSdfs<P> {
     }
 }
 
-pub(crate) fn extract_render_sdf(
+pub(crate) fn extract_render_sdf<P: RenderPhase>(
     query: Extract<
         Query<(
             Entity,
-            &RenderSdf,
+            &RenderSdf<P>,
             &SdfBufferIndices,
             &CombinedAABB,
             &SdfFlags,
             &GlobalTransform,
         )>,
     >,
-    mut extracted_2d: ResMut<ExtractedSdfs<Transparent2d>>,
-    mut extracted_ui: ResMut<ExtractedSdfs<TransparentUi>>,
+    mut extracted: ResMut<ExtractedSdfs<P>>,
 ) {
-    extracted_2d.clear();
-    extracted_ui.clear();
-
-    for (entity, render, indices, aabb, flags, tranform) in &query {
-        let extracted = ExtractedSdf {
-            key: SdfPipelineKey {
-                pipeline: render.pipeline,
-                flags: flags.clone(),
-            },
-            aabb: aabb.0.clone(),
-            indices: indices.0.clone(),
-            sort: tranform.translation().z,
-        };
-
-        match render.pipeline {
-            UsePipeline::World => extracted_2d.insert(entity, extracted),
-            UsePipeline::Ui => extracted_ui.insert(entity, extracted),
-        };
-    }
+    **extracted = query
+        .into_iter()
+        .map(|(entity, render, indices, aabb, flags, tranform)| {
+            (
+                entity,
+                ExtractedSdf {
+                    key: SdfPipelineKey {
+                        pipeline: render.pipeline,
+                        flags: flags.clone(),
+                    },
+                    aabb: aabb.0.clone(),
+                    indices: indices.0.clone(),
+                    sort: tranform.translation().z,
+                },
+            )
+        })
+        .collect();
 }

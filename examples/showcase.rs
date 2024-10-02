@@ -1,4 +1,4 @@
-use bevy::{color::palettes::tailwind, diagnostic::FrameTimeDiagnosticsPlugin, prelude::*};
+use bevy::{color::palettes::tailwind, prelude::*};
 use bevy_comdf::{
     implementations::operations::{
         Base, Intersect, SmoothIntersect, SmoothSubtract, SmoothUnion, Subtract, Union,
@@ -6,14 +6,13 @@ use bevy_comdf::{
     operations::Operation,
     prelude::*,
 };
-use bevy_editor_pls::EditorPlugin;
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            EditorPlugin::new(),
-            FrameTimeDiagnosticsPlugin,
+            // EditorPlugin::new(),
+            // FrameTimeDiagnosticsPlugin,
             bevy_comdf::plugin,
         ))
         .add_systems(Startup, spawn)
@@ -38,7 +37,7 @@ fn spawn(mut cmds: Commands) {
 fn spin<OP: Operation>(cmds: &mut Commands, x: f32) {
     let make_ball = |pos: f32, color: Srgba, offset: f32| {
         (
-            SdfBundle::default().with_pos([x, pos]),
+            BaseSdfBundle::default().with_pos([x, pos]),
             Point,
             Added(10.),
             Fill(color.into()),
@@ -48,7 +47,7 @@ fn spin<OP: Operation>(cmds: &mut Commands, x: f32) {
 
     cmds.sdf(RenderSdfBundle::default())
         .operation::<Base>((
-            SdfBundle::default().with_pos([x, -320.]),
+            BaseSdfBundle::default().with_pos([x, -320.]),
             Rectangle(Vec2::new(15., 220.)),
             Fill(tailwind::AMBER_400.into()),
             Rotate { speed: 0.5 },
@@ -61,7 +60,7 @@ fn spin<OP: Operation>(cmds: &mut Commands, x: f32) {
         .operation::<OP>(make_ball(-320., tailwind::ZINC_400, 1.5))
         .operation::<OP>(make_ball(-360., tailwind::FUCHSIA_400, 1.8))
         .operation::<OP>((
-            SdfBundle::default().with_pos([x, -400.]),
+            BaseSdfBundle::default().with_pos([x, -400.]),
             Rectangle(Vec2::splat(10.)),
             Fill(tailwind::GREEN_400.into()),
             MovingBall {
@@ -70,7 +69,7 @@ fn spin<OP: Operation>(cmds: &mut Commands, x: f32) {
             },
         ))
         .operation::<OP>((
-            SdfBundle::default().with_pos([x, -440.]),
+            BaseSdfBundle::default().with_pos([x, -440.]),
             Rectangle(Vec2::splat(10.)),
             Fill(tailwind::GREEN_400.into()),
             MovingBall {
@@ -80,7 +79,7 @@ fn spin<OP: Operation>(cmds: &mut Commands, x: f32) {
             Rotate { speed: 5. },
         ))
         .operation::<OP>((
-            SdfBundle::default().with_pos([x, -480.]),
+            BaseSdfBundle::default().with_pos([x, -480.]),
             Point,
             Added(7.),
             Fill(tailwind::GREEN_400.into()),
@@ -91,7 +90,7 @@ fn spin<OP: Operation>(cmds: &mut Commands, x: f32) {
             Annular(3.),
         ))
         .operation::<OP>((
-            SdfBundle::default().with_pos([x, -520.]),
+            BaseSdfBundle::default().with_pos([x, -520.]),
             Rectangle(Vec2::splat(7.)),
             Annular(3.),
             Fill(tailwind::GREEN_400.into()),
@@ -112,13 +111,13 @@ fn box_op_circle<O: Operation>(cmds: &mut Commands, pos: impl Into<Vec2>) {
         },
     ))
     .operation::<Base>((
-        SdfBundle::default().with_pos(pos),
+        BaseSdfBundle::default().with_pos(pos),
         Point,
         Added(50.),
         Fill(tailwind::SKY_400.into()),
     ))
     .operation::<O>((
-        SdfBundle::default().with_pos(pos + 25.),
+        BaseSdfBundle::default().with_pos(pos + 25.),
         Rectangle(Vec2::new(30., 30.)),
         Fill(tailwind::SKY_400.into()),
         MovingBox,
