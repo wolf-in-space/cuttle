@@ -1,127 +1,48 @@
-use self::{
-    building::gen_shader_wgsl,
-    calculations::{CalculationInfo, CalculationStructures},
-    lines::Lines,
-};
-use crate::{
-    components::{buffer::ShaderInput, extract::SdfBindings},
-    flag::{CompFlag, FlagStorage, NewSdfFlags, SdfFlags},
-    operations::OperationInfos,
-    ComdfPostUpdateSet,
-};
-use bevy::{
-    prelude::*,
-    render::{render_resource::Shader, Extract, RenderApp},
-};
-use itertools::Itertools;
+use bevy::{asset::embedded_asset, prelude::*};
+use gen::gen_shader;
+use wgsl_struct::WgslTypeInfos;
 
-pub mod bindgroups;
-mod building;
-pub mod calculations;
-pub mod lines;
+use crate::{calculations::Calculations, components::SdfCompInfos};
 
-pub fn plugin(app: &mut App) {
-    app.register_type::<ShaderCodeCollection>()
-        .init_resource::<ShaderCodeCollection>()
-        .add_plugins(calculations::plugin)
-        .add_systems(
-            PostUpdate,
-            build_new_shaders.in_set(ComdfPostUpdateSet::BuildShaders),
-        )
-        .add_event::<NewShader>();
+pub mod gen;
+pub mod wgsl_struct;
 
-    app.sub_app_mut(RenderApp)
-        .add_event::<NewShader>()
-        .add_systems(ExtractSchedule, extract_new_shader_events);
-}
+pub struct ShaderPlugin;
+impl Plugin for ShaderPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(wgsl_struct::plugin);
+        app.init_resource::<ShaderImports>();
 
-#[derive(Debug, Default)]
-pub struct CompShaderInfo {
-    pub inputs: Vec<ShaderInput>,
-    pub snippets: Lines,
-    pub calculations: Vec<CalculationInfo>,
-}
+        embedded_asset!(app, "common.wgsl");
+        embedded_asset!(app, "vertex.wgsl");
+        embedded_asset!(app, "fragment.wgsl");
+    }
 
-pub type CompShaderInfos = FlagStorage<CompShaderInfo, 64>;
+    fn finish(&self, app: &mut App) {
+        let world = app.world_mut();
+        let infos = world.resource::<SdfCompInfos>();
 
-impl CompShaderInfos {
-    fn gather<'a, T, FN: Fn(&'a CompShaderInfo) -> T + 'a>(
-        &'a self,
-        flag: &'a CompFlag,
-        func: FN,
-    ) -> impl Iterator<Item = T> + 'a {
-        flag.ones().map(|i| &self[i]).map(func)
+        let wgsl_types = world.resource::<WgslTypeInfos>();
+        let shader_imports = world.resource::<ShaderImports>();
+        let calculations = world.resource::<Calculations>();
+
+        let definitions = gen_shader(infos, wgsl_types, calculations, shader_imports);
+        let definitions = Shader::from_wgsl(
+            definitions,
+            format!("Generated at {} | {}", file!(), line!()),
+        );
+
+        let mut shaders = world.resource_mut::<Assets<Shader>>();
+        let definitions = shaders.add(definitions);
+
+        world.insert_resource(GeneratedShaders { definitions });
     }
 }
 
-#[derive(Resource, Reflect, Deref, DerefMut, Default)]
-#[reflect(Resource)]
-struct ShaderCodeCollection(String);
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct ShaderImports(Vec<String>);
 
-fn build_new_shaders(
-    mut events: EventReader<NewSdfFlags>,
-    calc_structures: Res<CalculationStructures>,
-    comp_infos: Res<CompShaderInfos>,
-    op_infos: Res<OperationInfos>,
-    bindings: Res<SdfBindings>,
-    mut shaders: ResMut<Assets<Shader>>,
-    mut new_shaders: EventWriter<NewShader>,
-    mut collection: ResMut<ShaderCodeCollection>,
-) {
-    for new in events.read() {
-        let comps = new.iter_unique_comps().collect_vec();
-        let Some(bindings) = comps
-            .iter()
-            .map(|&flag| bindings.get(flag).copied())
-            .collect::<Option<Vec<_>>>()
-        else {
-            error!("Flag not registered in SdfBindings: {:?}", new);
-            continue;
-        };
-
-        trace!(
-            "Generating shader: flags={:?}, bindings={:?}",
-            new.0,
-            bindings
-        );
-
-        let shader_wgsl = gen_shader_wgsl(
-            new,
-            comps,
-            &bindings,
-            &comp_infos,
-            &op_infos,
-            &calc_structures,
-        )
-        .into_file_str();
-        collection.0.clone_from(&shader_wgsl);
-
-        let shader = Shader::from_wgsl(
-            shader_wgsl,
-            format!("Generated in {} for flags {:?}", file!(), new),
-        );
-        let handle = shaders.add(shader);
-
-        new_shaders.send(NewShader {
-            flags: new.0.clone(),
-            shader: handle,
-            bindings,
-        });
-    }
-}
-
-#[derive(Event, Clone)]
-pub struct NewShader {
-    pub flags: SdfFlags,
-    pub shader: Handle<Shader>,
-    pub bindings: Vec<usize>,
-}
-
-fn extract_new_shader_events(
-    mut main: Extract<EventReader<NewShader>>,
-    mut render: EventWriter<NewShader>,
-) {
-    main.read().cloned().for_each(|new| {
-        render.send(new);
-    });
+#[derive(Resource)]
+pub struct GeneratedShaders {
+    pub definitions: Handle<Shader>,
 }

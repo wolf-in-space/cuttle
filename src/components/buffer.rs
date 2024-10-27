@@ -1,197 +1,182 @@
-use crate::{flag::CompFlag, shader::CompShaderInfos};
+use super::{SdfCompInfos, SdfRenderData};
+use crate::pipeline::{specialization::SdfPipeline, ComdfRenderSet};
 use bevy::{
     prelude::*,
-    render::render_resource::{BufferUsages, RawBufferVec},
+    render::{
+        render_resource::{
+            BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BindingResource,
+            BindingType, BufferBindingType, ShaderStages, StorageBuffer,
+        },
+        renderer::{RenderDevice, RenderQueue},
+        Render, RenderApp,
+    },
 };
-use bytemuck::{bytes_of, Pod, Zeroable};
-use std::any::type_name;
 
-pub struct SdfBuffer {
-    pub buffer: RawBufferVec<u8>,
-    pub stride: usize,
-    pub current_index: usize,
-}
-
-impl SdfBuffer {
-    pub fn new(stride: usize) -> Self {
-        Self {
-            buffer: RawBufferVec::new(BufferUsages::STORAGE),
-            stride,
-            current_index: 0,
-        }
-    }
-
-    pub fn prep_for_push(&mut self, index: usize, comp_offset: usize) {
-        self.current_index = index * self.stride + comp_offset;
-    }
-
-    pub fn push<T: BufferType>(&mut self, value: &T) {
-        let bytes = bytes_of(value);
-        let Some(slice) = self
-            .buffer
-            .values_mut()
-            .get_mut(self.current_index..(self.current_index + bytes.len()))
-        else {
-            error_once!(
-                "Pushing to Buffer out of range: type = {}, start = {}, amount = {}, stride={}, buffer_len = {}",
-                type_name::<T>(), self.current_index, bytes.len(), self.stride, self.buffer.len()
+pub struct BufferPlugin;
+impl Plugin for BufferPlugin {
+    fn build(&self, app: &mut App) {
+        app.sub_app_mut(RenderApp)
+            .init_resource::<CompBufferBindgroup>()
+            .add_systems(
+                Render,
+                (write_comp_buffers, build_buffer_bindgroup)
+                    .chain()
+                    .in_set(ComdfRenderSet::Buffer),
             );
-            return;
-        };
-        slice.copy_from_slice(bytes);
-        self.current_index += bytes.len();
     }
 
-    pub fn stride_and_offsets_for_flag(
-        flag: &CompFlag,
-        infos: &CompShaderInfos,
-    ) -> (usize, Vec<(u8, usize)>) {
-        let mut offsets = Vec::default();
-        let mut max_align = 0;
-        let mut offset = 0;
+    fn finish(&self, app: &mut App) {
+        let infos = app.world().resource::<SdfCompInfos>();
+        let (insert_fns, debug_fns, write_fns, get_fns) = process_sdf_infos(infos);
 
-        let align_offset = |offset: &mut usize, align: usize| {
-            let remaining = *offset % align;
-            // println!(
-            //     "offset={offset}, align={align}, remaining={remaining}, paddings={}",
-            //     align - remaining
-            // );
-            if remaining != 0 {
-                *offset += align - remaining
-            }
-        };
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app.insert_resource(DebugBufferFns(debug_fns));
+        render_app.insert_resource(WriteBufferFns(write_fns));
+        render_app.insert_resource(GetBufferBindingResFns(get_fns));
 
-        for index in flag.ones() {
-            let info = &infos[index];
-            for input in info.inputs.iter() {
-                let align = input.type_info.align as usize;
-                max_align = usize::max(max_align, align);
-                align_offset(&mut offset, align);
-            }
-
-            offsets.push((index as u8, offset));
-
-            for input in info.inputs.iter() {
-                offset += input.type_info.size as usize;
-            }
-        }
-
-        if max_align > 0 {
-            align_offset(&mut offset, max_align);
-        }
-
-        (offset, offsets)
-    }
-}
-
-pub trait BufferType: Pod {
-    fn descriptor() -> BufferTypeInfo;
-    fn shader_input(name: &'static str) -> ShaderInput {
-        ShaderInput {
-            type_info: Self::descriptor(),
-            name,
+        let render_world = render_app.world_mut();
+        let mut buffer_entity = render_world.spawn(BufferEntity);
+        for func in insert_fns {
+            func(&mut buffer_entity);
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct BufferTypeInfo {
-    pub align: u8,
-    pub size: u8,
-    pub wgsl_type: &'static str,
+fn process_sdf_infos(
+    infos: &SdfCompInfos,
+) -> (
+    Vec<InsertBufferFn>,
+    Vec<DebugBufferFn>,
+    Vec<WriteBufferFn>,
+    Vec<GetBufferBindingResFn>,
+) {
+    (
+        infos.iter().map(|i| i.buffer.insert).collect(),
+        infos.iter().map(|i| i.buffer.debug).collect(),
+        infos.iter().map(|i| i.buffer.write).collect(),
+        infos.iter().map(|i| i.buffer.get).collect(),
+    )
 }
 
-impl Default for BufferTypeInfo {
-    fn default() -> Self {
+#[derive(Debug)]
+pub struct BufferInfo {
+    insert: InsertBufferFn,
+    debug: DebugBufferFn,
+    write: WriteBufferFn,
+    get: GetBufferBindingResFn,
+}
+
+impl BufferInfo {
+    pub(crate) fn new<C: SdfRenderData>() -> Self {
         Self {
-            align: u8::MAX,
-            size: u8::MAX,
-            wgsl_type: "UNINITIALIZED",
+            insert: CompBuffer::<C>::insert,
+            debug: CompBuffer::<C>::debug,
+            write: CompBuffer::<C>::write,
+            get: CompBuffer::<C>::get_binding_res,
         }
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ShaderInput {
-    pub type_info: BufferTypeInfo,
-    pub name: &'static str,
-}
+#[derive(Component, Deref, DerefMut)]
+pub(crate) struct CompBuffer<C: SdfRenderData>(StorageBuffer<Vec<C>>);
 
-#[macro_export]
-macro_rules! impl_storage_buf_type {
-    ($type:ident, $align:expr, $size:expr, $name:expr) => {
-        impl BufferType for $type {
-            fn descriptor() -> BufferTypeInfo {
-                BufferTypeInfo {
-                    align: $align,
-                    size: $size,
-                    wgsl_type: $name,
-                }
-            }
+pub type InsertBufferFn = fn(&mut EntityWorldMut);
+pub type DebugBufferFn = fn(&EntityRef, u32);
+pub type WriteBufferFn = fn(&mut EntityMut, &RenderDevice, &RenderQueue);
+pub type GetBufferBindingResFn = for<'a> fn(&'a EntityRef<'a>) -> BindingResource<'a>;
+
+impl<C: SdfRenderData> CompBuffer<C> {
+    pub fn insert(entity: &mut EntityWorldMut) {
+        entity.insert(Self::default());
+    }
+
+    pub fn debug(entity: &EntityRef, index: u32) {
+        let buf = entity.get::<Self>().unwrap().get();
+        println!("{}/{}: {:?}", index, buf.len(), buf.get(index as usize));
+    }
+
+    pub fn write(entity: &mut EntityMut, device: &RenderDevice, queue: &RenderQueue) {
+        if let Some(mut buffer) = entity.get_mut::<Self>() {
+            buffer.write_buffer(device, queue);
         }
-    };
-}
-
-#[derive(Pod, Zeroable, Clone, Copy)]
-#[repr(C)]
-pub struct SdfResult;
-
-impl_storage_buf_type!(f32, 4, 4, "f32");
-impl_storage_buf_type!(u32, 4, 4, "u32");
-impl_storage_buf_type!(i32, 4, 4, "i32");
-impl_storage_buf_type!(Vec2, 8, 8, "vec2<f32>");
-impl_storage_buf_type!(Vec3, 16, 12, "vec3<f32>");
-impl_storage_buf_type!(Vec4, 16, 16, "vec4<f32>");
-impl_storage_buf_type!(Mat2, 8, 16, "mat2x2<f32>");
-impl_storage_buf_type!(Mat4, 16, 64, "mat4x4<f32>");
-impl_storage_buf_type!(SdfResult, 4, 8, "SdfResult");
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        components::{buffer::SdfBuffer, RenderSdfComponent},
-        flag::CompFlag,
-        prelude::Fill,
-        shader::CompShaderInfos,
-    };
-    use bevy::transform::components::GlobalTransform;
-    use bevy_comdf_core::components::*;
-    use fixedbitset::FixedBitSet;
-
-    fn prep_buffer_infos() -> CompShaderInfos {
-        let mut infos = CompShaderInfos::default();
-        infos.register(Point::shader_info());
-        infos.register(Line::shader_info());
-        infos.register(Rectangle::shader_info());
-        infos.register(Fill::shader_info());
-        infos.register(Added::shader_info());
-        infos.register(Rotated::shader_info());
-        infos.register(GlobalTransform::shader_info());
-        infos
     }
 
-    fn test(flag: usize, expected: (usize, Vec<(u8, usize)>)) {
-        let flag = CompFlag(FixedBitSet::with_capacity_and_blocks(64, [flag]));
-        let infos = prep_buffer_infos();
-        assert_eq!(
-            SdfBuffer::stride_and_offsets_for_flag(&flag, &infos),
-            expected
-        );
-    }
-
-    #[test]
-    fn stride_and_offset() {
-        test(0, (0, vec![]));
-        test(1, (0, vec![(0, 0)]));
-        test(0b10, (4, vec![(1, 0)]));
-        test(0b11, (4, vec![(0, 0), (1, 0)]));
-        test(0b111, (16, vec![(0, 0), (1, 0), (2, 8)]));
-        test(
-            0b111111,
-            (48, vec![(0, 0), (1, 0), (2, 8), (3, 16), (4, 28), (5, 32)]),
-        );
-        test(0b1010, (32, vec![(1, 0), (3, 16)]));
-        test(0b1001010, (96, vec![(1, 0), (3, 16), (6, 32)]));
-        test(0b1001010, (96, vec![(1, 0), (3, 16), (6, 32)]));
+    pub fn get_binding_res<'a>(entity: &'a EntityRef<'a>) -> BindingResource<'a> {
+        entity
+            .get::<Self>()
+            .unwrap()
+            .buffer()
+            .unwrap()
+            .as_entire_binding()
     }
 }
+
+impl<C: SdfRenderData> Default for CompBuffer<C> {
+    fn default() -> Self {
+        Self(default())
+    }
+}
+
+#[derive(Component)]
+pub(crate) struct BufferEntity;
+
+#[derive(Resource, Deref)]
+pub(crate) struct WriteBufferFns(Vec<WriteBufferFn>);
+
+fn write_comp_buffers(
+    mut entity: Single<EntityMut, With<BufferEntity>>,
+    write_fns: Res<WriteBufferFns>,
+    device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
+) {
+    for func in write_fns.iter() {
+        func(&mut entity, &device, &queue);
+    }
+}
+
+#[derive(Resource, Deref, Default)]
+pub struct CompBufferBindgroup(pub Option<BindGroup>);
+
+#[derive(Resource, Deref)]
+pub(crate) struct GetBufferBindingResFns(Vec<GetBufferBindingResFn>);
+
+fn build_buffer_bindgroup(
+    entity: Single<EntityRef, With<BufferEntity>>,
+    binding_res_fns: Res<GetBufferBindingResFns>,
+    device: Res<RenderDevice>,
+    pipeline: Res<SdfPipeline>,
+    mut bindgroup: ResMut<CompBufferBindgroup>,
+) {
+    let bindign_res: Vec<BindGroupEntry> = binding_res_fns
+        .iter()
+        .enumerate()
+        .map(|(i, func)| BindGroupEntry {
+            binding: i as u32,
+            resource: func(&entity),
+        })
+        .collect();
+    bindgroup.0 = Some(device.create_bind_group(
+        "sdf component buffers",
+        &pipeline.comp_layout,
+        &bindign_res,
+    ));
+}
+
+pub fn build_buffer_layout(count: u32, device: &RenderDevice, name: &str) -> BindGroupLayout {
+    let entries: Vec<BindGroupLayoutEntry> = (0..count)
+        .map(|binding| BindGroupLayoutEntry {
+            binding,
+            visibility: ShaderStages::FRAGMENT,
+            count: None,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+        })
+        .collect();
+    device.create_bind_group_layout(name, &entries)
+}
+
+#[derive(Resource, Deref)]
+pub(crate) struct DebugBufferFns(Vec<DebugBufferFn>);

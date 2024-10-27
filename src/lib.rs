@@ -1,66 +1,66 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 
-mod aabb;
-pub mod builder;
+use bevy::prelude::*;
+use bounding::SdfBoundingRadius;
+use builtins::BuiltinsPlugin;
+use components::CompPlugin;
+use flag::{Flag, FlagPlugin};
+use operations::SdfExtensions;
+use pipeline::PipelinePlugin;
+use shader::ShaderPlugin;
+use std::collections::BTreeMap;
+
+mod bounding;
+pub mod builtins;
+mod calculations;
 pub mod components;
-mod flag;
-pub mod implementations;
+pub mod flag;
+pub mod initialization;
 pub mod operations;
 pub mod pipeline;
 pub mod shader;
 mod utils;
 
 pub mod prelude {
-    pub use crate::builder::*;
-    pub use crate::components::colors::{Fill, Gradient};
-    pub use bevy_comdf_core::prelude::*;
+    pub use super::*;
+    pub use crate::bounding::AddToBoundingRadius;
+    pub use crate::builtins::*;
+    pub use crate::initialization::SdfAppExt;
+    pub use crate::operations::SdfExtensions;
 }
-
-use bevy::prelude::*;
-use bevy::render::{ExtractSchedule, RenderApp};
-
-use pipeline::PipelinePlugin;
-use ComdfExtractSet::*;
-use ComdfPostUpdateSet::*;
 
 pub fn plugin(app: &mut App) {
+    // app.sub_app_mut(RenderApp)
+    //     .edit_schedule(Render, |schedule| {
+    //         schedule.set_build_settings(ScheduleBuildSettings {
+    //             ambiguity_detection: LogLevel::Warn,
+    //             ..default()
+    //         });
+    //     });
     app.add_plugins((
+        CompPlugin, //Needs to be first to ensure SdfCompInfos is sorted
+        FlagPlugin,
+        ShaderPlugin,
+        BuiltinsPlugin,
         PipelinePlugin,
-        bevy_comdf_core::plugin,
-        components::plugin,
         operations::plugin,
-        shader::plugin,
-        flag::plugin,
-        implementations::plugin,
-        aabb::plugin,
+        calculations::plugin,
+        bounding::plugin,
     ));
-    app.configure_sets(
-        PostUpdate,
-        (
-            BuildFlag,
-            UpdateFlags,
-            AssignBindings,
-            AssignIndices,
-            BuildShaders,
-        )
-            .chain(),
-    );
-    app.sub_app_mut(RenderApp)
-        .configure_sets(ExtractSchedule, (PrepareExtract, Extract).chain());
 }
 
-#[derive(SystemSet, Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum ComdfExtractSet {
-    PrepareExtract,
-    Extract,
+#[derive(Component, Debug, Default, Clone)]
+#[require(Transform, SdfExtensions, SdfBoundingRadius)]
+pub struct Sdf {
+    flag: Flag,
+    indices: BTreeMap<u8, u32>,
 }
 
-#[derive(SystemSet, Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum ComdfPostUpdateSet {
-    BuildFlag,
-    UpdateFlags,
-    AssignBindings,
-    AssignIndices,
-    BuildShaders,
-}
+#[derive(Component, Debug, Default, Clone)]
+#[require(Sdf)]
+pub struct WorldSdf;
+
+#[derive(Component, Debug, Default, Clone)]
+#[require(Sdf)]
+pub struct UiSdf;

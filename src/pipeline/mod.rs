@@ -1,4 +1,3 @@
-use crate::flag::SdfFlags;
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     math::FloatOrd,
@@ -9,22 +8,21 @@ use bevy::{
             SortedPhaseItem,
         },
         render_resource::{CachedRenderPipelineId, SpecializedRenderPipelines},
+        sync_world::MainEntity,
         Render, RenderApp, RenderSet,
     },
     ui::TransparentUi,
 };
 use draw::DrawSdf;
-use extract::{extract_render_sdf, ExtractedSdfs};
-use queue::{prepare_sdfs, queue_sdfs, RenderPhaseBuffers};
+use queue::{cleanup_batches, prepare_sdfs, queue_sdfs, RenderPhaseBuffers};
 use specialization::{
-    add_new_sdf_to_pipeline, prepare_view_bind_groups, redo_bindgroups, write_comp_buffers,
-    write_phase_buffers, SdfPipeline, SdfSpecializationData,
+    prepare_view_bind_groups, write_phase_buffers, SdfPipeline, SdfSpecializationData,
 };
 
 mod draw;
-mod extract;
+pub mod extract;
 mod queue;
-mod specialization;
+pub mod specialization;
 
 #[derive(Debug, Clone, Copy, Hash, Default, PartialEq, Eq)]
 pub enum UsePipeline {
@@ -36,22 +34,23 @@ pub enum UsePipeline {
 #[derive(Debug, Component, PartialEq, Eq, Clone, Hash)]
 pub struct SdfPipelineKey {
     pipeline: UsePipeline,
-    flags: SdfFlags,
 }
 
 pub trait RenderPhase: Send + SortedPhaseItem + CachedRenderPipelinePhaseItem {
     fn phase_item(
         sort: f32,
-        entity: Entity,
+        entity: (Entity, MainEntity),
         pipeline: CachedRenderPipelineId,
         draw_function: DrawFunctionId,
     ) -> Self;
+
+    fn pipeline() -> UsePipeline;
 }
 
 impl RenderPhase for Transparent2d {
     fn phase_item(
         sort: f32,
-        entity: Entity,
+        entity: (Entity, MainEntity),
         pipeline: CachedRenderPipelineId,
         draw_function: DrawFunctionId,
     ) -> Self {
@@ -64,12 +63,16 @@ impl RenderPhase for Transparent2d {
             extra_index: PhaseItemExtraIndex::NONE,
         }
     }
+
+    fn pipeline() -> UsePipeline {
+        UsePipeline::World
+    }
 }
 
 impl RenderPhase for TransparentUi {
     fn phase_item(
         sort: f32,
-        entity: Entity,
+        entity: (Entity, MainEntity),
         pipeline: CachedRenderPipelineId,
         draw_function: DrawFunctionId,
     ) -> Self {
@@ -82,12 +85,17 @@ impl RenderPhase for TransparentUi {
             extra_index: PhaseItemExtraIndex::NONE,
         }
     }
+
+    fn pipeline() -> UsePipeline {
+        UsePipeline::Ui
+    }
 }
 
 pub struct PipelinePlugin;
 impl Plugin for PipelinePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
+            extract::plugin,
             render_phase_plugin::<Transparent2d>,
             render_phase_plugin::<TransparentUi>,
         ));
@@ -96,66 +104,84 @@ impl Plugin for PipelinePlugin {
             .configure_sets(
                 Render,
                 (
-                    ProcessEvents,
-                    Queue,
-                    WriteBuffers,
-                    PrepareBindgroups.after(RenderSet::PrepareBindGroups),
+                    Buffer,
+                    PrepareBindgroups,
+                    ((OpPreparation, Queue), ItemPreperation, WriteBuffers).chain(),
                 )
-                    .chain()
                     .after(RenderSet::ExtractCommands)
                     .before(RenderSet::Render),
             )
             .init_resource::<SpecializedRenderPipelines<SdfPipeline>>()
             .add_event::<SdfSpecializationData>()
-            .add_systems(
-                Render,
-                (
-                    add_new_sdf_to_pipeline.in_set(ProcessEvents),
-                    write_comp_buffers.in_set(WriteBuffers),
-                    (redo_bindgroups,).in_set(PrepareBindgroups),
-                ),
-            );
+            .add_systems(Render, cleanup_batches.in_set(RenderSet::Cleanup));
     }
 
     fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<SdfPipeline>();
-        }
+        let count = app.world().resource::<SdfCompInfos>().len() as u32;
+        let render = app.sub_app_mut(RenderApp);
+        let pipeline = SdfPipeline::new(render.world_mut(), count);
+        render.insert_resource(pipeline);
     }
 }
 
 #[derive(SystemSet, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ComdfRenderSet {
-    ProcessEvents,
+    Buffer,
+    OpPreparation,
     Queue,
+    ItemPreperation,
     WriteBuffers,
     PrepareBindgroups,
 }
+use crate::components::SdfCompInfos;
 use ComdfRenderSet::*;
 
 fn render_phase_plugin<P: RenderPhase>(app: &mut App) {
     app.sub_app_mut(RenderApp)
-        .init_resource::<ExtractedSdfs<P>>()
         .init_resource::<RenderPhaseBuffers<P>>()
         .add_render_command::<P, DrawSdf>()
-        .add_systems(ExtractSchedule, extract_render_sdf::<P>)
         .add_systems(
             Render,
             (
                 (queue_sdfs::<P>, prepare_sdfs::<P>).chain().in_set(Queue),
-                prepare_view_bind_groups::<P>.in_set(PrepareBindgroups),
                 write_phase_buffers::<P>.in_set(WriteBuffers),
+                prepare_view_bind_groups::<P>
+                    .in_set(PrepareBindgroups)
+                    .after(RenderSet::PrepareBindGroups),
             ),
         );
 }
 
 /*
-TransparentUi {
-                sort_key: (FloatOrd(sdf.sort), 0),
-                entity,
-                pipeline,
-                draw_function,
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::NONE,
+fn debug_whatever_the_fuck_is_going_on(
+    batch: Single<&SdfBatch>,
+    sdfs: Query<(&ExtractedSdf, &ExtractedRenderSdf)>,
+    op_buffers: Res<OpBuffers>,
+    comp_buffers: Single<EntityRef, With<BufferEntity>>,
+    buffer_fns: Res<DebugBufferFns>,
+) {
+    let ops = op_buffers.ops.get();
+    let indices = op_buffers.indices.get();
+    println!("DEBUG_THIS_NONSENSE");
+    println!("rendering {:?} sdfs", batch.range);
+
+    for (sdf, render) in &sdfs {
+        println!(" <<< NEXT >>> ");
+        println!("{:?}", sdf);
+        println!("{:?}", render);
+        for o in render.op_start_index..(render.op_start_index + render.op_count) {
+            let op = ops[o as usize];
+            assert_eq!(sdf.flag.0, op.flag);
+            println!("{:?}", op);
+            let indices: Vec<_> = (op.start_index..(op.start_index + op.flag.count_ones()))
+                .map(|i| indices[i as usize])
+                .collect();
+            println!("{:?}", indices);
+            for (i, index) in Flag(op.flag).into_iter().zip_eq(indices) {
+                (buffer_fns[i])(&comp_buffers, index);
             }
-*/
+        }
+    }
+}
+
+ */

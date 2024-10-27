@@ -9,11 +9,11 @@ fn main() {
 }
 
 fn spawn(mut cmds: Commands) {
-    cmds.spawn(Camera2dBundle::default());
+    cmds.spawn(Camera2d);
     cmds.spawn((
-        RenderSdfBundle::default(),
-        Point,
-        Added(50.),
+        WorldSdf,
+        Point { hi: 0. },
+        Rounded { rounded: 50. },
         Fill(css::SKY_BLUE.into()),
     ));
 }

@@ -1,8 +1,5 @@
 use bevy::{color::palettes::css, prelude::*};
-use bevy_comdf::{
-    implementations::operations::{Base, Subtract},
-    prelude::*,
-};
+use bevy_comdf::prelude::*;
 
 fn main() {
     App::new()
@@ -12,16 +9,25 @@ fn main() {
 }
 
 fn spawn(mut cmds: Commands) {
-    cmds.spawn(Camera2dBundle::default());
-    cmds.sdf(RenderSdfBundle::new())
-        .operation::<Base>((
-            BaseSdfBundle::default(),
-            Point,
-            Added(50.),
-            Fill(css::SKY_BLUE.into()),
+    cmds.spawn(Camera2d);
+
+    let subtract = cmds
+        .spawn((
+            Sdf::default(),
+            Transform::from_xyz(35., 10., 0.),
+            Quad {
+                half_size: Vec2::splat(30.),
+            },
+            Fill(css::REBECCA_PURPLE.into()),
+            Subtract::default(),
         ))
-        .operation::<Subtract>((
-            BaseSdfBundle::default().with_pos([35., 10.]),
-            Rectangle(Vec2::new(30., 30.)),
-        ));
+        .id();
+
+    cmds.spawn((
+        WorldSdf,
+        SdfExtensions(vec![subtract]),
+        Point::default(),
+        Rounded { rounded: 100. },
+        Fill(css::SKY_BLUE.into()),
+    ));
 }

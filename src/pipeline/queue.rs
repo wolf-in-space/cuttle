@@ -1,13 +1,15 @@
 use super::{
-    draw::DrawSdf, extract::ExtractedSdfs, specialization::SdfPipeline, RenderPhase, SdfPipelineKey,
+    draw::DrawSdf,
+    extract::{ExtractedRenderSdf, PipelineMarker},
+    specialization::SdfPipeline,
+    RenderPhase, SdfPipelineKey,
 };
 use bevy::{
     prelude::*,
     render::{
         render_phase::{DrawFunctions, ViewSortedRenderPhases},
-        render_resource::{
-            BufferUsages, PipelineCache, RawBufferVec, ShaderType, SpecializedRenderPipelines,
-        },
+        render_resource::{BufferUsages, PipelineCache, RawBufferVec, SpecializedRenderPipelines},
+        sync_world::MainEntity,
         view::ExtractedView,
     },
 };
@@ -15,7 +17,7 @@ use bytemuck::NoUninit;
 use std::{marker::PhantomData, ops::Range};
 
 pub(crate) fn queue_sdfs<P: RenderPhase>(
-    sdfs: Res<ExtractedSdfs<P>>,
+    sdfs: Query<(Entity, &MainEntity, &ExtractedRenderSdf), With<PipelineMarker<P>>>,
     views: Query<Entity, With<ExtractedView>>,
     sdf_pipeline: Res<SdfPipeline>,
     draw_functions: Res<DrawFunctions<P>>,
@@ -28,9 +30,20 @@ pub(crate) fn queue_sdfs<P: RenderPhase>(
         let Some(render_phase) = render_phases.get_mut(&view_entity) else {
             continue;
         };
-        for (&entity, sdf) in sdfs.iter() {
-            let pipeline = pipelines.specialize(&cache, &sdf_pipeline, sdf.key.clone());
-            render_phase.add(P::phase_item(sdf.sort, entity, pipeline, draw_function));
+        for (entity, main_entity, sdf) in sdfs.iter() {
+            let pipeline = pipelines.specialize(
+                &cache,
+                &sdf_pipeline,
+                SdfPipelineKey {
+                    pipeline: P::pipeline(),
+                },
+            );
+            render_phase.add(P::phase_item(
+                sdf.sort,
+                (entity, *main_entity),
+                pipeline,
+                draw_function,
+            ));
         }
     }
 }
@@ -38,21 +51,20 @@ pub(crate) fn queue_sdfs<P: RenderPhase>(
 #[derive(Component, Debug)]
 pub struct SdfBatch {
     pub range: Range<u32>,
-    pub key: SdfPipelineKey,
 }
 
-#[derive(Debug, ShaderType, NoUninit, Clone, Copy)]
+#[derive(Debug, NoUninit, Clone, Copy)]
 #[repr(C)]
 pub struct SdfInstance {
-    size: Vec2,
     pos: Vec2,
-    indices_start: u32,
+    bounding_radius: f32,
+    start_index: u32,
+    op_count: u32,
 }
 
 #[derive(Resource)]
 pub struct RenderPhaseBuffers<P: RenderPhase> {
     pub vertex: RawBufferVec<SdfInstance>,
-    pub indices: RawBufferVec<u32>,
     marker: PhantomData<P>,
 }
 
@@ -60,7 +72,6 @@ impl<P: RenderPhase> Default for RenderPhaseBuffers<P> {
     fn default() -> Self {
         Self {
             vertex: RawBufferVec::new(BufferUsages::VERTEX),
-            indices: RawBufferVec::new(BufferUsages::STORAGE),
             marker: PhantomData,
         }
     }
@@ -70,46 +81,44 @@ pub(crate) fn prepare_sdfs<P: RenderPhase>(
     mut cmds: Commands,
     mut phases: ResMut<ViewSortedRenderPhases<P>>,
     mut buffers: ResMut<RenderPhaseBuffers<P>>,
-    sdfs: Res<ExtractedSdfs<P>>,
+    sdfs: Query<&ExtractedRenderSdf>,
 ) {
     let mut batches = Vec::new();
-    buffers.indices.clear();
     buffers.vertex.clear();
 
     for transparent_phase in phases.values_mut() {
         let mut batch_index = 0;
-        let mut batch_key = None;
+        let mut batch = false;
 
         for index in 0..transparent_phase.items.len() {
             let item = &transparent_phase.items[index];
-            let Some(sdf) = sdfs.get(&item.entity()) else {
-                batch_key = None;
+            let Ok(sdf) = sdfs.get(item.entity()) else {
+                batch = false;
                 continue;
             };
 
-            if batch_key != Some(&sdf.key) {
+            if !batch {
+                batch = true;
                 batch_index = index;
-                batch_key = Some(&sdf.key);
                 let index = index as u32;
                 batches.push((
                     item.entity(),
                     SdfBatch {
-                        key: sdf.key.clone(),
                         range: index..index,
                     },
                 ));
             }
 
-            let indices_start = buffers.indices.len() as u32;
             let instance = SdfInstance {
-                size: sdf.aabb.size(),
-                pos: sdf.aabb.pos(),
-                indices_start,
+                bounding_radius: sdf.final_bounds.circle.radius,
+                pos: sdf.final_bounds.center,
+                start_index: sdf.op_start_index,
+                op_count: sdf.op_count,
             };
 
-            buffers.vertex.push(instance);
+            trace_once!("{instance:#?}");
 
-            buffers.indices.extend(sdf.indices.iter().copied());
+            buffers.vertex.push(instance);
 
             transparent_phase.items[batch_index].batch_range_mut().end += 1;
             batches.last_mut().unwrap().1.range.end += 1;
@@ -117,4 +126,10 @@ pub(crate) fn prepare_sdfs<P: RenderPhase>(
     }
 
     cmds.insert_or_spawn_batch(batches);
+}
+
+pub(super) fn cleanup_batches(batches: Query<Entity, With<SdfBatch>>, mut cmds: Commands) {
+    for entity in &batches {
+        cmds.entity(entity).remove::<SdfBatch>();
+    }
 }

@@ -1,30 +1,19 @@
-use bevy::{color::palettes::css, prelude::*};
-use bevy_comdf::components::buffer::SdfBuffer;
-use bevy_comdf::components::RegisterSdfRenderCompAppExt;
-use bevy_comdf::shader::calculations::SdfCalculation;
-use bevy_comdf::shader::lines::Lines;
-use bevy_comdf::shader::CompShaderInfo;
-use bevy_comdf::{
-    components::{buffer::BufferType, RenderSdfComponent},
-    implementations::calculations::Distance,
-    linefy,
-    prelude::*,
-};
+use bevy::{color::palettes::css, prelude::*, render::render_resource::ShaderType};
+use bevy_comdf::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, bevy_comdf::plugin))
+        .add_plugins((DefaultPlugins, bevy_comdf::plugin, do_a_wave))
         .add_systems(Startup, spawn)
-        .register_sdf_render_comp::<DoAWave>()
         .run();
 }
 
 fn spawn(mut cmds: Commands) {
-    cmds.spawn(Camera2dBundle::default());
+    cmds.spawn(Camera2d);
     cmds.spawn((
-        RenderSdfBundle::default(),
-        Point,
-        Added(250.),
+        WorldSdf,
+        Point::default(),
+        Rounded { rounded: 200. },
         DoAWave {
             amplitude: 50.,
             frequency: 10.,
@@ -33,35 +22,25 @@ fn spawn(mut cmds: Commands) {
     ));
 }
 
-#[derive(Clone, Component)]
+fn do_a_wave(app: &mut App) {
+    app.sdf::<DoAWave>().affect_aabb().register(4000);
+    app.add_sdf_shader(stringify!(
+        fn do_a_wave(comp: DoAWave) {
+            let norm = normalize(position);
+            let angle = atan(norm.y / norm.x);
+            distance += (sin(angle * comp.frequency) + 0.5) * comp.amplitude;
+        }
+    ));
+}
+
+#[derive(Clone, Debug, Default, Component, ShaderType, Reflect)]
 struct DoAWave {
     amplitude: f32,
     frequency: f32,
 }
 
-impl RenderSdfComponent for DoAWave {
-    fn shader_info() -> CompShaderInfo {
-        CompShaderInfo {
-            inputs: vec![
-                f32::shader_input("wave_amplitude"),
-                f32::shader_input("wave_frequency"),
-            ],
-            snippets: linefy! {
-                fn do_a_wave(pos: vec2<f32>, amp: f32, freq: f32) -> f32 {
-                    let norm = normalize(pos);
-                    let angle = atan(norm.y / norm.x);
-                    return (sin(angle * freq) + 0.5) * amp;
-                }
-            },
-            calculations: vec![Distance::calc(
-                2500,
-                "result.distance - do_a_wave(position, input.wave_amplitude, input.wave_frequency)",
-            )],
-        }
-    }
-
-    fn push_to_buffer(&self, render: &mut SdfBuffer) {
-        render.push(&self.amplitude);
-        render.push(&self.frequency);
+impl AddToBoundingRadius for DoAWave {
+    fn compute(&self) -> f32 {
+        self.amplitude
     }
 }

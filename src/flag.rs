@@ -1,124 +1,56 @@
-use crate::{operations::Operations, ComdfPostUpdateSet};
-use bevy::{prelude::*, utils::HashSet};
-use fixedbitset::FixedBitSet;
-use itertools::Itertools;
-use std::{array::from_fn, fmt::Debug, marker::PhantomData};
+use crate::components::SdfCompInfos;
+use bevy::prelude::*;
 
-pub fn plugin(app: &mut App) {
-    app.add_systems(
-        PostUpdate,
-        update_sdf_flags.in_set(ComdfPostUpdateSet::UpdateFlags),
-    )
-    .init_resource::<FlagsRegistry>()
-    .add_event::<NewSdfFlags>();
-}
+pub struct FlagPlugin;
+impl Plugin for FlagPlugin {
+    fn build(&self, _app: &mut App) {}
 
-#[derive(Default, Debug, Clone, Component, Hash, PartialEq, Eq)]
-pub struct SdfFlags {
-    pub flag: CompFlag,
-    pub operations: Vec<(OpFlag, CompFlag)>,
-}
-
-impl SdfFlags {
-    pub fn iter_comps(&self) -> impl Iterator<Item = &CompFlag> {
-        [&self.flag]
-            .into_iter()
-            .chain(self.operations.iter().map(|(_, f)| f))
-    }
-
-    pub fn iter_unique_comps(&self) -> impl Iterator<Item = &CompFlag> {
-        self.iter_comps().sorted().dedup()
+    fn finish(&self, app: &mut App) {
+        app.world_mut()
+            .resource_scope(|world, infos: Mut<SdfCompInfos>| {
+                infos.iter().enumerate().for_each(|(i, info)| {
+                    (info.insert_arena)(world, i as u8);
+                });
+            });
     }
 }
 
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct FlagsRegistry(HashSet<SdfFlags>);
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Flag(pub(crate) u32);
 
-fn update_sdf_flags(
-    mut hosts: Query<
-        (&Operations, &CompFlag, &mut SdfFlags),
-        Or<(Changed<Operations>, Changed<CompFlag>)>,
-    >,
-    targets: Query<&CompFlag>,
-    mut registry: ResMut<FlagsRegistry>,
-    mut new_sdf: EventWriter<NewSdfFlags>,
-) {
-    for (operations, flag, mut flags) in hosts.iter_mut() {
-        flags.operations.clear();
-        flags.flag = flag.clone();
-        for (target, info) in operations.iter().sorted_by_key(|(_, i)| i.order) {
-            let Ok(flag) = targets.get(*target) else {
-                error!("Operations Component held an Entry for Entity {target:?} which no longer exists / has the CompFlag Component");
-                continue;
-            };
-            flags
-                .operations
-                .push((info.operation.clone(), flag.clone()));
-        }
-        if !registry.contains(&flags.clone()) {
-            registry.insert(flags.clone());
-            new_sdf.send(NewSdfFlags(flags.clone()));
-        }
+impl Flag {
+    pub fn set(&mut self, position: u8) {
+        self.0 |= 1 << position;
+    }
+
+    pub fn unset(&mut self, position: u8) {
+        self.0 &= !(1 << position);
     }
 }
 
-#[derive(Event, Deref, Debug)]
-pub struct NewSdfFlags(pub SdfFlags);
+impl IntoIterator for Flag {
+    type IntoIter = FlagSetBitsIndexIterator;
+    type Item = usize;
 
-#[derive(Resource)]
-pub struct BitPosition<M> {
-    pub position: u8,
-    marker: PhantomData<M>,
-}
-
-impl<M> BitPosition<M> {
-    pub fn new(position: u8) -> Self {
-        Self {
-            position,
-            marker: PhantomData,
-        }
+    fn into_iter(self) -> Self::IntoIter {
+        FlagSetBitsIndexIterator { flag: self.0 }
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Component, Deref, DerefMut)]
-pub struct CompFlag(pub FixedBitSet);
-
-impl Default for CompFlag {
-    fn default() -> Self {
-        Self(FixedBitSet::with_capacity(64))
-    }
+pub struct FlagSetBitsIndexIterator {
+    flag: u32,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Component, Deref, DerefMut)]
-pub struct OpFlag(pub FixedBitSet);
+impl Iterator for FlagSetBitsIndexIterator {
+    type Item = usize;
 
-impl Default for OpFlag {
-    fn default() -> Self {
-        Self(FixedBitSet::with_capacity(64))
-    }
-}
-
-#[derive(Resource, Debug, Deref, DerefMut)]
-pub struct FlagStorage<T, const C: usize> {
-    #[deref]
-    pub(crate) storage: [T; C],
-    pub(crate) count: u8,
-}
-
-impl<T, const C: usize> FlagStorage<T, C> {
-    pub fn register(&mut self, value: T) -> u8 {
-        let i = self.count;
-        self.count += 1;
-        self.storage[i as usize] = value;
-        i
-    }
-}
-
-impl<T: Default, const C: usize> Default for FlagStorage<T, C> {
-    fn default() -> Self {
-        Self {
-            storage: from_fn(|_| T::default()),
-            count: 0,
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.flag == 0 {
+            None
+        } else {
+            let index = self.flag.trailing_zeros();
+            self.flag &= self.flag - 1;
+            Some(index as usize)
         }
     }
 }

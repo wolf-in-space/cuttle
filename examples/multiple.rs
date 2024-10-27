@@ -1,5 +1,6 @@
-use bevy::{color::palettes::css, prelude::*};
+use bevy::prelude::*;
 use bevy_comdf::prelude::*;
+use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
@@ -9,15 +10,30 @@ fn main() {
 }
 
 fn spawn(mut cmds: Commands) {
-    cmds.spawn(Camera2dBundle::default());
+    cmds.spawn(Camera2d);
     for i in 0..30 {
-        cmds.spawn((
+        let base = (
             Name::new(format!("[{} : {}]", i / 10, i % 10)),
-            RenderSdfBundle::new()
-                .with_pos([(i % 10) as f32 * 100. - 500., (i / 10) as f32 * 100. - 100.]),
-            Point,
-            Added(40.),
-            Fill(css::SKY_BLUE.into()),
-        ));
+            WorldSdf,
+            Transform::from_xyz(
+                (i % 10) as f32 * 100. - 500.,
+                (i / 10) as f32 * 100. - 100.,
+                0.,
+            ),
+            Fill(Color::srgb(
+                ((i % 10) + 1) as f32 * 0.1,
+                ((i / 10) + 1) as f32 * 0.333,
+                0.,
+            )),
+        );
+        match thread_rng().gen_range(0..2) {
+            0 => cmds.spawn((base, (Point::default(), Rounded { rounded: 40. }))),
+            _ => cmds.spawn((
+                base,
+                (Quad {
+                    half_size: Vec2::splat(40.),
+                },),
+            )),
+        };
     }
 }

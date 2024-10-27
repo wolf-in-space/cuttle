@@ -1,8 +1,3 @@
-use crate::{
-    linefy,
-    operations::{Operation, OperationInfo, RegisterSdfRenderOpAppExt},
-    shader::lines::Lines,
-};
 use bevy::app::App;
 
 pub fn plugin(app: &mut App) {

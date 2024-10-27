@@ -1,73 +1,83 @@
-use self::{
-    buffer::SdfBuffer,
-    extract::{extract_sdf_comp, CompOffsets},
-};
 use crate::{
-    flag::{BitPosition, CompFlag},
-    shader::{CompShaderInfo, CompShaderInfos},
-    utils::GetOrInitResourceWorldExt,
-    ComdfExtractSet,
+    initialization::{IntoRenderData, SdfRenderData},
+    Sdf,
 };
-use bevy::{prelude::*, render::RenderApp};
-use std::any::type_name;
+use arena::IndexArena;
+use bevy::{
+    prelude::*,
+    reflect::{StructInfo, TypeInfo},
+};
+use buffer::{BufferInfo, BufferPlugin};
 
+pub mod arena;
 pub mod buffer;
-pub mod colors;
-pub mod extract;
 
-pub fn plugin(app: &mut App) {
-    app.add_plugins(extract::plugin)
-        .init_resource::<CompOffsets>();
-}
+pub struct CompPlugin;
+impl Plugin for CompPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(BufferPlugin);
+    }
 
-pub trait RegisterSdfRenderCompAppExt {
-    fn register_sdf_render_comp<C: RenderSdfComponent>(&mut self) -> &mut Self;
-}
-
-impl RegisterSdfRenderCompAppExt for App {
-    fn register_sdf_render_comp<C: RenderSdfComponent>(&mut self) -> &mut Self {
-        let world = self.world_mut();
-        let mut infos = world.resource_or_init::<CompShaderInfos>();
-        let bit_index = infos.register(C::shader_info());
-
-        world.insert_resource(BitPosition::<C>::new(bit_index));
-        world.observe(set_flag_bit::<C, OnAdd, true>);
-        world.observe(set_flag_bit::<C, OnRemove, false>);
-
-        self.sub_app_mut(RenderApp).add_systems(
-            ExtractSchedule,
-            extract_sdf_comp::<C>.in_set(ComdfExtractSet::Extract),
-        );
-
-        trace!(
-            "Registered comp {}: index={}, {:#?}",
-            type_name::<C>(),
-            bit_index,
-            C::shader_info()
-        );
-
-        self
+    fn finish(&self, app: &mut App) {
+        app.world_mut()
+            .resource_mut::<SdfCompInfos>()
+            .sort_by_key(|s| s.order);
     }
 }
 
-pub fn set_flag_bit<COMP: Component, T, const SET: bool>(
-    trigger: Trigger<T, COMP>,
-    bit: Res<BitPosition<COMP>>,
-    mut flags: Query<&mut CompFlag>,
+#[derive(Debug)]
+pub struct SdfCompInfo {
+    pub name: &'static str,
+    pub structure: &'static StructInfo,
+    pub order: u32,
+    pub insert_arena: fn(&mut World, u8),
+    pub buffer: BufferInfo,
+}
+
+#[derive(Resource, Debug, Default, Deref, DerefMut)]
+pub struct SdfCompInfos(Vec<SdfCompInfo>);
+
+impl SdfCompInfos {
+    pub fn add<C: IntoRenderData<G>, G: SdfRenderData>(&mut self, order: u32) {
+        let TypeInfo::Struct(structure) = G::type_info() else {
+            panic!("Expected sdf component to be a Struct");
+        };
+
+        let Some(name) = G::type_ident() else {
+            panic!("Expected sdf component to have a name");
+        };
+
+        self.0.push(SdfCompInfo {
+            structure,
+            name,
+            order,
+            insert_arena: IndexArena::<C>::insert,
+            buffer: BufferInfo::new::<G>(),
+        });
+    }
+}
+
+pub(crate) fn set_flag_bit<C: Component, T, const SET: bool>(
+    trigger: Trigger<T, C>,
+    mut arena: ResMut<IndexArena<C>>,
+    mut flags: Query<&mut Sdf>,
 ) {
-    if let Ok(mut flag) = flags.get_mut(trigger.entity()) {
-        flag.set(bit.position as usize, SET)
+    if let Ok(mut sdf) = flags.get_mut(trigger.entity()) {
+        if SET {
+            let index = arena.get();
+            // println!(
+            //     "{}: pos={},i={},indices={:?}",
+            //     type_name::<C>(),
+            //     arena.position,
+            //     index,
+            //     sdf.indices
+            // );
+            sdf.flag.set(arena.position);
+            sdf.indices.insert(arena.position, index);
+        } else {
+            sdf.flag.unset(arena.position);
+            let id = sdf.indices.remove(&arena.position).unwrap();
+            arena.release(id);
+        }
     }
-}
-
-pub trait RenderSdfComponent: Sized + Component + Clone {
-    // fn set_flag_bit(mut query: Query<&mut CompFlag, With<Self>>, comp_bit: Res<BitPosition<Self>>) {
-    //     query.iter_mut().for_each(|mut flag| {
-    //         flag.set(comp_bit.position as usize, true);
-    //     });
-    // }
-
-    fn shader_info() -> CompShaderInfo;
-
-    fn push_to_buffer(&self, render: &mut SdfBuffer);
 }
