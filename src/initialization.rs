@@ -1,12 +1,12 @@
-use crate::bounding::apply_bounding;
-use crate::bounding::compute_aabb;
-use crate::bounding::AddToBoundingRadius;
+use crate::bounding::make_compute_aabb_sytem;
+use crate::bounding::BoundingSet;
 use crate::calculations::Calculation;
 use crate::calculations::Calculations;
 use crate::components::set_flag_bit;
 use crate::components::SdfCompInfos;
 use crate::pipeline::extract::extract_sdf_comp;
-use crate::shader::ShaderImports;
+use crate::shader::snippets::AddSnippet;
+use crate::shader::snippets::AddSnippets;
 use crate::utils::GetOrInitResourceWorldExt;
 use bevy::prelude::*;
 use bevy::reflect::Typed;
@@ -20,6 +20,7 @@ use std::marker::PhantomData;
 pub trait SdfAppExt {
     fn sdf<C: Component>(&mut self) -> SdfBuilder<C, C>;
     fn add_sdf_shader(&mut self, shader: impl Into<String>);
+    fn add_sdf_shader_file(&mut self, shader: impl Into<String>);
     fn add_sdf_calculation(&mut self, name: impl Into<String>, wgsl_type: impl Into<String>);
 }
 
@@ -33,8 +34,14 @@ impl SdfAppExt for App {
 
     fn add_sdf_shader(&mut self, shader: impl Into<String>) {
         self.world_mut()
-            .resource_or_init::<ShaderImports>()
-            .push(shader.into())
+            .resource_or_init::<AddSnippets>()
+            .push(AddSnippet::Inline(shader.into()));
+    }
+
+    fn add_sdf_shader_file(&mut self, path: impl Into<String>) {
+        self.world_mut()
+            .resource_or_init::<AddSnippets>()
+            .push(AddSnippet::File(path.into()));
     }
 
     fn add_sdf_calculation(&mut self, name: impl Into<String>, wgsl_type: impl Into<String>) {
@@ -63,12 +70,9 @@ impl<'app, C: Component, G> SdfBuilder<'app, C, G> {
         }
     }
 
-    pub fn affect_aabb(self) -> Self
-    where
-        C: AddToBoundingRadius,
-    {
+    pub fn affect_bounds(self, set: BoundingSet, func: fn(&C) -> f32) -> Self {
         self.app
-            .add_systems(PostUpdate, compute_aabb::<C>.before(apply_bounding));
+            .add_systems(PostUpdate, make_compute_aabb_sytem(func, set).in_set(set));
         self
     }
 }

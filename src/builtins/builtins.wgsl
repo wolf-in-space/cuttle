@@ -29,6 +29,10 @@ fn fill_render(input: FillRender) {
     color = input.color;
 }
 
+fn distance_gradient(input: DistanceGradient) {
+    color = input.color;
+}
+
 fn unioni(input: Unioni) {
     if prev_distance < distance {
         distance = prev_distance;
@@ -71,4 +75,15 @@ fn smooth_intersect(input: SmoothIntersect) {
     let distance_correction = input.smoothness * mix * (1.0 - mix);
     distance = mix(distance, prev_distance, mix) + distance_correction;
     color = mix(color, prev_color, mix);
+}
+
+fn repetition(input: Repetition) {
+    let scale = size / input.repetitions;
+    let clamp = input.repetitions - 1.0;
+    position -= scale * clamp(round(position / scale), -clamp, clamp);
+}
+
+fn morph(input: Morph) {
+    distance = mix(prev_distance, distance, input.morph);
+    color = mix(prev_color, color, input.morph);
 }

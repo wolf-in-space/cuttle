@@ -32,9 +32,10 @@ fn delete_and_spawn(current: Query<Entity, With<Point>>, mut cmds: Commands) {
             ),
             Point::default(),
             Rounded { rounded: 40. },
-            Fill(Color::srgb(
+            Fill(Srgba::new(
                 ((i % 10) + 1) as f32 * 0.1,
                 ((i / 10) + 1) as f32 * 0.333,
+                0.,
                 0.,
             )),
         ));

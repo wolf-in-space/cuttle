@@ -18,12 +18,14 @@ fn spawn(mut cmds: Commands) {
             amplitude: 50.,
             frequency: 10.,
         },
-        Fill(css::SKY_BLUE.into()),
+        Fill(css::SKY_BLUE),
     ));
 }
 
 fn do_a_wave(app: &mut App) {
-    app.sdf::<DoAWave>().affect_aabb().register(4000);
+    app.sdf::<DoAWave>()
+        .affect_bounds(BoundingSet::Add, |s| s.amplitude)
+        .register(4000);
     app.add_sdf_shader(stringify!(
         fn do_a_wave(comp: DoAWave) {
             let norm = normalize(position);
@@ -37,10 +39,4 @@ fn do_a_wave(app: &mut App) {
 struct DoAWave {
     amplitude: f32,
     frequency: f32,
-}
-
-impl AddToBoundingRadius for DoAWave {
-    fn compute(&self) -> f32 {
-        self.amplitude
-    }
 }

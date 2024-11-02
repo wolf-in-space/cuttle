@@ -20,9 +20,10 @@ fn spawn(mut cmds: Commands) {
                 (i / 10) as f32 * 100. - 100.,
                 0.,
             ),
-            Fill(Color::srgb(
+            Fill(Srgba::new(
                 ((i % 10) + 1) as f32 * 0.1,
                 ((i / 10) + 1) as f32 * 0.333,
+                0.,
                 0.,
             )),
         );

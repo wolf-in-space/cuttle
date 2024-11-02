@@ -36,9 +36,10 @@ fn spawn(mut cmds: Commands) {
                 ),
                 Point::default(),
                 Rounded { rounded: 1. },
-                Fill(Color::srgb(
+                Fill(Srgba::new(
                     f32::sin(x / 100.) + 0.5,
                     f32::cos(y / 100.) + 0.5,
+                    0.,
                     0.,
                 )),
             ));

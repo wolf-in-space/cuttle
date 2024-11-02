@@ -24,7 +24,7 @@ mod utils;
 
 pub mod prelude {
     pub use super::*;
-    pub use crate::bounding::AddToBoundingRadius;
+    pub use crate::bounding::BoundingSet;
     pub use crate::builtins::*;
     pub use crate::initialization::SdfAppExt;
     pub use crate::operations::SdfExtensions;
@@ -41,8 +41,8 @@ pub fn plugin(app: &mut App) {
     app.add_plugins((
         CompPlugin, //Needs to be first to ensure SdfCompInfos is sorted
         FlagPlugin,
-        ShaderPlugin,
         BuiltinsPlugin,
+        ShaderPlugin,
         PipelinePlugin,
         operations::plugin,
         calculations::plugin,

@@ -19,11 +19,12 @@ fn vertex(input: VertexIn) -> VertexOut {
     let vertex_direction = vec2<f32>(vertex_x, vertex_y);
 
     var out: VertexOut;
-    out.world_position = vertex_direction * input.bounding_radius * 2.0;
+    out.world_position = vertex_direction * input.bounding_radius * 4.0;
     out.world_position += input.translation;
     out.position = view.clip_from_world * vec4(out.world_position, 0.0, 1.0);
     out.start_index = input.start_index;
     out.op_count = input.op_count;
+    out.size = input.bounding_radius;
 
     return out;
 }

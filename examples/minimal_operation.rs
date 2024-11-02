@@ -18,7 +18,7 @@ fn spawn(mut cmds: Commands) {
             Quad {
                 half_size: Vec2::splat(30.),
             },
-            Fill(css::REBECCA_PURPLE.into()),
+            Fill(css::REBECCA_PURPLE),
             Subtract::default(),
         ))
         .id();
@@ -28,6 +28,6 @@ fn spawn(mut cmds: Commands) {
         SdfExtensions(vec![subtract]),
         Point::default(),
         Rounded { rounded: 100. },
-        Fill(css::SKY_BLUE.into()),
+        Fill(css::SKY_BLUE),
     ));
 }

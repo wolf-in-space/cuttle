@@ -6,17 +6,23 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies.bevy]
-version = "0.15.0-rc.1"
-# git = "https://github.com/bevyengine/bevy"
-# branch = "main"
+version = "0.15.0-rc.2"
 default-features = false
-features = ["bevy_asset", "bevy_render", "bevy_core_pipeline", "bevy_ui", "x11"]
+features = [
+    "bevy_asset",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_ui",
+    "x11",
+    "bevy_gizmos",
+]
 
 [dependencies]
 bytemuck = "1"
 itertools = "0.13"
 convert_case = "0.6"
+serde = "1"
+derive_more = "1"
 
 [dev-dependencies]
 rand = "0.8"
-# bevy_editor_pls = "0"

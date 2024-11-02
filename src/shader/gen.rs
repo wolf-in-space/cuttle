@@ -1,4 +1,4 @@
-use super::{wgsl_struct::WgslTypeInfos, ShaderImports};
+use super::wgsl_struct::WgslTypeInfos;
 use crate::{calculations::Calculations, components::SdfCompInfos};
 use convert_case::{Case, Casing};
 use std::fmt::Write;
@@ -7,15 +7,14 @@ pub fn gen_shader(
     infos: &SdfCompInfos,
     wgsl_types: &WgslTypeInfos,
     calcs: &Calculations,
-    imports: &ShaderImports,
+    snippets: String,
 ) -> String {
     let export = "#define_import_path bevy_comdf::gen\n";
-    let imports = shader_imports(imports);
     let selector = comp_selector(infos);
     let stuff = structs_and_bindings(infos, wgsl_types);
     let calcs = calculations(calcs);
 
-    let shader = format!("{export}\n{stuff}\n{calcs}\n{imports}\n{selector}");
+    let shader = format!("{export}\n{stuff}\n{calcs}\n{snippets}\n{selector}");
     // println!("{shader}");
     shader
 }
@@ -28,10 +27,6 @@ fn calculations(calcs: &Calculations) -> String {
             Ok::<_, std::fmt::Error>(result)
         })
         .unwrap()
-}
-
-fn shader_imports(imports: &ShaderImports) -> String {
-    imports.iter().cloned().collect()
 }
 
 fn comp_selector(infos: &SdfCompInfos) -> String {

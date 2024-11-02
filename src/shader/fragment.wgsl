@@ -11,6 +11,7 @@ struct Op {
 
 @fragment
 fn fragment(vert: VertexOut) -> @location(0) vec4<f32> {
+	gen::size = vert.size;
     for (var i: u32 = vert.start_index; i < vert.start_index + vert.op_count; i++) {
 		gen::position = vert.world_position;
 		gen::prev_distance = gen::distance;

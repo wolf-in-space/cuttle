@@ -128,9 +128,6 @@ fn build_op_buffer(
             add_op(ops, sdf);
         }
     }
-
-    trace!("SdfIndices: {indices:#?}");
-    trace!("SdfOps: {ops:#?}");
 }
 
 fn build_op_bindgroups(

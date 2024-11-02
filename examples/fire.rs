@@ -17,7 +17,7 @@ fn spawn(mut cmds: Commands) {
             WorldSdf,
             Point::default(),
             Rounded { rounded: 275. },
-            Fill(css::ORANGE_RED.into()),
+            Fill(css::ORANGE_RED),
         ))
         .id();
     cmds.spawn((
@@ -27,13 +27,15 @@ fn spawn(mut cmds: Commands) {
             frequency: 0.17,
             time: 0.,
         },
-        Fill(css::ORANGE_RED.into()),
+        Fill(css::ORANGE_RED),
         SmoothIntersect { smoothness: 75. },
     ));
 }
 
 fn add_sdf_comp(app: &mut App) {
-    app.sdf::<Fire>().affect_aabb().register(4000);
+    app.sdf::<Fire>()
+        .affect_bounds(BoundingSet::Add, |s| s.amplitude)
+        .register(4000);
     // app.add_sdf_shader(stringify!(
     //     fn fire(comp: Fire) {
     //         let norm = normalize(position);
@@ -62,10 +64,4 @@ struct Fire {
     amplitude: f32,
     frequency: f32,
     time: f32,
-}
-
-impl AddToBoundingRadius for Fire {
-    fn compute(&self) -> f32 {
-        self.amplitude
-    }
 }

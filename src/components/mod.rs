@@ -19,9 +19,10 @@ impl Plugin for CompPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        app.world_mut()
-            .resource_mut::<SdfCompInfos>()
-            .sort_by_key(|s| s.order);
+        let mut infos = app.world_mut().resource_mut::<SdfCompInfos>();
+        infos.sort_by_key(|s| s.order);
+        let len = infos.len() as u32;
+        app.world_mut().insert_resource(SdfCompCount(len));
     }
 }
 
@@ -36,6 +37,9 @@ pub struct SdfCompInfo {
 
 #[derive(Resource, Debug, Default, Deref, DerefMut)]
 pub struct SdfCompInfos(Vec<SdfCompInfo>);
+
+#[derive(Resource, Debug, Default)]
+pub struct SdfCompCount(pub u32);
 
 impl SdfCompInfos {
     pub fn add<C: IntoRenderData<G>, G: SdfRenderData>(&mut self, order: u32) {

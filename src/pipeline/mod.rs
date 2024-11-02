@@ -1,3 +1,4 @@
+use crate::components::SdfCompCount;
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     math::FloatOrd,
@@ -117,7 +118,7 @@ impl Plugin for PipelinePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let count = app.world().resource::<SdfCompInfos>().len() as u32;
+        let count = app.world().resource::<SdfCompCount>().0;
         let render = app.sub_app_mut(RenderApp);
         let pipeline = SdfPipeline::new(render.world_mut(), count);
         render.insert_resource(pipeline);
@@ -133,7 +134,6 @@ pub enum ComdfRenderSet {
     WriteBuffers,
     PrepareBindgroups,
 }
-use crate::components::SdfCompInfos;
 use ComdfRenderSet::*;
 
 fn render_phase_plugin<P: RenderPhase>(app: &mut App) {

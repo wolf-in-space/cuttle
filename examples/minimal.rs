@@ -14,6 +14,6 @@ fn spawn(mut cmds: Commands) {
         WorldSdf,
         Point { hi: 0. },
         Rounded { rounded: 50. },
-        Fill(css::SKY_BLUE.into()),
+        Fill(css::SKY_BLUE),
     ));
 }

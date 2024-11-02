@@ -1,17 +1,23 @@
-use bevy::{asset::embedded_asset, prelude::*};
+use crate::{calculations::Calculations, components::SdfCompInfos};
+use bevy::{
+    asset::{embedded_asset, io::Reader, AssetLoader, LoadContext, LoadDirectError},
+    prelude::*,
+};
+use derive_more::derive::{Display, Error, From};
 use gen::gen_shader;
+use snippets::{AddSnippet, AddSnippets, Snippet, SnippetPlugin};
 use wgsl_struct::WgslTypeInfos;
 
-use crate::{calculations::Calculations, components::SdfCompInfos};
-
 pub mod gen;
+pub mod snippets;
 pub mod wgsl_struct;
 
 pub struct ShaderPlugin;
 impl Plugin for ShaderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(wgsl_struct::plugin);
-        app.init_resource::<ShaderImports>();
+        app.add_plugins((wgsl_struct::plugin, SnippetPlugin));
+
+        embedded_asset!(app, "dummy.dummy");
 
         embedded_asset!(app, "common.wgsl");
         embedded_asset!(app, "vertex.wgsl");
@@ -20,29 +26,76 @@ impl Plugin for ShaderPlugin {
 
     fn finish(&self, app: &mut App) {
         let world = app.world_mut();
-        let infos = world.resource::<SdfCompInfos>();
 
-        let wgsl_types = world.resource::<WgslTypeInfos>();
-        let shader_imports = world.resource::<ShaderImports>();
-        let calculations = world.resource::<Calculations>();
+        let infos = world.remove_resource::<SdfCompInfos>().unwrap();
+        let wgsl_types = world.remove_resource::<WgslTypeInfos>().unwrap();
+        let calcs = world.remove_resource::<Calculations>().unwrap();
+        let snippets = world.remove_resource::<AddSnippets>().unwrap();
 
-        let definitions = gen_shader(infos, wgsl_types, calculations, shader_imports);
-        let definitions = Shader::from_wgsl(
-            definitions,
-            format!("Generated at {} | {}", file!(), line!()),
-        );
+        let loader = ShaderLoader {
+            infos,
+            wgsl_types,
+            calcs,
+            snippets,
+        };
 
-        let mut shaders = world.resource_mut::<Assets<Shader>>();
-        let definitions = shaders.add(definitions);
+        let assets = world.resource_mut::<AssetServer>();
+        assets.register_loader(loader);
+        let shader = assets.load("embedded://bevy_comdf/shader/dummy.dummy");
 
-        world.insert_resource(GeneratedShaders { definitions });
+        world.insert_resource(GeneratedShader { shader });
     }
 }
 
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct ShaderImports(Vec<String>);
+#[derive(Asset, Reflect)]
+pub struct SdfShaderImport(String);
 
 #[derive(Resource)]
-pub struct GeneratedShaders {
-    pub definitions: Handle<Shader>,
+pub struct GeneratedShader {
+    pub shader: Handle<Shader>,
+}
+
+struct ShaderLoader {
+    infos: SdfCompInfos,
+    wgsl_types: WgslTypeInfos,
+    calcs: Calculations,
+    snippets: AddSnippets,
+}
+
+#[derive(Debug, Error, Display, From)]
+enum ShaderLoaderError {
+    Load(LoadDirectError),
+}
+
+impl AssetLoader for ShaderLoader {
+    type Asset = Shader;
+    type Settings = ();
+    type Error = ShaderLoaderError;
+
+    async fn load(
+        &self,
+        _reader: &mut dyn Reader,
+        _settings: &(),
+        load_context: &mut LoadContext<'_>,
+    ) -> Result<Self::Asset, Self::Error> {
+        let mut snippets = String::new();
+        for add in self.snippets.iter() {
+            let Snippet(snippet) = match add {
+                AddSnippet::Inline(snippet) => Snippet(snippet.clone()),
+                AddSnippet::File(path) => {
+                    load_context.loader().immediate().load(path).await?.take()
+                }
+            };
+            snippets.push_str(&snippet);
+        }
+
+        let shader = gen_shader(&self.infos, &self.wgsl_types, &self.calcs, snippets);
+        let shader = Shader::from_wgsl(shader, format!("Generated at {} | {}", file!(), line!()));
+
+        Ok(shader)
+    }
+
+    fn extensions(&self) -> &[&str] {
+        &["dummy"]
+    }
 }

@@ -19,7 +19,7 @@ use bevy::{
     },
     ui::TransparentUi,
 };
-use std::{any::type_name, marker::PhantomData};
+use std::marker::PhantomData;
 use std::{collections::BTreeMap, fmt::Debug};
 
 pub fn plugin(app: &mut App) {
@@ -46,13 +46,6 @@ pub(crate) fn extract_sdf_comp<C: Component + IntoRenderData<G>, G: SdfRenderDat
         let elem = buffer.get_mut(index).unwrap();
         *elem = C::into_render_data(comp);
     }
-
-    trace_once!(
-        "SdfIndexArena for {}: {:#?}",
-        type_name::<G>(),
-        arena.as_ref()
-    );
-    trace_once!("SdfBuffer for {}: {:#?}", type_name::<G>(), &buffer);
 }
 
 fn extract_sdf_extensions(
@@ -149,7 +142,11 @@ impl ExtractComponent for Sdf {
         &'static SdfBoundingRadius,
         &'static GlobalTransform,
     );
-    type QueryFilter = Or<(Changed<Sdf>, Changed<SdfBoundingRadius>)>;
+    type QueryFilter = Or<(
+        Changed<Sdf>,
+        Changed<SdfBoundingRadius>,
+        Changed<GlobalTransform>,
+    )>;
     type Out = ExtractedSdf;
 
     fn extract_component(

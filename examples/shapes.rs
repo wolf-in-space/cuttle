@@ -17,7 +17,7 @@ fn spawn(mut cmds: Commands) {
         WorldSdf,
         Point::default(),
         Rounded { rounded: 50. },
-        Fill(css::RED.into()),
+        Fill(css::RED),
     ));
 
     cmds.spawn((
@@ -27,7 +27,7 @@ fn spawn(mut cmds: Commands) {
         Point::default(),
         Rounded { rounded: 15. },
         Annular { annular: 15. },
-        Fill(css::REBECCA_PURPLE.into()),
+        Fill(css::REBECCA_PURPLE),
     ));
 
     cmds.spawn((
@@ -36,7 +36,7 @@ fn spawn(mut cmds: Commands) {
         Transform::from_xyz(0., -200., 0.),
         Point::default(),
         Rounded { rounded: 50. },
-        Fill(css::BLACK.into()),
+        Fill(css::BLACK),
         // Gradient {
         //     color: css::MEDIUM_ORCHID.into(),
         //     intervall: 1.,
@@ -51,7 +51,7 @@ fn spawn(mut cmds: Commands) {
             half_size: Vec2::splat(30.),
         },
         Rounded { rounded: 20. },
-        Fill(css::TURQUOISE.into()),
+        Fill(css::TURQUOISE),
     ));
 
     cmds.spawn((
@@ -61,7 +61,7 @@ fn spawn(mut cmds: Commands) {
         Quad {
             half_size: Vec2::splat(50.),
         },
-        Fill(css::GREEN.into()),
+        Fill(css::GREEN),
     ));
 
     cmds.spawn((
@@ -71,7 +71,7 @@ fn spawn(mut cmds: Commands) {
         Quad {
             half_size: Vec2::new(70., 30.),
         },
-        Fill(css::LAWN_GREEN.into()),
+        Fill(css::LAWN_GREEN),
     ));
 
     cmds.spawn((
@@ -83,7 +83,7 @@ fn spawn(mut cmds: Commands) {
         },
         Rounded { rounded: 10. },
         Annular { annular: 10. },
-        Fill(css::STEEL_BLUE.into()),
+        Fill(css::STEEL_BLUE),
     ));
 
     cmds.spawn((
@@ -94,7 +94,7 @@ fn spawn(mut cmds: Commands) {
             half_size: Vec2::splat(30.),
         },
         Rounded { rounded: 20. },
-        Fill(css::ROYAL_BLUE.into()),
+        Fill(css::ROYAL_BLUE),
     ));
 
     cmds.spawn((
@@ -104,7 +104,7 @@ fn spawn(mut cmds: Commands) {
         Line { length: 32. },
         Annular { annular: 10. },
         Rounded { rounded: 22. },
-        Fill(css::CADET_BLUE.into()),
+        Fill(css::CADET_BLUE),
         // Gradient {
         //     color: css::BLACK.into(),
         //     intervall: 1.25,
@@ -117,7 +117,7 @@ fn spawn(mut cmds: Commands) {
         Transform::from_xyz(200., 0., 0.),
         Line { length: 32. },
         Rounded { rounded: 32. },
-        Fill(css::BLUE.into()),
+        Fill(css::BLUE),
     ));
 
     cmds.spawn((
@@ -127,6 +127,6 @@ fn spawn(mut cmds: Commands) {
         Line { length: 32. },
         Annular { annular: 10. },
         Rounded { rounded: 22. },
-        Fill(css::LIGHT_YELLOW.into()),
+        Fill(css::LIGHT_YELLOW),
     ));
 }
