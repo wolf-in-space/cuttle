@@ -1,8 +1,7 @@
-use std::f32::consts::PI;
-
 use bevy::{color::palettes::tailwind, prelude::*};
 use bevy_comdf::prelude::*;
 use operations::ExtendSdf;
+use std::f32::consts::PI;
 
 fn main() {
     App::new()
@@ -31,34 +30,36 @@ fn spawn(mut cmds: Commands) {
     morph2(&mut cmds, [600., 100.], 2.0);
     morph2(&mut cmds, [700., 100.], 3.0);
 
-    box_op_circle::<Unioni>(&mut cmds, [-300., 300.]);
-    box_op_circle::<SmoothUnion>(&mut cmds, [-300., 200.]);
-    box_op_circle::<Subtract>(&mut cmds, [-400., 300.]);
-    box_op_circle::<SmoothSubtract>(&mut cmds, [-400., 200.]);
-    box_op_circle::<Intersect>(&mut cmds, [-500., 300.]);
-    box_op_circle::<SmoothIntersect>(&mut cmds, [-500., 200.]);
+    box_op_circle::<Unioni>(&mut cmds, [-100., 250.]);
+    box_op_circle::<SmoothUnion>(&mut cmds, [-100., 100.]);
+    box_op_circle::<Subtract>(&mut cmds, [-250., 250.]);
+    box_op_circle::<SmoothSubtract>(&mut cmds, [-250., 100.]);
+    box_op_circle::<Intersect>(&mut cmds, [-400., 250.]);
+    box_op_circle::<SmoothIntersect>(&mut cmds, [-400., 100.]);
+    box_op_circle::<Xor>(&mut cmds, [-550., 250.]);
+    box_op_circle::<SmoothXor>(&mut cmds, [-550., 100.]);
 
-    spin::<SmoothUnion>(&mut cmds, -400., |cmds, x| {
+    spin::<SmoothUnion>(&mut cmds, -300., |cmds, x| {
         cmds.spawn((
             WorldSdf,
             Quad {
                 half_size: Vec2::new(15., 220.),
             },
             Transform::from_xyz(x, -320., 0.),
-            Fill(tailwind::AMBER_400),
+            Fill(tailwind::GRAY_100),
             Rotate { speed: 0.2 },
         ))
         .id()
     });
 
-    spin::<SmoothSubtract>(&mut cmds, 400., |cmds, x| {
+    spin::<SmoothSubtract>(&mut cmds, 300., |cmds, x| {
         cmds.spawn((
             WorldSdf,
             Quad {
                 half_size: Vec2::new(100., 220.),
             },
             Transform::from_xyz(x, -320., 0.),
-            Fill(tailwind::AMBER_400),
+            Fill(tailwind::GRAY_100),
             Rotate { speed: 0.2 },
         ))
         .id()
@@ -234,11 +235,11 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
         .id();
     cmds.spawn((
         ExtendSdf::new(sdf),
-        Transform::from_xyz(pos.x + 20., pos.y + 20., 0.),
+        Transform::from_xyz(pos.x, pos.y, 0.),
         Quad {
-            half_size: Vec2::splat(20.),
+            half_size: Vec2::splat(25.),
         },
-        Fill(tailwind::SKY_400),
+        Fill(tailwind::FUCHSIA_400),
         O::default(),
         MovingBox,
         DistanceGradient {

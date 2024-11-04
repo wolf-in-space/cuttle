@@ -107,7 +107,7 @@ impl Plugin for PipelinePlugin {
                 (
                     Buffer,
                     PrepareBindgroups,
-                    ((OpPreparation, Queue), ItemPreperation, WriteBuffers).chain(),
+                    (OpPreparation, Queue, ItemPreperation, WriteBuffers).chain(),
                 )
                     .after(RenderSet::ExtractCommands)
                     .before(RenderSet::Render),
@@ -143,7 +143,8 @@ fn render_phase_plugin<P: RenderPhase>(app: &mut App) {
         .add_systems(
             Render,
             (
-                (queue_sdfs::<P>, prepare_sdfs::<P>).chain().in_set(Queue),
+                queue_sdfs::<P>.in_set(Queue),
+                prepare_sdfs::<P>.in_set(ItemPreperation),
                 write_phase_buffers::<P>.in_set(WriteBuffers),
                 prepare_view_bind_groups::<P>
                     .in_set(PrepareBindgroups)

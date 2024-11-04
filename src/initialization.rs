@@ -71,20 +71,13 @@ impl<'app, C: Component, G> SdfBuilder<'app, C, G> {
     }
 
     pub fn affect_bounds(self, set: BoundingSet, func: fn(&C) -> f32) -> Self {
-        self.app
-            .add_systems(PostUpdate, make_compute_aabb_sytem(func, set).in_set(set));
+        self.app.add_systems(
+            PostUpdate,
+            make_compute_aabb_sytem(func, set)
+                .ambiguous_with_all()
+                .in_set(set),
+        );
         self
-    }
-}
-
-pub trait IntoRenderData<G>: Sync + Send + 'static {
-    fn into_render_data(input: &Self) -> G;
-}
-
-impl<C: Clone + SdfRenderData> IntoRenderData<C> for C {
-    #[inline(always)]
-    fn into_render_data(input: &C) -> C {
-        input.clone()
     }
 }
 
@@ -109,5 +102,16 @@ impl<'app, C: Component + IntoRenderData<G>, G: SdfRenderData> SdfBuilder<'app, 
         );
 
         self.app
+    }
+}
+
+pub trait IntoRenderData<G>: Sync + Send + 'static {
+    fn into_render_data(input: &Self) -> G;
+}
+
+impl<C: Clone + SdfRenderData> IntoRenderData<C> for C {
+    #[inline(always)]
+    fn into_render_data(input: &C) -> C {
+        input.clone()
     }
 }

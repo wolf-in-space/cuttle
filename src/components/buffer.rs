@@ -19,7 +19,10 @@ impl Plugin for BufferPlugin {
             .init_resource::<CompBufferBindgroup>()
             .add_systems(
                 Render,
-                (write_comp_buffers, build_buffer_bindgroup)
+                (
+                    write_comp_buffers.ambiguous_with_all(),
+                    build_buffer_bindgroup,
+                )
                     .chain()
                     .in_set(ComdfRenderSet::Buffer),
             );

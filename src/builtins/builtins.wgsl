@@ -30,7 +30,7 @@ fn fill_render(input: FillRender) {
 }
 
 fn distance_gradient(input: DistanceGradient) {
-    color = input.color;
+    color = mix(color, input.color, cos(distance * input.intervall));
 }
 
 fn unioni(input: Unioni) {
@@ -42,11 +42,7 @@ fn unioni(input: Unioni) {
 
 fn subtract(input: Subtract) {
     color = prev_color;
-    if prev_distance > -distance {
-        distance = prev_distance;
-    } else {
-        distance = -distance;
-    }
+    distance = max(prev_distance, -distance);
 }
 
 fn intersect(input: Intersect) {
@@ -54,6 +50,15 @@ fn intersect(input: Intersect) {
         distance = prev_distance;
         color = prev_color;
     }
+}
+
+fn xor(input: Xor) {
+    var inter: f32 = max(prev_distance, distance);
+    if prev_distance < distance {
+        distance = prev_distance;
+        color = prev_color;
+    } 
+    distance = max(distance, -inter);
 }
 
 fn smooth_union(input: SmoothUnion) {
@@ -75,6 +80,18 @@ fn smooth_intersect(input: SmoothIntersect) {
     let distance_correction = input.smoothness * mix * (1.0 - mix);
     distance = mix(distance, prev_distance, mix) + distance_correction;
     color = mix(color, prev_color, mix);
+}
+
+fn smooth_xor(input: SmoothXor) {
+    var inter: f32 = max(prev_distance, distance);
+    if prev_distance > distance {
+        prev_distance = distance;
+        color = prev_color;
+    } 
+    distance = inter;
+    let mix = clamp(0.5 - 0.5 * (distance + prev_distance) / input.smoothness, 0.0, 1.0);
+    let distance_correction = input.smoothness * mix * (1.0 - mix);
+    distance = mix(prev_distance, -distance, mix) + distance_correction;
 }
 
 fn repetition(input: Repetition) {

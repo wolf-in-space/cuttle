@@ -22,7 +22,7 @@ impl Plugin for BuiltinsPlugin {
             .affect_bounds(BoundingSet::Add, |s| s.annular)
             .register(3100);
         app.sdf::<Fill>().render_data::<FillRender>().register(5000);
-        app.sdf::<DistanceGradient>().register(5100);
+        app.sdf::<DistanceGradient>().register(500100);
         app.sdf::<Point>().register(2000);
         app.sdf::<Quad>()
             .affect_bounds(BoundingSet::Add, |s| s.half_size.length())
@@ -39,9 +39,11 @@ impl Plugin for BuiltinsPlugin {
         app.sdf::<Unioni>().register(10100);
         app.sdf::<Subtract>().register(10200);
         app.sdf::<Intersect>().register(10300);
-        app.sdf::<SmoothUnion>().register(10400);
-        app.sdf::<SmoothSubtract>().register(10500);
-        app.sdf::<SmoothIntersect>().register(10600);
+        app.sdf::<Xor>().register(10400);
+        app.sdf::<SmoothUnion>().register(10500);
+        app.sdf::<SmoothSubtract>().register(10600);
+        app.sdf::<SmoothIntersect>().register(10700);
+        app.sdf::<SmoothXor>().register(10800);
         app.sdf::<Repetition>()
             .affect_bounds(BoundingSet::Mult, |s| {
                 s.repetitions.max_element() * s.scale * 2.0
@@ -136,6 +138,12 @@ pub struct Intersect {
     pub hi: u32,
 }
 
+#[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
+#[reflect(Component)]
+pub struct Xor {
+    pub hi: u32,
+}
+
 #[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
 pub struct SmoothUnion {
@@ -167,6 +175,18 @@ pub struct SmoothIntersect {
 }
 
 impl Default for SmoothIntersect {
+    fn default() -> Self {
+        Self { smoothness: 25. }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
+#[reflect(Component)]
+pub struct SmoothXor {
+    pub smoothness: f32,
+}
+
+impl Default for SmoothXor {
     fn default() -> Self {
         Self { smoothness: 25. }
     }
