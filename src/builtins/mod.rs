@@ -1,62 +1,33 @@
-use crate::{
-    initialization::{IntoRenderData, SdfAppExt},
-    prelude::BoundingSet,
-};
+pub(crate) mod groups;
+
+use crate::components::initialization::{SdfComponent, SdfRenderDataFrom};
+use crate::prelude::BoundingSet;
 use bevy::{asset::embedded_asset, prelude::*, render::render_resource::ShaderType};
 
 pub struct BuiltinsPlugin;
 impl Plugin for BuiltinsPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "builtins.wgsl");
-        app.add_sdf_shader_file("embedded://bevy_comdf/builtins/builtins.wgsl");
-
-        app.add_sdf_calculation("world_position", "vec2<f32>");
-        app.add_sdf_calculation("position", "vec2<f32>");
-        app.add_sdf_calculation("distance", "f32");
-        app.add_sdf_calculation("size", "f32");
-        app.add_sdf_calculation("color", "vec3<f32>");
-        app.add_sdf_calculation("prev_distance", "f32");
-        app.add_sdf_calculation("prev_color", "vec3<f32>");
-
-        app.sdf::<Annular>()
-            .affect_bounds(BoundingSet::Add, |s| s.annular)
-            .register(3100);
-        app.sdf::<Fill>().render_data::<FillRender>().register(5000);
-        app.sdf::<DistanceGradient>().register(500100);
-        app.sdf::<Point>().register(2000);
-        app.sdf::<Quad>()
-            .affect_bounds(BoundingSet::Add, |s| s.half_size.length())
-            .register(2200);
-        app.sdf::<GlobalTransform>()
-            .render_data::<GlobalTransformRender>()
-            .register(1000);
-        app.sdf::<Line>()
-            .affect_bounds(BoundingSet::Add, |s| s.length)
-            .register(2100);
-        app.sdf::<Rounded>()
-            .affect_bounds(BoundingSet::Add, |s| s.rounded)
-            .register(3000);
-        app.sdf::<Unioni>().register(10100);
-        app.sdf::<Subtract>().register(10200);
-        app.sdf::<Intersect>().register(10300);
-        app.sdf::<Xor>().register(10400);
-        app.sdf::<SmoothUnion>().register(10500);
-        app.sdf::<SmoothSubtract>().register(10600);
-        app.sdf::<SmoothIntersect>().register(10700);
-        app.sdf::<SmoothXor>().register(10800);
-        app.sdf::<Repetition>()
-            .affect_bounds(BoundingSet::Mult, |s| {
-                s.repetitions.max_element() * s.scale * 2.0
-            })
-            .register(1100);
-        app.sdf::<Morph>().register(11000);
+        app.add_plugins(groups::plugin);
     }
 }
+
+pub const DISTANCE_POS: u32 = 3000;
 
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
 pub struct Rounded {
     pub rounded: f32,
+}
+
+impl SdfComponent for Rounded {
+    type RenderData = Self;
+    const AFFECT_BOUNDS: BoundingSet = BoundingSet::Add;
+    const SORT: u32 = DISTANCE_POS + 100;
+
+    fn affect_bounds(comp: &Self) -> f32 {
+        comp.rounded
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
@@ -65,10 +36,27 @@ pub struct Annular {
     pub annular: f32,
 }
 
+impl SdfComponent for Annular {
+    type RenderData = Self;
+    const AFFECT_BOUNDS: BoundingSet = BoundingSet::Add;
+    const SORT: u32 = DISTANCE_POS + 200;
+
+    fn affect_bounds(comp: &Self) -> f32 {
+        comp.annular
+    }
+}
+
+pub const BASE_POS: u32 = 2000;
+
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
 pub struct Point {
     pub hi: f32,
+}
+
+impl SdfComponent for Point {
+    type RenderData = Self;
+    const SORT: u32 = BASE_POS + 100;
 }
 
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
@@ -77,10 +65,30 @@ pub struct Line {
     pub length: f32,
 }
 
+impl SdfComponent for Line {
+    type RenderData = Self;
+    const AFFECT_BOUNDS: BoundingSet = BoundingSet::Add;
+    const SORT: u32 = BASE_POS + 200;
+
+    fn affect_bounds(comp: &Self) -> f32 {
+        comp.length
+    }
+}
+
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
 pub struct Quad {
     pub half_size: Vec2,
+}
+
+impl SdfComponent for Quad {
+    type RenderData = Self;
+    const AFFECT_BOUNDS: BoundingSet = BoundingSet::Add;
+    const SORT: u32 = BASE_POS + 300;
+
+    fn affect_bounds(comp: &Self) -> f32 {
+        comp.half_size.length()
+    }
 }
 
 #[derive(Debug, Default, Clone, Component, Reflect)]
@@ -92,19 +100,29 @@ pub struct FillRender {
     pub color: Vec3,
 }
 
-impl IntoRenderData<FillRender> for Fill {
-    fn into_render_data(value: &Fill) -> FillRender {
+impl SdfRenderDataFrom<Fill> for FillRender {
+    fn from_sdf_comp(comp: &Fill) -> Self {
         FillRender {
-            color: value.0.to_vec3(),
+            color: comp.0.to_vec3(),
         }
     }
+}
+
+impl SdfComponent for Fill {
+    type RenderData = FillRender;
+    const SORT: u32 = 5000;
 }
 
 #[derive(Debug, Default, Clone, Component, ShaderType, Reflect)]
 #[reflect(Component)]
 pub struct DistanceGradient {
-    pub intervall: f32,
+    pub interval: f32,
     pub color: Vec3,
+}
+
+impl SdfComponent for DistanceGradient {
+    type RenderData = Self;
+    const SORT: u32 = 99999;
 }
 
 #[derive(Debug, Default, ShaderType, Reflect)]
@@ -112,18 +130,25 @@ pub struct GlobalTransformRender {
     pub transform: Mat4,
 }
 
-impl IntoRenderData<GlobalTransformRender> for GlobalTransform {
-    fn into_render_data(value: &GlobalTransform) -> GlobalTransformRender {
+impl SdfRenderDataFrom<GlobalTransform> for GlobalTransformRender {
+    fn from_sdf_comp(comp: &GlobalTransform) -> Self {
         GlobalTransformRender {
-            transform: value.compute_matrix().inverse(),
+            transform: comp.compute_matrix().inverse(),
         }
     }
 }
+
+pub const OPERATION_POS: u32 = 10000;
 
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
 pub struct Unioni {
     pub hi: u32,
+}
+
+impl SdfComponent for Unioni {
+    type RenderData = Self;
+    const SORT: u32 = OPERATION_POS + 100;
 }
 
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
@@ -132,16 +157,31 @@ pub struct Subtract {
     pub hi: u32,
 }
 
+impl SdfComponent for Subtract {
+    type RenderData = Self;
+    const SORT: u32 = OPERATION_POS + 200;
+}
+
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
 pub struct Intersect {
     pub hi: u32,
 }
 
+impl SdfComponent for Intersect {
+    type RenderData = Self;
+    const SORT: u32 = OPERATION_POS + 300;
+}
+
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
 pub struct Xor {
     pub hi: u32,
+}
+
+impl SdfComponent for Xor {
+    type RenderData = Self;
+    const SORT: u32 = OPERATION_POS + 400;
 }
 
 #[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
@@ -156,6 +196,11 @@ impl Default for SmoothUnion {
     }
 }
 
+impl SdfComponent for SmoothUnion {
+    type RenderData = Self;
+    const SORT: u32 = OPERATION_POS + 500;
+}
+
 #[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
 pub struct SmoothSubtract {
@@ -166,6 +211,11 @@ impl Default for SmoothSubtract {
     fn default() -> Self {
         Self { smoothness: 25. }
     }
+}
+
+impl SdfComponent for SmoothSubtract {
+    type RenderData = Self;
+    const SORT: u32 = OPERATION_POS + 600;
 }
 
 #[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
@@ -180,6 +230,11 @@ impl Default for SmoothIntersect {
     }
 }
 
+impl SdfComponent for SmoothIntersect {
+    type RenderData = Self;
+    const SORT: u32 = OPERATION_POS + 700;
+}
+
 #[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
 pub struct SmoothXor {
@@ -190,6 +245,11 @@ impl Default for SmoothXor {
     fn default() -> Self {
         Self { smoothness: 25. }
     }
+}
+
+impl SdfComponent for SmoothXor {
+    type RenderData = Self;
+    const SORT: u32 = OPERATION_POS + 800;
 }
 
 #[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
@@ -208,8 +268,23 @@ impl Default for Repetition {
     }
 }
 
+impl SdfComponent for Repetition {
+    type RenderData = Self;
+    const AFFECT_BOUNDS: BoundingSet = BoundingSet::Multiply;
+    const SORT: u32 = 1100;
+
+    fn affect_bounds(comp: &Self) -> f32 {
+        comp.repetitions.max_element() * comp.scale * 2.0
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, Component, Reflect, ShaderType)]
 #[reflect(Component)]
 pub struct Morph {
     pub morph: f32,
+}
+
+impl SdfComponent for Morph {
+    type RenderData = Self;
+    const SORT: u32 = OPERATION_POS + 900;
 }

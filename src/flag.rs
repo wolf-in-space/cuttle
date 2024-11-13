@@ -1,20 +1,3 @@
-use crate::components::SdfCompInfos;
-use bevy::prelude::*;
-
-pub struct FlagPlugin;
-impl Plugin for FlagPlugin {
-    fn build(&self, _app: &mut App) {}
-
-    fn finish(&self, app: &mut App) {
-        app.world_mut()
-            .resource_scope(|world, infos: Mut<SdfCompInfos>| {
-                infos.iter().enumerate().for_each(|(i, info)| {
-                    (info.insert_arena)(world, i as u8);
-                });
-            });
-    }
-}
-
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Flag(pub(crate) u32);
 
@@ -29,8 +12,8 @@ impl Flag {
 }
 
 impl IntoIterator for Flag {
-    type IntoIter = FlagSetBitsIndexIterator;
     type Item = usize;
+    type IntoIter = FlagSetBitsIndexIterator;
 
     fn into_iter(self) -> Self::IntoIter {
         FlagSetBitsIndexIterator { flag: self.0 }

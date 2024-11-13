@@ -1,4 +1,3 @@
-use crate::components::SdfCompCount;
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     math::FloatOrd,
@@ -6,7 +5,6 @@ use bevy::{
     render::{
         render_phase::{
             AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItemExtraIndex,
-            SortedPhaseItem,
         },
         render_resource::{CachedRenderPipelineId, SpecializedRenderPipelines},
         sync_world::MainEntity,
@@ -25,27 +23,18 @@ pub mod extract;
 mod queue;
 pub mod specialization;
 
-#[derive(Debug, Clone, Copy, Hash, Default, PartialEq, Eq)]
-pub enum UsePipeline {
-    #[default]
-    World,
-    Ui,
-}
-
 #[derive(Debug, Component, PartialEq, Eq, Clone, Hash)]
 pub struct SdfPipelineKey {
-    pipeline: UsePipeline,
+    group_id: GroupId,
 }
 
-pub trait RenderPhase: Send + SortedPhaseItem + CachedRenderPipelinePhaseItem {
+pub trait RenderPhase: Send + CachedRenderPipelinePhaseItem {
     fn phase_item(
         sort: f32,
         entity: (Entity, MainEntity),
         pipeline: CachedRenderPipelineId,
         draw_function: DrawFunctionId,
     ) -> Self;
-
-    fn pipeline() -> UsePipeline;
 }
 
 impl RenderPhase for Transparent2d {
@@ -63,10 +52,6 @@ impl RenderPhase for Transparent2d {
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
         }
-    }
-
-    fn pipeline() -> UsePipeline {
-        UsePipeline::World
     }
 }
 
@@ -86,20 +71,12 @@ impl RenderPhase for TransparentUi {
             extra_index: PhaseItemExtraIndex::NONE,
         }
     }
-
-    fn pipeline() -> UsePipeline {
-        UsePipeline::Ui
-    }
 }
 
 pub struct PipelinePlugin;
 impl Plugin for PipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            extract::plugin,
-            render_phase_plugin::<Transparent2d>,
-            render_phase_plugin::<TransparentUi>,
-        ));
+        app.add_plugins((extract::plugin, render_phase_plugin::<Transparent2d>));
 
         app.sub_app_mut(RenderApp)
             .configure_sets(
@@ -107,7 +84,7 @@ impl Plugin for PipelinePlugin {
                 (
                     Buffer,
                     PrepareBindgroups,
-                    (OpPreparation, Queue, ItemPreperation, WriteBuffers).chain(),
+                    (OpPreparation, Queue, ItemPreparation, WriteBuffers).chain(),
                 )
                     .after(RenderSet::ExtractCommands)
                     .before(RenderSet::Render),
@@ -116,13 +93,6 @@ impl Plugin for PipelinePlugin {
             .add_event::<SdfSpecializationData>()
             .add_systems(Render, cleanup_batches.in_set(RenderSet::Cleanup));
     }
-
-    fn finish(&self, app: &mut App) {
-        let count = app.world().resource::<SdfCompCount>().0;
-        let render = app.sub_app_mut(RenderApp);
-        let pipeline = SdfPipeline::new(render.world_mut(), count);
-        render.insert_resource(pipeline);
-    }
 }
 
 #[derive(SystemSet, Debug, Clone, Copy, Hash, PartialEq, Eq)]
@@ -130,23 +100,24 @@ pub enum ComdfRenderSet {
     Buffer,
     OpPreparation,
     Queue,
-    ItemPreperation,
+    ItemPreparation,
     WriteBuffers,
     PrepareBindgroups,
 }
+use crate::groups::GroupId;
 use ComdfRenderSet::*;
 
 fn render_phase_plugin<P: RenderPhase>(app: &mut App) {
     app.sub_app_mut(RenderApp)
-        .init_resource::<RenderPhaseBuffers<P>>()
+        .init_resource::<RenderPhaseBuffers>()
         .add_render_command::<P, DrawSdf>()
         .add_systems(
             Render,
             (
-                queue_sdfs::<P>.in_set(Queue),
-                prepare_sdfs::<P>.in_set(ItemPreperation),
-                write_phase_buffers::<P>.in_set(WriteBuffers),
-                prepare_view_bind_groups::<P>
+                queue_sdfs.in_set(Queue),
+                prepare_sdfs.in_set(ItemPreparation),
+                write_phase_buffers.in_set(WriteBuffers),
+                prepare_view_bind_groups
                     .in_set(PrepareBindgroups)
                     .after(RenderSet::PrepareBindGroups),
             ),

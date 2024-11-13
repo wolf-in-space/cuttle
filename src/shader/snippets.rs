@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
 };
 use derive_more::derive::{Display, Error, From};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub struct SnippetPlugin;
 impl Plugin for SnippetPlugin {
@@ -22,6 +22,7 @@ pub struct Snippet(pub String);
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct AddSnippets(Vec<AddSnippet>);
 
+#[derive(Serialize, Deserialize, Clone)]
 pub enum AddSnippet {
     Inline(String),
     File(String),

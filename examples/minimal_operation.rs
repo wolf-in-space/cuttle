@@ -1,5 +1,6 @@
 use bevy::{color::palettes::css, prelude::*};
 use bevy_comdf::prelude::*;
+use bevy_comdf::SdfInternals;
 
 fn main() {
     App::new()
@@ -13,7 +14,7 @@ fn spawn(mut cmds: Commands) {
 
     let subtract = cmds
         .spawn((
-            Sdf::default(),
+            SdfInternals::default(),
             Transform::from_xyz(35., 10., 0.),
             Quad {
                 half_size: Vec2::splat(30.),

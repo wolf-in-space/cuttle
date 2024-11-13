@@ -1,4 +1,5 @@
-use crate::{components::SdfCompInfo, utils::GetOrInitResourceWorldExt};
+use crate::utils::GetOrInitResourceWorldExt;
+use bevy::reflect::StructInfo;
 use bevy::{prelude::*, utils::TypeIdMap};
 use std::{any::TypeId, fmt::Write};
 
@@ -34,16 +35,13 @@ pub struct WgslTypeInfo {
 pub struct WgslTypeInfos(TypeIdMap<WgslTypeInfo>);
 
 impl WgslTypeInfos {
-    pub fn info_to_wgsl(&self, info: &SdfCompInfo) -> String {
-        let vars: String = info
-            .structure
-            .iter()
-            .fold(String::new(), |mut accu, field| {
-                let wgsl_type_name = self.get(&field.type_id()).unwrap().name;
-                writeln!(accu, "    {}: {},", field.name(), wgsl_type_name).unwrap();
-                accu
-            });
-        format!("struct {} {}\n{}{}\n", info.name, "{", vars, "}")
+    pub fn structure_to_wgsl(&self, structure: &StructInfo, name: &str) -> String {
+        let vars: String = structure.iter().fold(String::new(), |mut accu, field| {
+            let wgsl_type_name = self.get(&field.type_id()).unwrap().name;
+            writeln!(accu, "    {}: {},", field.name(), wgsl_type_name).unwrap();
+            accu
+        });
+        format!("struct {} {}\n{}{}\n", name, "{", vars, "}")
     }
 
     pub fn register<T: 'static>(&mut self, name: &'static str) {

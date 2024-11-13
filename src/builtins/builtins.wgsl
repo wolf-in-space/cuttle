@@ -30,7 +30,7 @@ fn fill_render(input: FillRender) {
 }
 
 fn distance_gradient(input: DistanceGradient) {
-    color = mix(color, input.color, cos(distance * input.intervall));
+    color = mix(color, input.color, cos(distance * input.interval));
 }
 
 fn unioni(input: Unioni) {
@@ -86,6 +86,7 @@ fn smooth_xor(input: SmoothXor) {
     var inter: f32 = max(prev_distance, distance);
     if prev_distance > distance {
         prev_distance = distance;
+    } else {
         color = prev_color;
     } 
     distance = inter;

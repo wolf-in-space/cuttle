@@ -3,7 +3,7 @@ use bevy::{color::palettes::tailwind, input::common_conditions::input_pressed, p
 pub fn plugin(app: &mut App) {
     app.configure_sets(
         PostUpdate,
-        (BoundingSet::Add, BoundingSet::Mult, BoundingSet::Apply).chain(),
+        (BoundingSet::Add, BoundingSet::Multiply, BoundingSet::Apply).chain(),
     )
     .add_systems(PostUpdate, apply_bounding.in_set(BoundingSet::Apply))
     .add_systems(
@@ -14,16 +14,20 @@ pub fn plugin(app: &mut App) {
     );
 }
 
-#[derive(Component, Clone, Copy, Debug, Default)]
+pub type InitBoundingFn = Box<dyn FnMut(&mut App) + Send + Sync>;
+
+#[derive(Clone, Copy, Debug, Component, Default)]
 pub struct SdfBoundingRadius {
     pub bounding: f32,
     compute_bounding: f32,
 }
 
-#[derive(SystemSet, Hash, PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(SystemSet, Hash, PartialEq, Eq, Debug, Clone, Copy, Default)]
 pub enum BoundingSet {
+    #[default]
+    None,
     Add,
-    Mult,
+    Multiply,
     Apply,
 }
 
@@ -38,7 +42,7 @@ pub fn apply_bounding(mut query: Query<&mut SdfBoundingRadius>) {
     }
 }
 
-pub const fn make_compute_aabb_sytem<C: Component>(
+pub const fn make_compute_aabb_system<C: Component>(
     func: fn(&C) -> f32,
     set: BoundingSet,
 ) -> impl Fn(Query<(&mut SdfBoundingRadius, &C)>) {
@@ -48,8 +52,8 @@ pub const fn make_compute_aabb_sytem<C: Component>(
             let bounds = &mut sdf.bypass_change_detection().compute_bounding;
             match set {
                 BoundingSet::Add => *bounds += val,
-                BoundingSet::Mult => *bounds *= val,
-                BoundingSet::Apply => panic!("NO"),
+                BoundingSet::Multiply => *bounds *= val,
+                BoundingSet::Apply | BoundingSet::None => panic!("NO"),
             }
         }
     }

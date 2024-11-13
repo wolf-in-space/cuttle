@@ -1,50 +1,45 @@
-use super::RenderPhase;
+use crate::components::initialization::SdfRenderDataFrom;
+use crate::groups::SdfGroup;
 use crate::{
     bounding::SdfBoundingRadius,
     components::{arena::IndexArena, buffer::CompBuffer},
-    flag::Flag,
-    initialization::{IntoRenderData, SdfRenderData},
     operations::SdfExtensions,
-    Sdf, UiSdf, WorldSdf,
+    SdfInternals,
 };
+use bevy::render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy::{
-    core_pipeline::core_2d::Transparent2d,
     math::bounding::BoundingCircle,
     prelude::*,
-    render::{
-        extract_component::{ExtractComponent, ExtractComponentPlugin},
-        sync_component::SyncComponentPlugin,
-        sync_world::RenderEntity,
-        Extract, RenderApp,
-    },
-    ui::TransparentUi,
+    render::{sync_component::SyncComponentPlugin, sync_world::RenderEntity, Extract, RenderApp},
 };
-use std::marker::PhantomData;
-use std::{collections::BTreeMap, fmt::Debug};
+use std::fmt::Debug;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((
         SyncComponentPlugin::<SdfExtensions>::default(),
-        ExtractComponentPlugin::<Sdf>::default(),
-        ExtractComponentPlugin::<WorldSdf>::default(),
-        ExtractComponentPlugin::<UiSdf>::default(),
+        ExtractComponentPlugin::<SdfBoundingRadius>::default(),
+        ExtractComponentPlugin::<SdfInternals>::default(),
     ))
     .sub_app_mut(RenderApp)
     .add_systems(ExtractSchedule, extract_sdf_extensions);
 }
 
-pub(crate) fn extract_sdf_comp<C: Component + IntoRenderData<G>, G: SdfRenderData>(
-    mut buffer: Single<&mut CompBuffer<G>>,
-    arena: Extract<Res<IndexArena<C>>>,
-    comps: Extract<Query<(&Sdf, &C), Changed<C>>>,
+pub(crate) const fn build_extract_sdf_comp<C: Component, R: SdfRenderDataFrom<C>>(
+    pos: u8,
+) -> impl FnMut(
+    Single<&mut CompBuffer<R>>,
+    Extract<Res<IndexArena<C>>>,
+    Extract<Query<(&SdfInternals, &C), Changed<C>>>,
 ) {
-    let buffer = buffer.get_mut();
-    buffer.resize_with(arena.max as usize, || G::default());
+    move |mut buffer, arena, comps| {
+        let buffer = buffer.get_mut();
+        buffer.resize_with(arena.max as usize, || R::default());
 
-    for (sdf, comp) in &comps {
-        let index = *sdf.indices.get(&arena.position).unwrap() as usize;
-        let elem = buffer.get_mut(index).unwrap();
-        *elem = C::into_render_data(comp);
+        for (sdf, comp) in &comps {
+            let index = *sdf.indices.get(&pos).unwrap() as usize;
+            let elem = buffer.get_mut(index).unwrap();
+            *elem = R::from_sdf_comp(comp);
+        }
     }
 }
 
@@ -75,87 +70,61 @@ fn extract_sdf_extensions(
 }
 
 #[derive(Component)]
-pub struct ExtractedSdf {
-    pub flag: Flag,
-    pub indices: BTreeMap<u8, u32>,
+pub struct ExtractedSdfTransform {
     pub bounding: BoundingCircle,
+    pub z: f32,
 }
 
 #[derive(Component, Debug)]
 pub struct ExtractedRenderSdf {
-    pub sort: f32,
     pub op_start_index: u32,
     pub op_count: u32,
     pub final_bounds: BoundingCircle,
 }
 
-#[derive(Component)]
-pub struct PipelineMarker<P: RenderPhase>(PhantomData<P>);
-
-impl<P: RenderPhase> PipelineMarker<P> {
-    pub(crate) fn new() -> Self {
-        Self(PhantomData)
+impl Default for ExtractedRenderSdf {
+    fn default() -> Self {
+        Self {
+            op_count: 0,
+            op_start_index: 0,
+            final_bounds: BoundingCircle::new(Vec2::ZERO, 0.),
+        }
     }
 }
 
-impl ExtractComponent for WorldSdf {
-    type QueryData = &'static GlobalTransform;
-    type QueryFilter = (With<WorldSdf>, Changed<GlobalTransform>);
-    type Out = (ExtractedRenderSdf, PipelineMarker<Transparent2d>);
-
-    fn extract_component(&transform: &GlobalTransform) -> Option<Self::Out> {
-        let translation = transform.translation();
-        Some((
-            ExtractedRenderSdf {
-                sort: translation.z,
-                op_count: 0,
-                op_start_index: 0,
-                final_bounds: BoundingCircle::new(Vec2::ZERO, 0.),
-            },
-            PipelineMarker::new(),
-        ))
-    }
+pub(crate) fn extract_group_marker<G: SdfGroup>(
+    mut cmds: Commands,
+    query: Extract<Query<RenderEntity, With<G>>>,
+) {
+    let extracted: Vec<_> = query
+        .iter()
+        .map(|e| (e, ExtractedRenderSdf::default()))
+        .collect();
+    cmds.insert_or_spawn_batch(extracted)
 }
 
-impl ExtractComponent for UiSdf {
-    type QueryData = &'static GlobalTransform;
-    type QueryFilter = With<UiSdf>;
-    type Out = (ExtractedRenderSdf, PipelineMarker<TransparentUi>);
-
-    fn extract_component(&transform: &GlobalTransform) -> Option<Self::Out> {
-        let translation = transform.translation();
-        Some((
-            ExtractedRenderSdf {
-                sort: translation.z,
-                op_count: 0,
-                op_start_index: 0,
-                final_bounds: BoundingCircle::new(Vec2::ZERO, 0.),
-            },
-            PipelineMarker::new(),
-        ))
-    }
-}
-
-impl ExtractComponent for Sdf {
-    type QueryData = (
-        &'static Sdf,
-        &'static SdfBoundingRadius,
-        &'static GlobalTransform,
-    );
-    type QueryFilter = Or<(
-        Changed<Sdf>,
-        Changed<SdfBoundingRadius>,
-        Changed<GlobalTransform>,
-    )>;
-    type Out = ExtractedSdf;
+impl ExtractComponent for SdfBoundingRadius {
+    type QueryData = (&'static SdfBoundingRadius, &'static GlobalTransform);
+    type QueryFilter = Or<(Changed<SdfBoundingRadius>, Changed<GlobalTransform>)>;
+    type Out = ExtractedSdfTransform;
 
     fn extract_component(
-        (sdf, bounding, t): (&Sdf, &SdfBoundingRadius, &GlobalTransform),
+        (radius, transform): (&SdfBoundingRadius, &GlobalTransform),
     ) -> Option<Self::Out> {
-        Some(ExtractedSdf {
-            flag: sdf.flag,
-            bounding: BoundingCircle::new(t.translation().xy(), bounding.bounding),
-            indices: sdf.indices.clone(),
+        let translation = transform.translation();
+        Some(ExtractedSdfTransform {
+            bounding: BoundingCircle::new(translation.xy(), radius.bounding),
+            z: translation.z,
         })
+    }
+}
+
+impl ExtractComponent for SdfInternals {
+    type QueryData = &'static SdfInternals;
+    type QueryFilter = Changed<SdfInternals>;
+    type Out = SdfInternals;
+
+    fn extract_component(internals: &Self) -> Option<Self::Out> {
+        Some(internals.clone())
     }
 }

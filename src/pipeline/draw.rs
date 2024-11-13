@@ -1,10 +1,9 @@
-use crate::components::buffer::CompBufferBindgroup;
-use crate::operations::OpBindgroup;
-
 use super::queue::RenderPhaseBuffers;
 use super::specialization::SdfViewBindGroup;
 use super::RenderPhase;
 use super::{queue::SdfBatch, specialization::SdfPipeline};
+use crate::components::buffer::CompBufferBindgroup;
+use crate::operations::OpBindgroup;
 use bevy::{
     ecs::system::{
         lifetimeless::{Read, SRes},
@@ -22,12 +21,12 @@ pub type DrawSdf = (SetItemPipeline, SetSdfViewBindGroup, DrawSdfDispatch);
 pub struct SetSdfViewBindGroup;
 impl<P: RenderPhase> RenderCommand<P> for SetSdfViewBindGroup {
     type Param = ();
-    type ViewQuery = (Read<ViewUniformOffset>, Read<SdfViewBindGroup<P>>);
+    type ViewQuery = (Read<ViewUniformOffset>, Read<SdfViewBindGroup>);
     type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
-        view: (&'w ViewUniformOffset, &'w SdfViewBindGroup<P>),
+        view: (&'w ViewUniformOffset, &'w SdfViewBindGroup),
         _entity: Option<()>,
         _param: (),
         pass: &mut TrackedRenderPass<'w>,
@@ -42,7 +41,7 @@ pub struct DrawSdfDispatch;
 impl<P: RenderPhase> RenderCommand<P> for DrawSdfDispatch {
     type Param = (
         SRes<SdfPipeline>,
-        SRes<RenderPhaseBuffers<P>>,
+        SRes<RenderPhaseBuffers>,
         SRes<CompBufferBindgroup>,
         SRes<OpBindgroup>,
     );

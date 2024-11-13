@@ -1,5 +1,7 @@
-use super::{queue::RenderPhaseBuffers, RenderPhase, SdfPipelineKey, UsePipeline};
+use super::{queue::RenderPhaseBuffers, SdfPipelineKey};
 use crate::components::buffer::build_buffer_layout;
+use crate::groups::GroupId;
+use bevy::utils::HashMap;
 use bevy::{
     core_pipeline::core_2d::CORE_2D_DEPTH_FORMAT,
     prelude::*,
@@ -18,7 +20,6 @@ use bevy::{
         view::{ExtractedView, ViewUniform, ViewUniforms},
     },
 };
-use std::marker::PhantomData;
 
 #[derive(Event, Debug, PartialEq, Clone)]
 pub struct SdfSpecializationData {
@@ -29,9 +30,9 @@ pub struct SdfSpecializationData {
 
 #[derive(Resource)]
 pub struct SdfPipeline {
-    pub common_shader: Handle<Shader>,
+    pub _common_shader: Handle<Shader>,
     pub vertex_shader: Handle<Shader>,
-    pub fragment_shader: Handle<Shader>,
+    pub fragment_shaders: HashMap<GroupId, Handle<Shader>>,
     pub global_layout: BindGroupLayout,
     pub op_layout: BindGroupLayout,
     pub comp_layout: BindGroupLayout,
@@ -61,17 +62,16 @@ impl SdfPipeline {
 
         let asset_server = world.resource_mut::<AssetServer>();
 
-        let common_shader = asset_server.load::<Shader>("embedded://bevy_comdf/shader/common.wgsl");
+        let _common_shader =
+            asset_server.load::<Shader>("embedded://bevy_comdf/shader/common.wgsl");
         let vertex_shader = asset_server.load::<Shader>("embedded://bevy_comdf/shader/vertex.wgsl");
-        let fragment_shader =
-            asset_server.load::<Shader>("embedded://bevy_comdf/shader/fragment.wgsl");
 
         SdfPipeline {
             indices,
             global_layout,
-            common_shader,
+            _common_shader,
             vertex_shader,
-            fragment_shader,
+            fragment_shaders: HashMap::new(),
             comp_layout,
             op_layout,
         }
@@ -82,30 +82,28 @@ impl SpecializedRenderPipeline for SdfPipeline {
     type Key = SdfPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let multisample_count = match key.pipeline {
-            UsePipeline::World => 4,
-            UsePipeline::Ui => 1,
-        };
+        // let multisample_count = match key.pipeline {
+        //     UsePipeline::World => 4,
+        //     UsePipeline::Ui => 1,
+        // };
+        let multisample_count = 4;
 
-        let depth_stencil = match key.pipeline {
-            UsePipeline::Ui => None,
-            UsePipeline::World => Some(DepthStencilState {
-                format: CORE_2D_DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: CompareFunction::GreaterEqual,
-                stencil: StencilState {
-                    front: StencilFaceState::IGNORE,
-                    back: StencilFaceState::IGNORE,
-                    read_mask: 0,
-                    write_mask: 0,
-                },
-                bias: DepthBiasState {
-                    constant: 0,
-                    slope_scale: 0.0,
-                    clamp: 0.0,
-                },
-            }),
-        };
+        let depth_stencil = Some(DepthStencilState {
+            format: CORE_2D_DEPTH_FORMAT,
+            depth_write_enabled: false,
+            depth_compare: CompareFunction::GreaterEqual,
+            stencil: StencilState {
+                front: StencilFaceState::IGNORE,
+                back: StencilFaceState::IGNORE,
+                read_mask: 0,
+                write_mask: 0,
+            },
+            bias: DepthBiasState {
+                constant: 0,
+                slope_scale: 0.0,
+                clamp: 0.0,
+            },
+        });
 
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
             VertexStepMode::Instance,
@@ -125,7 +123,7 @@ impl SpecializedRenderPipeline for SdfPipeline {
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: self.fragment_shader.clone(),
+                shader: self.fragment_shaders[&key.group_id].clone(),
                 shader_defs: Vec::new(),
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -161,12 +159,11 @@ impl SpecializedRenderPipeline for SdfPipeline {
 }
 
 #[derive(Component)]
-pub struct SdfViewBindGroup<P: RenderPhase> {
+pub struct SdfViewBindGroup {
     pub value: BindGroup,
-    marker: PhantomData<P>,
 }
 
-pub fn prepare_view_bind_groups<P: RenderPhase>(
+pub fn prepare_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
@@ -184,17 +181,16 @@ pub fn prepare_view_bind_groups<P: RenderPhase>(
             &BindGroupEntries::single(view_binding.clone()),
         );
 
-        commands.entity(entity).insert(SdfViewBindGroup::<P> {
+        commands.entity(entity).insert(SdfViewBindGroup {
             value: view_bind_group,
-            marker: PhantomData,
         });
     }
 }
 
-pub fn write_phase_buffers<P: RenderPhase>(
+pub fn write_phase_buffers(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    mut buffers: ResMut<RenderPhaseBuffers<P>>,
+    mut buffers: ResMut<RenderPhaseBuffers>,
 ) {
     buffers.vertex.write_buffer(&device, &queue);
 }

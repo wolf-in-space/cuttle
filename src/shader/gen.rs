@@ -1,26 +1,24 @@
-use super::wgsl_struct::WgslTypeInfos;
-use crate::{calculations::Calculations, components::SdfCompInfos};
+use crate::calculations::Calculation;
+use crate::components::initialization::ComponentShaderInfo;
 use convert_case::{Case, Casing};
 use std::fmt::Write;
 
 pub fn gen_shader(
-    infos: &SdfCompInfos,
-    wgsl_types: &WgslTypeInfos,
-    calcs: &Calculations,
+    infos: &[ComponentShaderInfo],
+    calculations: &[Calculation],
     snippets: String,
 ) -> String {
     let export = "#define_import_path bevy_comdf::gen\n";
     let selector = comp_selector(infos);
-    let stuff = structs_and_bindings(infos, wgsl_types);
-    let calcs = calculations(calcs);
+    let stuff = structs_and_bindings(infos);
+    let calculations = gen_calculations(calculations);
 
-    let shader = format!("{export}\n{stuff}\n{calcs}\n{snippets}\n{selector}");
-    // println!("{shader}");
+    let shader = format!("{export}\n{stuff}\n{calculations}\n{snippets}\n{selector}");
     shader
 }
 
-fn calculations(calcs: &Calculations) -> String {
-    calcs
+fn gen_calculations(calculations: &[Calculation]) -> String {
+    calculations
         .iter()
         .try_fold(String::new(), |mut result, calc| {
             writeln!(result, "var<private> {}: {};", calc.name, calc.wgsl_type)?;
@@ -29,7 +27,7 @@ fn calculations(calcs: &Calculations) -> String {
         .unwrap()
 }
 
-fn comp_selector(infos: &SdfCompInfos) -> String {
+fn comp_selector(infos: &[ComponentShaderInfo]) -> String {
     let fn_header = "fn component(comp_id: u32, index: u32)";
     let switch = "  switch comp_id ";
     let switch_body: String = infos
@@ -52,17 +50,16 @@ fn comp_selector(infos: &SdfCompInfos) -> String {
     )
 }
 
-fn structs_and_bindings(infos: &SdfCompInfos, wgsl_types: &WgslTypeInfos) -> String {
+fn structs_and_bindings(infos: &[ComponentShaderInfo]) -> String {
     infos
         .iter()
         .enumerate()
         .flat_map(|(i, info)| {
-            let structure = wgsl_types.info_to_wgsl(info);
             let binding = format!(
-                "@group(2) @binding({i}) var<storage, read> comps{i}: array<{}>;\n\n",
-                info.name
+                "@group(2) @binding({}) var<storage, read> comps{}: array<{}>;\n\n",
+                info.binding, i, info.name,
             );
-            [structure, binding]
+            [info.struct_wgsl.clone(), binding]
         })
         .collect()
 }

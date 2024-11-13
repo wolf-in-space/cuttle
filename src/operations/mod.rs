@@ -1,13 +1,8 @@
-use crate::{
-    pipeline::{
-        extract::{ExtractedRenderSdf, ExtractedSdf},
-        specialization::SdfPipeline,
-        ComdfRenderSet,
-    },
-    Sdf,
-};
+use crate::pipeline::extract::ExtractedSdfTransform;
+use crate::pipeline::{extract::ExtractedRenderSdf, specialization::SdfPipeline, ComdfRenderSet};
+use crate::SdfInternals;
+use bevy::math::bounding::BoundingVolume;
 use bevy::{
-    math::bounding::BoundingVolume,
     prelude::*,
     render::{
         render_resource::{BindGroup, BindGroupEntries, ShaderType, StorageBuffer},
@@ -36,7 +31,7 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Debug, Component, Clone, Copy)]
-#[require(Sdf, SyncToRenderWorld)]
+#[require(SdfInternals, SyncToRenderWorld)]
 pub struct ExtendSdf {
     target: Entity,
 }
@@ -58,8 +53,6 @@ fn register_extend_sdf_hooks(world: &mut World) {
                 None => panic!("HI"),
             }
         });
-    // .on_remove(|mut world, entity, _| {
-    // });
 }
 
 #[derive(Debug, Component, Clone, Copy)]
@@ -96,8 +89,13 @@ pub struct CompIndicesBuffer(StorageBuffer<Vec<u32>>);
 pub struct OpBindgroup(pub Option<BindGroup>);
 
 fn build_op_buffer(
-    mut sdfs: Query<(&ExtractedSdf, &mut ExtractedRenderSdf, &SdfExtensions)>,
-    extracted: Query<&ExtractedSdf>,
+    mut sdfs: Query<(
+        &SdfInternals,
+        &ExtractedSdfTransform,
+        &mut ExtractedRenderSdf,
+        &SdfExtensions,
+    )>,
+    extracted: Query<(&SdfInternals, &ExtractedSdfTransform)>,
     mut ops_buffer: ResMut<OpsBuffer>,
     mut indices_buffer: ResMut<CompIndicesBuffer>,
 ) {
@@ -106,7 +104,7 @@ fn build_op_buffer(
     let ops = ops_buffer.get_mut();
     ops.clear();
 
-    let mut add_op = |ops: &mut Vec<Op>, sdf: &ExtractedSdf| {
+    let mut add_op = |ops: &mut Vec<Op>, sdf: &SdfInternals| {
         let op = Op {
             start_index: indices.len() as u32,
             flag: sdf.flag.0,
@@ -115,16 +113,16 @@ fn build_op_buffer(
         ops.push(op);
     };
 
-    for (sdf, mut render_sdf, extensions) in &mut sdfs {
+    for (sdf, transform, mut render_sdf, extensions) in &mut sdfs {
         render_sdf.op_count = extensions.len() as u32 + 1;
         render_sdf.op_start_index = ops.len() as u32;
-        render_sdf.final_bounds = sdf.bounding;
+        render_sdf.final_bounds = transform.bounding;
 
         add_op(ops, sdf);
 
         for extension_entity in extensions.iter() {
-            let sdf = extracted.get(*extension_entity).unwrap();
-            render_sdf.final_bounds = render_sdf.final_bounds.merge(&sdf.bounding);
+            let (sdf, transform) = extracted.get(*extension_entity).unwrap();
+            render_sdf.final_bounds = render_sdf.final_bounds.merge(&transform.bounding);
             add_op(ops, sdf);
         }
     }

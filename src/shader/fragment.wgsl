@@ -1,4 +1,3 @@
-#import bevy_comdf::gen
 #import bevy_comdf::common::VertexOut
 
 struct Op {
@@ -11,18 +10,18 @@ struct Op {
 
 @fragment
 fn fragment(vert: VertexOut) -> @location(0) vec4<f32> {
-	gen::size = vert.size;
+	size = vert.size;
     for (var i: u32 = vert.start_index; i < vert.start_index + vert.op_count; i++) {
-		gen::position = vert.world_position;
-		gen::prev_distance = gen::distance;
-		gen::prev_color = gen::color;
+		position = vert.world_position;
+		prev_distance = distance;
+		prev_color = color;
 
 		let op = operations[i];
 		operation(op);
 	}
 
-    let alpha = step(0.0, -gen::distance);
-    return vec4(gen::color, alpha);
+    let alpha = step(0.0, -distance);
+    return vec4(color, alpha);
 }
 
 fn operation(op: Op) {
@@ -31,7 +30,7 @@ fn operation(op: Op) {
 	while flag > 0 {
 		let comp_id = firstTrailingBit(flag);
 		flag = flag & (flag - 1);
-		gen::component(comp_id, indices[index]);
+		component(comp_id, indices[index]);
 		index += u32(1);
 	}
 }

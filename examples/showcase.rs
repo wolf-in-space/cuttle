@@ -1,11 +1,16 @@
 use bevy::{color::palettes::tailwind, prelude::*};
+use bevy_comdf::operations::ExtendSdf;
 use bevy_comdf::prelude::*;
-use operations::ExtendSdf;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, bevy_comdf::plugin))
+        .add_plugins((
+            DefaultPlugins,
+            bevy_comdf::plugin,
+            WorldInspectorPlugin::new(),
+        ))
         .add_systems(Startup, spawn)
         .add_systems(Update, (move_boxes, move_balls, rotate, animate_morph))
         .run();
@@ -243,7 +248,7 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
         O::default(),
         MovingBox,
         DistanceGradient {
-            intervall: 1.,
+            interval: 1.,
             color: Vec3::ZERO,
         },
     ));
