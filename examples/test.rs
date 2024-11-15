@@ -1,6 +1,5 @@
 use bevy::{color::palettes::tailwind, prelude::*};
 use bevy_comdf::prelude::*;
-use operations::ExtendSdf;
 
 fn main() {
     App::new()

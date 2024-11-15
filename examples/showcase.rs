@@ -1,3 +1,4 @@
+use bevy::color::palettes::css;
 use bevy::{color::palettes::tailwind, prelude::*};
 use bevy_comdf::operations::ExtendSdf;
 use bevy_comdf::prelude::*;
@@ -12,7 +13,16 @@ fn main() {
             WorldInspectorPlugin::new(),
         ))
         .add_systems(Startup, spawn)
-        .add_systems(Update, (move_boxes, move_balls, rotate, animate_morph))
+        .add_systems(
+            Update,
+            (
+                move_boxes,
+                move_balls,
+                rotate,
+                animate_morph,
+                animate_repetition,
+            ),
+        )
         .run();
 }
 
@@ -44,7 +54,7 @@ fn spawn(mut cmds: Commands) {
     box_op_circle::<Xor>(&mut cmds, [-550., 250.]);
     box_op_circle::<SmoothXor>(&mut cmds, [-550., 100.]);
 
-    spin::<SmoothUnion>(&mut cmds, -300., |cmds, x| {
+    spin::<SmoothUnion>(&mut cmds, -500., |cmds, x| {
         cmds.spawn((
             WorldSdf,
             Quad {
@@ -57,7 +67,7 @@ fn spawn(mut cmds: Commands) {
         .id()
     });
 
-    spin::<SmoothSubtract>(&mut cmds, 300., |cmds, x| {
+    spin::<SmoothSubtract>(&mut cmds, 0., |cmds, x| {
         cmds.spawn((
             WorldSdf,
             Quad {
@@ -69,6 +79,39 @@ fn spawn(mut cmds: Commands) {
         ))
         .id()
     });
+
+    cmds.spawn((
+        WorldSdf,
+        Transform::from_xyz(500., -320., -100.),
+        Point::default(),
+        Rounded { rounded: 10. },
+        Fill(css::RED),
+        Repetition {
+            repetitions: Vec2::new(3., 5.),
+            scale: 1.,
+        },
+        Rotate { speed: 0.3 },
+        AnimateRepetitionDistance {
+            speed: 1.,
+            scale: 0.7,
+        },
+    ));
+}
+
+#[derive(Component)]
+struct AnimateRepetitionDistance {
+    speed: f32,
+    scale: f32,
+}
+
+fn animate_repetition(
+    mut query: Query<(&mut Repetition, &AnimateRepetitionDistance)>,
+    time: Res<Time>,
+) {
+    for (mut repetition, animate) in &mut query {
+        repetition.scale =
+            (time.elapsed_secs() * animate.speed).sin() * animate.scale + 1. + animate.scale;
+    }
 }
 
 fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
