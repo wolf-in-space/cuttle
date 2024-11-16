@@ -1,13 +1,12 @@
 use crate::bounding::{make_compute_aabb_system, InitBoundingFn};
 use crate::components::buffer::BufferEntity;
 use crate::components::initialization::{
-    init_component, init_components, InitComponentInfo, RegisterSdfComponent, SdfComponent,
-    SdfRenderDataFrom,
+    init_component_with_render_data, init_components, init_zst_component, InitComponentInfo,
+    RegisterSdfComponent, SdfComponent, SdfRenderDataFrom, ZstSdfComponent,
 };
 use crate::pipeline::extract::extract_group_marker;
 use crate::shader::{load_shader_to_pipeline, ShaderSettings};
 use crate::{calculations::Calculation, shader::snippets::AddSnippet, SdfInternals};
-use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy::render::sync_component::SyncComponentPlugin;
 use bevy::render::sync_world::RenderEntity;
@@ -70,7 +69,6 @@ pub struct GroupId(pub(crate) u32);
 
 pub struct GroupBuilder<'a, G> {
     pub(crate) group: &'a mut GroupData<G>,
-    pub(crate) global: &'a mut GlobalGroupInfos,
 }
 
 impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
@@ -96,6 +94,15 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
         self
     }
 
+    pub fn zst_component<C: ZstSdfComponent>(&'a mut self) -> &mut Self {
+        self.group.init_comp_fns.push(InitComponentInfo {
+            sort: C::SORT,
+            init_bounding: None,
+            init_fn: init_zst_component::<C, G>,
+        });
+        self
+    }
+
     pub fn component<C: SdfComponent>(&'a mut self) -> &mut Self {
         self.component_with(C::registration_data())
     }
@@ -118,7 +125,7 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
         self.group.init_comp_fns.push(InitComponentInfo {
             sort: data.sort,
             init_bounding,
-            init_fn: init_component::<C, R, G>,
+            init_fn: init_component_with_render_data::<C, R, G>,
         });
         self
     }
@@ -128,17 +135,13 @@ pub trait SdfGroupBuilderAppExt {
     fn sdf_group<G: SdfGroup>(&mut self) -> GroupBuilder<G>;
 }
 
-type GroupState<'a, G> = SystemState<(ResMut<'a, GlobalGroupInfos>, ResMut<'a, GroupData<G>>)>;
 impl SdfGroupBuilderAppExt for App {
     fn sdf_group<G: SdfGroup>(&mut self) -> GroupBuilder<G> {
         if !self.is_plugin_added::<GroupPlugin<G>>() {
             self.add_plugins(GroupPlugin::<G>::new());
         }
-        let world = self.world_mut();
-        let (global, group) = GroupState::<G>::new(world).get_mut(world);
         GroupBuilder {
-            global: global.into_inner(),
-            group: group.into_inner(),
+            group: self.world_mut().resource_mut::<GroupData<G>>().into_inner(),
         }
     }
 }

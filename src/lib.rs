@@ -43,7 +43,6 @@ pub fn plugin(app: &mut App) {
         ShaderPlugin,
         PipelinePlugin,
         operations::plugin,
-        calculations::plugin,
         bounding::plugin,
     ));
 }

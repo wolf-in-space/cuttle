@@ -34,7 +34,7 @@ fn spawn(mut cmds: Commands) {
                     y * Y_DISTANCE - Y_HALF_SIZE,
                     x * y,
                 ),
-                Point::default(),
+                Point,
                 Rounded { rounded: 1. },
                 Fill(Srgba::new(
                     f32::sin(x / 100.) + 0.5,

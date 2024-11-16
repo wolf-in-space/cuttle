@@ -1,6 +1,6 @@
 pub(crate) mod groups;
 
-use crate::components::initialization::{SdfComponent, SdfRenderDataFrom};
+use crate::components::initialization::{SdfComponent, SdfRenderDataFrom, ZstSdfComponent};
 use crate::prelude::BoundingSet;
 use bevy::{asset::embedded_asset, prelude::*, render::render_resource::ShaderType};
 
@@ -48,14 +48,11 @@ impl SdfComponent for Annular {
 
 pub const BASE_POS: u32 = 2000;
 
-#[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
+#[derive(Debug, Component, Reflect)]
 #[reflect(Component)]
-pub struct Point {
-    pub hi: f32,
-}
+pub struct Point;
 
-impl SdfComponent for Point {
-    type RenderData = Self;
+impl ZstSdfComponent for Point {
     const SORT: u32 = BASE_POS + 100;
 }
 
@@ -140,47 +137,35 @@ impl SdfRenderDataFrom<GlobalTransform> for GlobalTransformRender {
 
 pub const OPERATION_POS: u32 = 10000;
 
-#[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
+#[derive(Debug, Default, Component, Reflect)]
 #[reflect(Component)]
-pub struct Unioni {
-    pub hi: u32,
-}
+pub struct Unioni;
 
-impl SdfComponent for Unioni {
-    type RenderData = Self;
+impl ZstSdfComponent for Unioni {
     const SORT: u32 = OPERATION_POS + 100;
 }
 
-#[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
+#[derive(Debug, Default, Component, Reflect)]
 #[reflect(Component)]
-pub struct Subtract {
-    pub hi: u32,
-}
+pub struct Subtract;
 
-impl SdfComponent for Subtract {
-    type RenderData = Self;
+impl ZstSdfComponent for Subtract {
     const SORT: u32 = OPERATION_POS + 200;
 }
 
-#[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
+#[derive(Debug, Default, Component, Reflect)]
 #[reflect(Component)]
-pub struct Intersect {
-    pub hi: u32,
-}
+pub struct Intersect;
 
-impl SdfComponent for Intersect {
-    type RenderData = Self;
+impl ZstSdfComponent for Intersect {
     const SORT: u32 = OPERATION_POS + 300;
 }
 
-#[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
+#[derive(Debug, Default, Component, Reflect)]
 #[reflect(Component)]
-pub struct Xor {
-    pub hi: u32,
-}
+pub struct Xor;
 
-impl SdfComponent for Xor {
-    type RenderData = Self;
+impl ZstSdfComponent for Xor {
     const SORT: u32 = OPERATION_POS + 400;
 }
 

@@ -1,4 +1,4 @@
-use bevy::prelude::{Component, Resource};
+use bevy::prelude::{default, Component, Resource};
 use std::any::type_name;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -21,15 +21,17 @@ impl<C> Debug for IndexArena<C> {
     }
 }
 
-impl<C: Component> IndexArena<C> {
-    pub fn new() -> Self {
+impl<C> Default for IndexArena<C> {
+    fn default() -> Self {
         Self {
             max: 0,
-            available: vec![],
-            marker: PhantomData,
+            available: default(),
+            marker: default(),
         }
     }
+}
 
+impl<C: Component> IndexArena<C> {
     pub fn get(&mut self) -> u32 {
         self.available.pop().unwrap_or_else(|| {
             let r = self.max;

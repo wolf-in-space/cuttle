@@ -24,9 +24,14 @@ pub struct InitComponentInfo {
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ComponentShaderInfo {
-    pub struct_wgsl: String,
     pub name: String,
+    pub(crate) render_data: Option<RenderDataShaderInfo>,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct RenderDataShaderInfo {
     pub binding: u32,
+    pub struct_wgsl: String,
 }
 
 pub(crate) fn init_components(
@@ -46,17 +51,39 @@ pub(crate) fn init_components(
         .collect()
 }
 
-pub(crate) fn init_component<C, R, G>(app: &mut App, pos: u8) -> ComponentShaderInfo
+pub(crate) fn common_component_init<C: Component, R: Typed, G: SdfGroup>(app: &mut App, pos: u8) {
+    app.init_resource::<IndexArena<C>>();
+    app.add_observer(build_set_flag_bit::<C, G, OnAdd, true>(pos));
+    app.add_observer(build_set_flag_bit::<C, G, OnRemove, false>(pos));
+}
+
+pub(crate) fn init_zst_component<C, G>(app: &mut App, pos: u8) -> ComponentShaderInfo
+where
+    C: Component + Typed,
+    G: SdfGroup,
+{
+    common_component_init::<C, C, G>(app, pos);
+
+    let Some(name) = C::type_ident() else {
+        panic!("Component {} is not a named struct!", type_name::<C>())
+    };
+
+    ComponentShaderInfo {
+        name: name.to_string(),
+        render_data: None,
+    }
+}
+
+pub(crate) fn init_component_with_render_data<C, R, G>(
+    app: &mut App,
+    pos: u8,
+) -> ComponentShaderInfo
 where
     C: Component,
     R: SdfRenderDataFrom<C>,
     G: SdfGroup,
 {
-    let world = app.world_mut();
-
-    world.add_observer(build_set_flag_bit::<C, G, OnAdd, true>(pos));
-    world.add_observer(build_set_flag_bit::<C, G, OnRemove, false>(pos));
-
+    common_component_init::<C, R, G>(app, pos);
     app.sub_app_mut(RenderApp)
         .add_systems(ExtractSchedule, build_extract_sdf_comp::<C, R>(pos));
 
@@ -77,8 +104,10 @@ where
 
     ComponentShaderInfo {
         name: name.to_string(),
-        struct_wgsl,
-        binding,
+        render_data: Some(RenderDataShaderInfo {
+            struct_wgsl,
+            binding,
+        }),
     }
 }
 
@@ -109,9 +138,12 @@ pub(crate) fn global_init_component<C: Component, R: SdfRenderData>(app: &mut Ap
     buffer_fns.bindings.push(CompBuffer::<R>::get_binding_res);
 
     app.world_mut().insert_resource(globals);
-    app.insert_resource(IndexArena::<C>::new());
 
     binding
+}
+
+pub trait ZstSdfComponent: Component + Sized + Typed {
+    const SORT: u32;
 }
 
 pub trait SdfRenderData: ShaderSize + Default + Typed + WriteInto {}

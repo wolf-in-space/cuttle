@@ -1,5 +1,5 @@
 
-fn point(input: Point) {
+fn point() {
     distance = length(position);
 }
 
@@ -33,26 +33,26 @@ fn distance_gradient(input: DistanceGradient) {
     color = mix(color, input.color, cos(distance * input.interval));
 }
 
-fn unioni(input: Unioni) {
+fn unioni() {
     if prev_distance < distance {
         distance = prev_distance;
         color = prev_color;
     }
 }
 
-fn subtract(input: Subtract) {
+fn subtract() {
     color = prev_color;
     distance = max(prev_distance, -distance);
 }
 
-fn intersect(input: Intersect) {
+fn intersect() {
     if prev_distance > distance {
         distance = prev_distance;
         color = prev_color;
     }
 }
 
-fn xor(input: Xor) {
+fn xor() {
     var inter: f32 = max(prev_distance, distance);
     if prev_distance < distance {
         distance = prev_distance;

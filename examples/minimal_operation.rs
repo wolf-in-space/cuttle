@@ -27,7 +27,7 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn((
         WorldSdf,
         SdfExtensions(vec![subtract]),
-        Point::default(),
+        Point,
         Rounded { rounded: 100. },
         Fill(css::SKY_BLUE),
     ));

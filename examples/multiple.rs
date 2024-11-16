@@ -28,7 +28,7 @@ fn spawn(mut cmds: Commands) {
             )),
         );
         match thread_rng().gen_range(0..2) {
-            0 => cmds.spawn((base, (Point::default(), Rounded { rounded: 40. }))),
+            0 => cmds.spawn((base, (Point, Rounded { rounded: 40. }))),
             _ => cmds.spawn((
                 base,
                 (Quad {

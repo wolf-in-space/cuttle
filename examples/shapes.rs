@@ -20,7 +20,7 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn((
         Name::new("Circle"),
         WorldSdf,
-        Point::default(),
+        Point,
         Rounded { rounded: 50. },
         Fill(css::RED),
     ));
@@ -29,7 +29,7 @@ fn spawn(mut cmds: Commands) {
         Name::new("Donut"),
         WorldSdf,
         Transform::from_xyz(0., 200., 0.),
-        Point::default(),
+        Point,
         Rounded { rounded: 15. },
         Annular { annular: 15. },
         Fill(css::REBECCA_PURPLE),
@@ -39,13 +39,9 @@ fn spawn(mut cmds: Commands) {
         Name::new("Gradient Circle"),
         WorldSdf,
         Transform::from_xyz(0., -200., 0.),
-        Point::default(),
+        Point,
         Rounded { rounded: 50. },
         Fill(css::BLACK),
-        // Gradient {
-        //     color: css::MEDIUM_ORCHID.into(),
-        //     intervall: 1.,
-        // },
     ));
 
     cmds.spawn((

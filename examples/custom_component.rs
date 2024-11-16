@@ -1,4 +1,6 @@
 use bevy::{color::palettes::css, prelude::*, render::render_resource::ShaderType};
+use bevy_comdf::components::initialization::SdfComponent;
+use bevy_comdf::groups::SdfGroupBuilderAppExt;
 use bevy_comdf::prelude::*;
 
 fn main() {
@@ -12,7 +14,7 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2d);
     cmds.spawn((
         WorldSdf,
-        Point::default(),
+        Point,
         Rounded { rounded: 200. },
         DoAWave {
             amplitude: 50.,
@@ -23,20 +25,24 @@ fn spawn(mut cmds: Commands) {
 }
 
 fn do_a_wave(app: &mut App) {
-    app.sdf::<DoAWave>()
-        .affect_bounds(BoundingSet::Add, |s| s.amplitude)
-        .register(4000);
-    app.add_sdf_shader(stringify!(
-        fn do_a_wave(comp: DoAWave) {
-            let norm = normalize(position);
-            let angle = atan(norm.y / norm.x);
-            distance += (sin(angle * comp.frequency) + 0.5) * comp.amplitude;
-        }
-    ));
+    app.sdf_group::<WorldSdf>()
+        .component::<DoAWave>()
+        .snippet(stringify!(
+            fn do_a_wave(comp: DoAWave) {
+                let norm = normalize(position);
+                let angle = atan(norm.y / norm.x);
+                distance += (sin(angle * comp.frequency) + 0.5) * comp.amplitude;
+            }
+        ));
 }
 
 #[derive(Clone, Debug, Default, Component, ShaderType, Reflect)]
 struct DoAWave {
     amplitude: f32,
     frequency: f32,
+}
+
+impl SdfComponent for DoAWave {
+    type RenderData = Self;
+    const SORT: u32 = DISTANCE_POS + 500;
 }

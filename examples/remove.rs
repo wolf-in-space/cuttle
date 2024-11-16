@@ -30,7 +30,7 @@ fn delete_and_spawn(current: Query<Entity, With<Point>>, mut cmds: Commands) {
                 (i / 10) as f32 * 100. - 100.,
                 0.,
             ),
-            Point::default(),
+            Point,
             Rounded { rounded: 40. },
             Fill(Srgba::new(
                 ((i % 10) + 1) as f32 * 0.1,

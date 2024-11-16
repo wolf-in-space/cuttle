@@ -17,7 +17,8 @@ pub fn plugin(app: &mut App) {
         .component::<Annular>()
         .component::<Fill>()
         .component::<DistanceGradient>()
-        .component::<Point>()
+        .zst_component::<Point>()
+        .component::<Line>()
         .component::<Quad>()
         .component_with(
             RegisterSdfComponent::<GlobalTransform, GlobalTransformRender> {
@@ -25,13 +26,12 @@ pub fn plugin(app: &mut App) {
                 ..default()
             },
         )
-        .component::<Line>()
         .component::<Rounded>()
-        .component::<Subtract>()
-        .component::<Intersect>()
-        .component::<Xor>()
+        .zst_component::<Unioni>()
+        .zst_component::<Subtract>()
+        .zst_component::<Intersect>()
+        .zst_component::<Xor>()
         .component::<SmoothUnion>()
-        .component::<Unioni>()
         .component::<SmoothSubtract>()
         .component::<SmoothIntersect>()
         .component::<SmoothXor>()

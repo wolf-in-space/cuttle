@@ -36,8 +36,15 @@ fn comp_selector(infos: &[ComponentShaderInfo]) -> String {
         .try_fold(String::new(), |mut result, (i, info)| {
             let snake = info.name.to_case(Case::Snake);
             writeln!(result, "    case u32({i}): {{")?;
-            writeln!(result, "      let info = comps{i}[index];")?;
-            writeln!(result, "      {snake}(info);")?;
+            match info.render_data {
+                Some(_) => {
+                    writeln!(result, "      let info = comps{i}[index];")?;
+                    writeln!(result, "      {snake}(info);")?;
+                }
+                None => {
+                    writeln!(result, "      {snake}();")?;
+                }
+            }
             writeln!(result, "    }}")?;
             Ok::<_, std::fmt::Error>(result)
         })
@@ -55,11 +62,12 @@ fn structs_and_bindings(infos: &[ComponentShaderInfo]) -> String {
         .iter()
         .enumerate()
         .flat_map(|(i, info)| {
-            let binding = format!(
-                "@group(2) @binding({}) var<storage, read> comps{}: array<{}>;\n\n",
-                info.binding, i, info.name,
-            );
-            [info.struct_wgsl.clone(), binding]
+            info.render_data.clone().map(|render| {
+                format!(
+                    "@group(2) @binding({}) var<storage, read> comps{}: array<{}>;\n\n{}",
+                    render.binding, i, info.name, render.struct_wgsl
+                )
+            })
         })
         .collect()
 }

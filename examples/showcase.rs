@@ -83,7 +83,7 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn((
         WorldSdf,
         Transform::from_xyz(500., -320., -100.),
-        Point::default(),
+        Point,
         Rounded { rounded: 10. },
         Fill(css::RED),
         Repetition {
@@ -129,7 +129,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
 
     cmds.spawn((
         ExtendSdf::new(quad),
-        Point::default(),
+        Point,
         Rounded { rounded: 25. },
         Transform::from_translation(pos),
         Fill(tailwind::TEAL_400),
@@ -152,7 +152,7 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
 
     cmds.spawn((
         ExtendSdf::new(quad),
-        Point::default(),
+        Point,
         Rounded { rounded: 25. },
         Annular { annular: 10. },
         Transform::from_translation(pos),
@@ -185,7 +185,7 @@ fn spin<OP: Default + Component>(
         (
             ExtendSdf::new(sdf),
             Transform::from_xyz(x, pos, 0.),
-            Point { hi: 10. },
+            Point,
             Rounded { rounded: 10. },
             Fill(color),
             MovingBall { offset, start: x },
@@ -238,7 +238,7 @@ fn spin<OP: Default + Component>(
     cmds.spawn((
         ExtendSdf::new(sdf),
         Transform::from_xyz(x, -480., 0.),
-        Point::default(),
+        Point,
         Rounded { rounded: 7. },
         Fill(tailwind::GREEN_400),
         MovingBall {
@@ -272,7 +272,7 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
         .spawn((
             WorldSdf,
             Transform::from_xyz(pos.x, pos.y, 0.),
-            Point::default(),
+            Point,
             Rounded { rounded: 30. },
             Fill(tailwind::SKY_400),
             // Gradient {

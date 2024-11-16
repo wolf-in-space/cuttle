@@ -29,7 +29,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         WorldSdf,
-        Point::default(),
+        Point,
         Rounded { rounded: 10. },
         Repetition::default(),
         Fill(css::RED),
