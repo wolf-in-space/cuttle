@@ -49,7 +49,7 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Component, Debug, Default, Clone)]
-#[require(Transform, SdfExtensions, SdfBoundingRadius)]
+#[require(Transform, Visibility, SdfExtensions, SdfBoundingRadius)]
 pub struct SdfInternals {
     flag: Flag,
     indices: BTreeMap<u8, u32>,

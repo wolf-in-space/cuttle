@@ -3,7 +3,7 @@ use super::{
     SdfPipelineKey,
 };
 use crate::groups::GroupId;
-use crate::pipeline::extract::ExtractedSdfTransform;
+use crate::pipeline::extract::{ExtractedSdfTransform, ExtractedVisibility};
 use bevy::core_pipeline::core_2d::Transparent2d;
 use bevy::render::render_phase::PhaseItem;
 use bevy::{
@@ -19,12 +19,15 @@ use bytemuck::NoUninit;
 use std::ops::Range;
 
 pub(crate) fn queue_sdfs(
-    sdfs: Query<(
-        Entity,
-        &MainEntity,
-        &ExtractedRenderSdf,
-        &ExtractedSdfTransform,
-    )>,
+    sdfs: Query<
+        (
+            Entity,
+            &MainEntity,
+            &ExtractedVisibility,
+            &ExtractedSdfTransform,
+        ),
+        With<ExtractedRenderSdf>,
+    >,
     views: Query<Entity, With<ExtractedView>>,
     sdf_pipeline: Res<SdfPipeline>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
@@ -37,7 +40,10 @@ pub(crate) fn queue_sdfs(
         let Some(render_phase) = render_phases.get_mut(&view_entity) else {
             continue;
         };
-        for (entity, main_entity, sdf, transform) in sdfs.iter() {
+        for (entity, main_entity, visibility, transform) in sdfs.iter() {
+            if !visibility.0 {
+                continue;
+            }
             let pipeline = pipelines.specialize(
                 &cache,
                 &sdf_pipeline,

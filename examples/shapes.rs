@@ -1,10 +1,15 @@
 use bevy::{color::palettes::css, prelude::*};
 use bevy_comdf::prelude::*;
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, bevy_comdf::plugin))
+        .add_plugins((
+            DefaultPlugins,
+            bevy_comdf::plugin,
+            WorldInspectorPlugin::default(),
+        ))
         .add_systems(Startup, spawn)
         .run();
 }

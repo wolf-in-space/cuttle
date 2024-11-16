@@ -19,6 +19,7 @@ pub fn plugin(app: &mut App) {
         SyncComponentPlugin::<SdfExtensions>::default(),
         ExtractComponentPlugin::<SdfBoundingRadius>::default(),
         ExtractComponentPlugin::<SdfInternals>::default(),
+        ExtractComponentPlugin::<ExtractedVisibility>::default(),
     ))
     .sub_app_mut(RenderApp)
     .add_systems(ExtractSchedule, extract_sdf_extensions);
@@ -126,5 +127,18 @@ impl ExtractComponent for SdfInternals {
 
     fn extract_component(internals: &Self) -> Option<Self::Out> {
         Some(internals.clone())
+    }
+}
+
+#[derive(Component)]
+pub struct ExtractedVisibility(pub bool);
+
+impl ExtractComponent for ExtractedVisibility {
+    type QueryData = &'static ViewVisibility;
+    type QueryFilter = ();
+    type Out = ExtractedVisibility;
+
+    fn extract_component(vis: &ViewVisibility) -> Option<Self::Out> {
+        Some(ExtractedVisibility(vis.get()))
     }
 }
