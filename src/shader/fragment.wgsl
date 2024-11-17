@@ -10,12 +10,8 @@ struct Op {
 
 @fragment
 fn fragment(vert: VertexOut) -> @location(0) vec4<f32> {
-	size = vert.size;
+    vertex = vert;
     for (var i: u32 = vert.start_index; i < vert.start_index + vert.op_count; i++) {
-		position = vert.world_position;
-		prev_distance = distance;
-		prev_color = color;
-
 		let op = operations[i];
 		operation(op);
 	}

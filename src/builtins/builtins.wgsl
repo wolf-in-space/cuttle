@@ -1,4 +1,8 @@
 
+fn prepare_base() {
+    position = vertex.world_position;
+}
+
 fn point() {
     distance = length(position);
 }
@@ -31,6 +35,11 @@ fn fill_render(input: FillRender) {
 
 fn distance_gradient(input: DistanceGradient) {
     color = mix(color, input.color, cos(distance * input.interval));
+}
+
+fn prepare_operation() {
+    prev_distance = distance;
+    prev_color = color;
 }
 
 fn unioni() {
@@ -96,7 +105,7 @@ fn smooth_xor(input: SmoothXor) {
 }
 
 fn repetition(input: Repetition) {
-    let scale = size / input.repetitions;
+    let scale = vertex.size / input.repetitions;
     let clamp = input.repetitions - 1.0;
     position -= scale * clamp(round(position / scale), -clamp, clamp);
 }

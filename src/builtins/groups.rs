@@ -17,6 +17,7 @@ pub fn plugin(app: &mut App) {
         .component::<Annular>()
         .component::<Fill>()
         .component::<DistanceGradient>()
+        .zst_component::<PrepareBase>()
         .zst_component::<Point>()
         .component::<Line>()
         .component::<Quad>()
@@ -27,6 +28,7 @@ pub fn plugin(app: &mut App) {
             },
         )
         .component::<Rounded>()
+        .zst_component::<PrepareOperation>()
         .zst_component::<Unioni>()
         .zst_component::<Subtract>()
         .zst_component::<Intersect>()

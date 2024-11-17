@@ -46,10 +46,21 @@ impl SdfComponent for Annular {
     }
 }
 
+pub const PREPARE_POS: u32 = 0;
+
+#[derive(Debug, Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct PrepareBase;
+
+impl ZstSdfComponent for PrepareBase {
+    const SORT: u32 = PREPARE_POS + 100;
+}
+
 pub const BASE_POS: u32 = 2000;
 
 #[derive(Debug, Component, Reflect)]
 #[reflect(Component)]
+#[require(PrepareBase)]
 pub struct Point;
 
 impl ZstSdfComponent for Point {
@@ -58,6 +69,7 @@ impl ZstSdfComponent for Point {
 
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
+#[require(PrepareBase)]
 pub struct Line {
     pub length: f32,
 }
@@ -74,6 +86,7 @@ impl SdfComponent for Line {
 
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
+#[require(PrepareBase)]
 pub struct Quad {
     pub half_size: Vec2,
 }
@@ -137,8 +150,17 @@ impl SdfRenderDataFrom<GlobalTransform> for GlobalTransformRender {
 
 pub const OPERATION_POS: u32 = 10000;
 
+#[derive(Debug, Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct PrepareOperation;
+
+impl ZstSdfComponent for PrepareOperation {
+    const SORT: u32 = PREPARE_POS + 200;
+}
+
 #[derive(Debug, Default, Component, Reflect)]
 #[reflect(Component)]
+#[require(PrepareOperation)]
 pub struct Unioni;
 
 impl ZstSdfComponent for Unioni {
@@ -147,6 +169,7 @@ impl ZstSdfComponent for Unioni {
 
 #[derive(Debug, Default, Component, Reflect)]
 #[reflect(Component)]
+#[require(PrepareOperation)]
 pub struct Subtract;
 
 impl ZstSdfComponent for Subtract {
@@ -155,6 +178,7 @@ impl ZstSdfComponent for Subtract {
 
 #[derive(Debug, Default, Component, Reflect)]
 #[reflect(Component)]
+#[require(PrepareOperation)]
 pub struct Intersect;
 
 impl ZstSdfComponent for Intersect {
@@ -163,6 +187,7 @@ impl ZstSdfComponent for Intersect {
 
 #[derive(Debug, Default, Component, Reflect)]
 #[reflect(Component)]
+#[require(PrepareOperation)]
 pub struct Xor;
 
 impl ZstSdfComponent for Xor {
@@ -171,6 +196,7 @@ impl ZstSdfComponent for Xor {
 
 #[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
+#[require(PrepareOperation)]
 pub struct SmoothUnion {
     pub smoothness: f32,
 }
@@ -188,6 +214,7 @@ impl SdfComponent for SmoothUnion {
 
 #[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
+#[require(PrepareOperation)]
 pub struct SmoothSubtract {
     pub smoothness: f32,
 }
@@ -205,6 +232,7 @@ impl SdfComponent for SmoothSubtract {
 
 #[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
+#[require(PrepareOperation)]
 pub struct SmoothIntersect {
     pub smoothness: f32,
 }
@@ -222,6 +250,7 @@ impl SdfComponent for SmoothIntersect {
 
 #[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
 #[reflect(Component)]
+#[require(PrepareOperation)]
 pub struct SmoothXor {
     pub smoothness: f32,
 }
@@ -265,6 +294,7 @@ impl SdfComponent for Repetition {
 
 #[derive(Debug, Clone, Copy, Default, Component, Reflect, ShaderType)]
 #[reflect(Component)]
+#[require(PrepareOperation)]
 pub struct Morph {
     pub morph: f32,
 }

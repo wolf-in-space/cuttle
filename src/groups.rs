@@ -58,7 +58,10 @@ impl<G> FromWorld for GroupData<G> {
             id: GroupId(id),
             marker: PhantomData,
             init_comp_fns: default(),
-            calculations: default(),
+            calculations: vec![Calculation {
+                name: "vertex".to_string(),
+                wgsl_type: "VertexOut".to_string(),
+            }],
             snippets: default(),
         }
     }

@@ -8,12 +8,12 @@ pub fn gen_shader(
     calculations: &[Calculation],
     snippets: String,
 ) -> String {
-    let export = "#define_import_path bevy_comdf::gen\n";
     let selector = comp_selector(infos);
     let stuff = structs_and_bindings(infos);
     let calculations = gen_calculations(calculations);
 
-    let shader = format!("{export}\n{stuff}\n{calculations}\n{snippets}\n{selector}");
+    let shader = format!("{snippets}\n{stuff}\n{calculations}\n{selector}");
+    println!("{shader}");
     shader
 }
 
