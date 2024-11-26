@@ -3,7 +3,7 @@ use crate::groups::SdfGroup;
 use crate::{
     bounding::SdfBoundingRadius,
     components::{arena::IndexArena, buffer::CompBuffer},
-    operations::SdfExtensions,
+    extensions::SdfExtensions,
     SdfInternals,
 };
 use bevy::render::extract_component::{ExtractComponent, ExtractComponentPlugin};

@@ -3,7 +3,7 @@ use super::specialization::SdfViewBindGroup;
 use super::RenderPhase;
 use super::{queue::SdfBatch, specialization::SdfPipeline};
 use crate::components::buffer::CompBufferBindgroup;
-use crate::operations::OpBindgroup;
+use crate::extensions::OpBindgroup;
 use bevy::{
     ecs::system::{
         lifetimeless::{Read, SRes},

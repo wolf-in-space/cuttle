@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bounding::SdfBoundingRadius;
 use builtins::BuiltinsPlugin;
 use components::CompPlugin;
-use operations::SdfExtensions;
+use extensions::SdfExtensions;
 use pipeline::PipelinePlugin;
 use shader::ShaderPlugin;
 use std::collections::BTreeMap;
@@ -17,7 +17,7 @@ mod calculations;
 pub mod components;
 pub mod flag;
 pub mod groups;
-pub mod operations;
+pub mod extensions;
 pub mod pipeline;
 pub mod shader;
 mod utils;
@@ -25,8 +25,8 @@ mod utils;
 pub mod prelude {
     pub use crate::bounding::BoundingSet;
     pub use crate::builtins::{groups::*, *};
-    pub use crate::operations::ExtendSdf;
-    pub use crate::operations::SdfExtensions;
+    pub use crate::extensions::ExtendSdf;
+    pub use crate::extensions::SdfExtensions;
 }
 
 pub fn plugin(app: &mut App) {
@@ -42,7 +42,7 @@ pub fn plugin(app: &mut App) {
         BuiltinsPlugin,
         ShaderPlugin,
         PipelinePlugin,
-        operations::plugin,
+        extensions::plugin,
         bounding::plugin,
     ));
 }

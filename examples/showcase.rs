@@ -1,6 +1,6 @@
 use bevy::color::palettes::css;
 use bevy::{color::palettes::tailwind, prelude::*};
-use cuttle::operations::ExtendSdf;
+use cuttle::extensions::ExtendSdf;
 use cuttle::prelude::*;
 use std::f32::consts::PI;
 
