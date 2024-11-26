@@ -1,10 +1,10 @@
 use bevy::{color::palettes::css, prelude::*};
-use bevy_comdf::prelude::*;
-use bevy_comdf::SdfInternals;
+use cuttle::prelude::*;
+use cuttle::SdfInternals;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, bevy_comdf::plugin))
+        .add_plugins((DefaultPlugins, cuttle::plugin))
         .add_systems(Startup, spawn)
         .run();
 }

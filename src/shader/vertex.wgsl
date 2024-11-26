@@ -1,5 +1,5 @@
 #import bevy_render::view::View
-#import bevy_comdf::common::VertexOut
+#import cuttle::common::VertexOut
 
 struct VertexIn {
     @builtin(vertex_index) index: u32,

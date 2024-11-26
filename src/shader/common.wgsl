@@ -1,4 +1,4 @@
-#define_import_path bevy_comdf::common
+#define_import_path cuttle::common
 
 struct VertexOut {
     @builtin(position) position: vec4<f32>,

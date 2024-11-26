@@ -41,7 +41,7 @@ pub(crate) fn load_shader_to_pipeline(
         .component_bindings
         .len() as u32;
     let assets = app.world_mut().resource_mut::<AssetServer>();
-    let shader = assets.load_with_settings("embedded://bevy_comdf/shader/dummy.dummy", move |s| {
+    let shader = assets.load_with_settings("embedded://cuttle/shader/dummy.dummy", move |s| {
         *s = shader_settings.clone()
     });
     let render_world = app.sub_app_mut(RenderApp).world_mut();
@@ -88,7 +88,7 @@ impl AssetLoader for ShaderLoader {
     ) -> Result<Self::Asset, Self::Error> {
         let mut snippets = String::new();
         let base = [AddSnippet::File(
-            "embedded://bevy_comdf/shader/fragment.wgsl".to_string(),
+            "embedded://cuttle/shader/fragment.wgsl".to_string(),
         )];
         let snippet_sources = base.iter().chain(&settings.snippets);
         for add in snippet_sources {

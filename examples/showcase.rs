@@ -1,16 +1,14 @@
 use bevy::color::palettes::css;
 use bevy::{color::palettes::tailwind, prelude::*};
-use bevy_comdf::operations::ExtendSdf;
-use bevy_comdf::prelude::*;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use cuttle::operations::ExtendSdf;
+use cuttle::prelude::*;
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            bevy_comdf::plugin,
-            WorldInspectorPlugin::new(),
+            cuttle::plugin,
         ))
         .add_systems(Startup, spawn)
         .add_systems(

@@ -1,11 +1,11 @@
 use bevy::{prelude::*, time::common_conditions::on_timer};
-use bevy_comdf::prelude::*;
+use cuttle::prelude::*;
 use rand::{thread_rng, Rng};
 use std::time::Duration;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, bevy_comdf::plugin))
+        .add_plugins((DefaultPlugins, cuttle::plugin))
         .add_systems(Startup, setup)
         .add_systems(
             Update,

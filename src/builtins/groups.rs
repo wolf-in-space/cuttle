@@ -6,7 +6,7 @@ use bevy::prelude::{App, Component};
 
 pub fn plugin(app: &mut App) {
     app.sdf_group::<WorldSdf>()
-        .snippet_file("embedded://bevy_comdf/builtins/builtins.wgsl")
+        .snippet_file("embedded://cuttle/builtins/builtins.wgsl")
         .calculation("world_position", "vec2<f32>")
         .calculation("position", "vec2<f32>")
         .calculation("distance", "f32")

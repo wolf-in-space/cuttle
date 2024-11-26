@@ -63,8 +63,8 @@ impl SdfPipeline {
         let asset_server = world.resource_mut::<AssetServer>();
 
         let _common_shader =
-            asset_server.load::<Shader>("embedded://bevy_comdf/shader/common.wgsl");
-        let vertex_shader = asset_server.load::<Shader>("embedded://bevy_comdf/shader/vertex.wgsl");
+            asset_server.load::<Shader>("embedded://cuttle/shader/common.wgsl");
+        let vertex_shader = asset_server.load::<Shader>("embedded://cuttle/shader/vertex.wgsl");
 
         SdfPipeline {
             indices,

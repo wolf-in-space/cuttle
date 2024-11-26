@@ -1,5 +1,5 @@
 [package]
-name = "bevy_comdf"
+name = "cuttle"
 version = "0.1.0"
 edition = "2021"
 
@@ -26,7 +26,3 @@ derive_more = "1"
 
 [dev-dependencies]
 rand = "0.8"
-bevy-inspector-egui = { git = "https://github.com/Vrixyz/bevy-inspector-egui", branch = "bevy_0.15" }
-
-[patch.crates-io]
-bevy_egui = { git = "https://github.com/Vrixyz/bevy_egui", branch = "bevy_main" }

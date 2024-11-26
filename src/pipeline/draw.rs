@@ -61,10 +61,10 @@ impl<P: RenderPhase> RenderCommand<P> for DrawSdfDispatch {
         };
         let pipeline = pipeline.into_inner();
         let Some(vertices) = vertices.into_inner().vertex.buffer() else {
-            return RenderCommandResult::Failure("bevy_comdf sdf vertices buffer not available");
+            return RenderCommandResult::Failure("cuttle sdf vertices buffer not available");
         };
         let Some(indices) = pipeline.indices.buffer() else {
-            return RenderCommandResult::Failure("bevy_comdf sdf indices buffer not available");
+            return RenderCommandResult::Failure("cuttle sdf indices buffer not available");
         };
         let Some(comp_bind_group) = &comp_buffers.into_inner().0 else {
             return RenderCommandResult::Failure("bind_group not found for key");

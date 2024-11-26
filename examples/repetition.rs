@@ -1,9 +1,9 @@
 use bevy::{color::palettes::css, input::common_conditions::input_just_pressed, prelude::*};
-use bevy_comdf::prelude::*;
+use cuttle::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, bevy_comdf::plugin))
+        .add_plugins((DefaultPlugins, cuttle::plugin))
         .add_systems(Startup, spawn)
         .add_systems(
             Update,

@@ -1,4 +1,4 @@
-#import bevy_comdf::common::VertexOut
+#import cuttle::common::VertexOut
 
 struct Op {
 	start_index: u32,

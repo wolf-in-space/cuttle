@@ -1,11 +1,11 @@
 use bevy::{color::palettes::css, prelude::*, render::render_resource::ShaderType};
-use bevy_comdf::components::initialization::SdfComponent;
-use bevy_comdf::groups::SdfGroupBuilderAppExt;
-use bevy_comdf::prelude::*;
+use cuttle::components::initialization::SdfComponent;
+use cuttle::groups::SdfGroupBuilderAppExt;
+use cuttle::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, bevy_comdf::plugin, do_a_wave))
+        .add_plugins((DefaultPlugins, cuttle::plugin, do_a_wave))
         .add_systems(Startup, spawn)
         .run();
 }
