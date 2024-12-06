@@ -4,7 +4,7 @@ use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, cuttle::plugin))
+        .add_plugins((DefaultPlugins, CuttlePlugin))
         .add_systems(Startup, spawn)
         .run();
 }

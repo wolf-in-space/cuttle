@@ -5,7 +5,7 @@ use cuttle::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, cuttle::plugin, do_a_wave))
+        .add_plugins((DefaultPlugins, CuttlePlugin, do_a_wave))
         .add_systems(Startup, spawn)
         .run();
 }

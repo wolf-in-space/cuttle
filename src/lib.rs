@@ -23,28 +23,25 @@ pub mod shader;
 mod utils;
 
 pub mod prelude {
+    pub use crate::CuttlePlugin;
     pub use crate::bounding::BoundingSet;
     pub use crate::builtins::{groups::*, *};
     pub use crate::extensions::ExtendSdf;
     pub use crate::extensions::SdfExtensions;
 }
 
-pub fn plugin(app: &mut App) {
-    // app.sub_app_mut(RenderApp)
-    //     .edit_schedule(Render, |schedule| {
-    //         schedule.set_build_settings(ScheduleBuildSettings {
-    //             ambiguity_detection: LogLevel::Warn,
-    //             ..default()
-    //         });
-    //     });
-    app.add_plugins((
-        CompPlugin, //Needs to be first to ensure SdfCompInfos is sorted
-        BuiltinsPlugin,
-        ShaderPlugin,
-        PipelinePlugin,
-        extensions::plugin,
-        bounding::plugin,
-    ));
+pub struct CuttlePlugin;
+impl Plugin for CuttlePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((
+            CompPlugin, //Needs to be first to ensure SdfCompInfos is sorted
+            BuiltinsPlugin,
+            ShaderPlugin,
+            PipelinePlugin,
+            extensions::plugin,
+            bounding::plugin,
+        ));
+    }
 }
 
 #[derive(Component, Debug, Default, Clone)]

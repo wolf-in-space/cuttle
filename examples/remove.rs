@@ -5,7 +5,7 @@ use std::time::Duration;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, cuttle::plugin))
+        .add_plugins((DefaultPlugins, CuttlePlugin))
         .add_systems(Startup, setup)
         .add_systems(
             Update,

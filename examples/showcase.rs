@@ -8,7 +8,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            cuttle::plugin,
+            CuttlePlugin,
         ))
         .add_systems(Startup, spawn)
         .add_systems(
