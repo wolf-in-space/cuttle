@@ -12,6 +12,7 @@ use shader::ShaderPlugin;
 use std::collections::BTreeMap;
 
 mod bounding;
+#[cfg(feature = "builtins")]
 pub mod builtins;
 mod calculations;
 pub mod components;
@@ -25,6 +26,7 @@ mod utils;
 pub mod prelude {
     pub use crate::CuttlePlugin;
     pub use crate::bounding::BoundingSet;
+    #[cfg(feature = "builtins")]
     pub use crate::builtins::{groups::*, *};
     pub use crate::extensions::ExtendSdf;
     pub use crate::extensions::SdfExtensions;
@@ -35,6 +37,7 @@ impl Plugin for CuttlePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             CompPlugin, //Needs to be first to ensure SdfCompInfos is sorted
+            #[cfg(feature = "builtins")]
             BuiltinsPlugin,
             ShaderPlugin,
             PipelinePlugin,
