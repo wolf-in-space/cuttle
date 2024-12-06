@@ -1,5 +1,5 @@
 use crate::components::initialization::SdfRenderData;
-use crate::pipeline::{specialization::SdfPipeline, ComdfRenderSet};
+use crate::pipeline::{specialization::SdfPipeline, CuttleRenderSet};
 use bevy::{
     prelude::*,
     render::{
@@ -25,7 +25,7 @@ impl Plugin for BufferPlugin {
                     build_buffer_bindgroup,
                 )
                     .chain()
-                    .in_set(ComdfRenderSet::Buffer),
+                    .in_set(CuttleRenderSet::Buffer),
             );
     }
 }
@@ -57,7 +57,6 @@ impl<C: SdfRenderData> CompBuffer<C> {
 }
 
 pub type WriteBufferFn = fn(&mut EntityMut, &RenderDevice, &RenderQueue);
-
 pub type GetBufferBindingResFn = for<'a> fn(&'a EntityRef<'a>) -> BindingResource<'a>;
 
 #[derive(Resource, Default)]
@@ -75,8 +74,8 @@ fn write_comp_buffers(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
 ) {
-    for func in fns.write.iter() {
-        func(&mut entity, &device, &queue);
+    for write_fn in fns.write.iter() {
+        write_fn(&mut entity, &device, &queue);
     }
 }
 

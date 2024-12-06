@@ -1,5 +1,5 @@
 use crate::pipeline::extract::ExtractedSdfTransform;
-use crate::pipeline::{extract::ExtractedRenderSdf, specialization::SdfPipeline, ComdfRenderSet};
+use crate::pipeline::{extract::ExtractedRenderSdf, specialization::SdfPipeline, CuttleRenderSet};
 use crate::SdfInternals;
 use bevy::math::bounding::BoundingVolume;
 use bevy::{
@@ -23,8 +23,8 @@ pub fn plugin(app: &mut App) {
         .add_systems(
             Render,
             (
-                build_op_buffer.in_set(ComdfRenderSet::OpPreparation),
-                build_op_bindgroups.in_set(ComdfRenderSet::PrepareBindgroups),
+                build_op_buffer.in_set(CuttleRenderSet::OpPreparation),
+                build_op_bindgroups.in_set(CuttleRenderSet::PrepareBindgroups),
             )
                 .chain(),
         );

@@ -96,7 +96,7 @@ impl Plugin for PipelinePlugin {
 }
 
 #[derive(SystemSet, Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub enum ComdfRenderSet {
+pub enum CuttleRenderSet {
     Buffer,
     OpPreparation,
     Queue,
@@ -105,7 +105,7 @@ pub enum ComdfRenderSet {
     PrepareBindgroups,
 }
 use crate::groups::GroupId;
-use ComdfRenderSet::*;
+use CuttleRenderSet::*;
 
 fn render_phase_plugin<P: RenderPhase>(app: &mut App) {
     app.sub_app_mut(RenderApp)
@@ -123,37 +123,3 @@ fn render_phase_plugin<P: RenderPhase>(app: &mut App) {
             ),
         );
 }
-
-/*
-fn debug_whatever_the_fuck_is_going_on(
-    batch: Single<&SdfBatch>,
-    sdfs: Query<(&ExtractedSdf, &ExtractedRenderSdf)>,
-    op_buffers: Res<OpBuffers>,
-    comp_buffers: Single<EntityRef, With<BufferEntity>>,
-    buffer_fns: Res<DebugBufferFns>,
-) {
-    let ops = op_buffers.ops.get();
-    let indices = op_buffers.indices.get();
-    println!("DEBUG_THIS_NONSENSE");
-    println!("rendering {:?} sdfs", batch.range);
-
-    for (sdf, render) in &sdfs {
-        println!(" <<< NEXT >>> ");
-        println!("{:?}", sdf);
-        println!("{:?}", render);
-        for o in render.op_start_index..(render.op_start_index + render.op_count) {
-            let op = ops[o as usize];
-            assert_eq!(sdf.flag.0, op.flag);
-            println!("{:?}", op);
-            let indices: Vec<_> = (op.start_index..(op.start_index + op.flag.count_ones()))
-                .map(|i| indices[i as usize])
-                .collect();
-            println!("{:?}", indices);
-            for (i, index) in Flag(op.flag).into_iter().zip_eq(indices) {
-                (buffer_fns[i])(&comp_buffers, index);
-            }
-        }
-    }
-}
-
- */

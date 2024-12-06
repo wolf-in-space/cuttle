@@ -87,16 +87,78 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
         self
     }
 
+    /// Adds a snippet of wgsl code to the shader generated for this Group
+    ///
+    /// ```
+    /// # use bevy::prelude::*;
+    /// # use cuttle::groups::{SdfGroup, SdfGroupBuilderAppExt};
+    /// # let mut app = App::new();
+    /// # #[derive(Component)]
+    /// # struct MyGroup;
+    /// # impl SdfGroup for MyGroup {}
+    ///
+    /// app.sdf_group::<MyGroup>()
+    /// .snippet(stringify!(
+    ///     fn my_component(input: MyComponent) {
+    ///         distance += input.value;
+    ///     }
+    /// ));
+    ///
+    /// ```
     pub fn snippet(&mut self, snippet: impl Into<String>) -> &mut Self {
         self.group.snippets.push(AddSnippet::Inline(snippet.into()));
         self
     }
 
+    /// Takes a file path to a wgsl file to be added to the shader
+    /// generated for this Group.
+    /// Supports hot reloading.
+    /// ```
+    /// # use bevy::prelude::*;
+    /// # use cuttle::groups::{SdfGroup, SdfGroupBuilderAppExt};
+    /// # let mut app = App::new();
+    /// # #[derive(Component)]
+    /// # struct MyGroup;
+    /// # impl SdfGroup for MyGroup {}
+    ///
+    /// app.sdf_group::<MyGroup>()
+    /// // Adds an embedded file to the Group.
+    /// // Can be hot reloaded if bevy`s 'embedded_watcher' feature is enabled.
+    /// .snippet_file("embedded://cuttle/builtins/builtins.wgsl")
+    /// // Adds a file from assets to the Group.
+    /// // Can be hot reloaded if bevy`s 'file_watcher' feature is enabled.
+    /// .snippet_file("groups/my_group.wgsl");
+    /// ```
+    ///
+    /// see [`builtins.wgsl`](https://github.com/wolf-in-space/cuttle/blob/main/src/builtins/builtins.wgsl) for an example
     pub fn snippet_file(&mut self, path: impl Into<String>) -> &mut Self {
         self.group.snippets.push(AddSnippet::File(path.into()));
         self
     }
 
+    /// Registers a zst (zero sized type / struct with no data) component
+    /// to affect any entity of this Group that it is added to
+    ///
+    /// ```
+    /// # use bevy::prelude::{Component, Reflect};
+    /// # use bevy::render::render_resource::ShaderType;
+    /// # use cuttle::components::initialization::{SdfComponent, ZstSdfComponent};
+    /// # use cuttle::prelude::DISTANCE_POS;
+    ///
+    /// #[derive(Component, Reflect, ShaderType, Clone, Debug)]
+    /// struct MyZstComponent;
+    ///
+    /// impl ZstSdfComponent for MyZstComponent {
+    ///     const SORT: u32 = DISTANCE_POS + 500;
+    /// }
+    /// ```
+    ///
+    /// Example wgsl code for MyZstComponent:
+    /// ```wgsl
+    /// fn my_zst_component() {
+    ///     distance *= 2.0;
+    /// }
+    /// ```
     pub fn zst_component<C: ZstSdfComponent>(&'a mut self) -> &mut Self {
         self.group.init_comp_fns.push(InitComponentInfo {
             sort: C::SORT,
@@ -106,10 +168,38 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
         self
     }
 
+    /// Registers a component to affect any entity of this Group that it is added to
+    ///
+    /// ```
+    /// # use bevy::prelude::{Component, Reflect};
+    /// # use bevy::render::render_resource::ShaderType;
+    /// # use cuttle::components::initialization::SdfComponent;
+    /// # use cuttle::prelude::DISTANCE_POS;
+    ///
+    /// #[derive(Component, Reflect, ShaderType, Clone, Debug)]
+    /// struct MyComponent {
+    ///     value: f32,
+    /// }
+    ///
+    /// impl SdfComponent for MyComponent {
+    ///     type RenderData = Self;
+    ///     const SORT: u32 = DISTANCE_POS + 500;
+    /// }
+    /// ```
+    ///
+    /// Example wgsl code for MyComponent:
+    /// ```wgsl
+    /// fn my_component(input: MyComponent) {
+    ///     distance += input.value;
+    /// }
+    /// ```
     pub fn component<C: SdfComponent>(&'a mut self) -> &mut Self {
         self.component_with(C::registration_data())
     }
 
+    /// Specify all the data for the component manually. Useful to
+    /// evade the orphan rule.
+    /// see [`component`](GroupBuilder::component) for more info.
     pub fn component_with<C: Component, R: SdfRenderDataFrom<C>>(
         &'a mut self,
         data: RegisterSdfComponent<C, R>,
