@@ -1,4 +1,3 @@
-use crate::utils::GetOrInitResourceWorldExt;
 use bevy::reflect::StructInfo;
 use bevy::{prelude::*, utils::TypeIdMap};
 use std::{any::TypeId, fmt::Write};
@@ -20,8 +19,11 @@ pub trait RegisterWgslTypeExt {
 
 impl RegisterWgslTypeExt for App {
     fn register_wgsl_type<T: 'static>(&mut self, name: &'static str) -> &mut Self {
-        let mut reg = self.world_mut().resource_or_init::<WgslTypeInfos>();
-        reg.register::<T>(name);
+        let world = self.world_mut();
+        if !world.contains_resource::<WgslTypeInfos>() {
+            world.init_resource::<WgslTypeInfos>();
+        };
+        world.resource_mut::<WgslTypeInfos>().register::<T>(name);
         self
     }
 }

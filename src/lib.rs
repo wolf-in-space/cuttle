@@ -21,7 +21,6 @@ pub mod groups;
 pub mod extensions;
 pub mod pipeline;
 pub mod shader;
-mod utils;
 
 pub mod prelude {
     pub use crate::CuttlePlugin;
