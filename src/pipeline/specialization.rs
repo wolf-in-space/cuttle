@@ -2,6 +2,7 @@ use super::{queue::RenderPhaseBuffers, SdfPipelineKey};
 use crate::components::buffer::build_buffer_layout;
 use crate::groups::GroupId;
 use bevy::utils::HashMap;
+use bevy::image::BevyDefault;
 use bevy::{
     core_pipeline::core_2d::CORE_2D_DEPTH_FORMAT,
     prelude::*,
@@ -16,7 +17,6 @@ use bevy::{
             VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        texture::BevyDefault,
         view::{ExtractedView, ViewUniform, ViewUniforms},
     },
 };
@@ -154,6 +154,7 @@ impl SpecializedRenderPipeline for SdfPipeline {
             },
             label: Some(format!("SdfPipeline for Sdf '{key:?}'").into()),
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: true,
         }
     }
 }

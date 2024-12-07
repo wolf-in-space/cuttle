@@ -3,11 +3,19 @@ use bevy::{color::palettes::tailwind, prelude::*};
 use cuttle::extensions::ExtendSdf;
 use cuttle::prelude::*;
 use std::f32::consts::PI;
+use bevy::window::WindowResolution;
 
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    resolution: WindowResolution::new(1920., 1080.),
+                    decorations: false,
+                    ..default()
+                }),
+                ..default()
+            }),
             CuttlePlugin,
         ))
         .add_systems(Startup, spawn)
@@ -52,26 +60,26 @@ fn spawn(mut cmds: Commands) {
     box_op_circle::<Xor>(&mut cmds, [-550., 250.]);
     box_op_circle::<SmoothXor>(&mut cmds, [-550., 100.]);
 
-    spin::<SmoothUnion>(&mut cmds, -500., |cmds, x| {
+    spin::<SmoothUnion>(&mut cmds, -500., -50., |cmds, x, y| {
         cmds.spawn((
             WorldSdf,
             Quad {
                 half_size: Vec2::new(15., 220.),
             },
-            Transform::from_xyz(x, -320., 0.),
+            Transform::from_xyz(x, y - 40. * 5., 0.),
             Fill(tailwind::GRAY_100),
             Rotate { speed: 0.2 },
         ))
         .id()
     });
 
-    spin::<SmoothSubtract>(&mut cmds, 0., |cmds, x| {
+    spin::<SmoothSubtract>(&mut cmds, 0., -50., |cmds, x, y| {
         cmds.spawn((
             WorldSdf,
             Quad {
                 half_size: Vec2::new(100., 220.),
             },
-            Transform::from_xyz(x, -320., 0.),
+            Transform::from_xyz(x, y - 40. * 5., 0.),
             Fill(tailwind::GRAY_100),
             Rotate { speed: 0.2 },
         ))
@@ -80,7 +88,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         WorldSdf,
-        Transform::from_xyz(500., -320., -100.),
+        Transform::from_xyz(500., -250., -100.),
         Point,
         Rounded { rounded: 10. },
         Fill(css::RED),
@@ -128,7 +136,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
     cmds.spawn((
         ExtendSdf::new(quad),
         Point,
-        Rounded { rounded: 25. },
+        Rounded { rounded: 15. },
         Transform::from_translation(pos),
         Fill(tailwind::TEAL_400),
         Morph::default(),
@@ -141,8 +149,8 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
     let quad = cmds
         .spawn((
             WorldSdf,
-            Line { length: 25. },
-            Rounded { rounded: 25. },
+            Line { length: 30. },
+            Rounded { rounded: 15. },
             Transform::from_translation(pos).with_rotation(Quat::from_rotation_z(PI * 0.5)),
             Fill(tailwind::RED_700),
         ))
@@ -150,9 +158,7 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
 
     cmds.spawn((
         ExtendSdf::new(quad),
-        Point,
-        Rounded { rounded: 25. },
-        Annular { annular: 10. },
+        Quad { half_size: Vec2::splat(20.) },
         Transform::from_translation(pos),
         Fill(tailwind::BLUE_700),
         Morph::default(),
@@ -175,9 +181,10 @@ fn animate_morph(mut morphs: Query<(&AnimateMorph, &mut Morph)>, time: Res<Time>
 fn spin<OP: Default + Component>(
     cmds: &mut Commands,
     x: f32,
-    spin: fn(&mut Commands, f32) -> Entity,
+    y: f32,
+    spin: fn(&mut Commands, f32, f32) -> Entity,
 ) {
-    let sdf = spin(cmds, x);
+    let sdf = spin(cmds, x, y);
 
     let make_ball = |pos: f32, color: Srgba, offset: f32| {
         (
@@ -192,13 +199,13 @@ fn spin<OP: Default + Component>(
     };
 
     [
-        (make_ball(-120., tailwind::GREEN_400, 0.)),
-        (make_ball(-160., tailwind::RED_400, 0.3)),
-        (make_ball(-200., tailwind::TEAL_400, 0.6)),
-        (make_ball(-240., tailwind::SKY_400, 0.9)),
-        (make_ball(-280., tailwind::EMERALD_400, 1.2)),
-        (make_ball(-320., tailwind::ZINC_400, 1.5)),
-        (make_ball(-360., tailwind::FUCHSIA_400, 1.8)),
+        (make_ball(y - 40. * 0., tailwind::GREEN_400, 0.)),
+        (make_ball(y - 40. * 1., tailwind::RED_400, 0.3)),
+        (make_ball(y - 40. * 2., tailwind::TEAL_400, 0.6)),
+        (make_ball(y - 40. * 3., tailwind::SKY_400, 0.9)),
+        (make_ball(y - 40. * 4., tailwind::EMERALD_400, 1.2)),
+        (make_ball(y - 40. * 5., tailwind::ZINC_400, 1.5)),
+        (make_ball(y - 40. * 6., tailwind::FUCHSIA_400, 1.8)),
     ]
     .map(|bundle| {
         cmds.spawn(bundle);
@@ -206,7 +213,7 @@ fn spin<OP: Default + Component>(
 
     cmds.spawn((
         ExtendSdf::new(sdf),
-        Transform::from_xyz(x, -400., 0.),
+        Transform::from_xyz(x, y - 40. * 7., 0.),
         Quad {
             half_size: Vec2::splat(10.),
         },
@@ -223,7 +230,7 @@ fn spin<OP: Default + Component>(
         Quad {
             half_size: Vec2::splat(10.),
         },
-        Transform::from_xyz(x, -440., 0.),
+        Transform::from_xyz(x, y - 40. * 8., 0.),
         Fill(tailwind::GREEN_400),
         MovingBall {
             offset: 2.4,
@@ -235,7 +242,7 @@ fn spin<OP: Default + Component>(
 
     cmds.spawn((
         ExtendSdf::new(sdf),
-        Transform::from_xyz(x, -480., 0.),
+        Transform::from_xyz(x, y - 40. * 9., 0.),
         Point,
         Rounded { rounded: 7. },
         Fill(tailwind::GREEN_400),
@@ -249,7 +256,7 @@ fn spin<OP: Default + Component>(
 
     cmds.spawn((
         ExtendSdf::new(sdf),
-        Transform::from_xyz(x, -520., 0.),
+        Transform::from_xyz(x, y - 40. * 10., 0.),
         Quad {
             half_size: Vec2::splat(7.),
         },
