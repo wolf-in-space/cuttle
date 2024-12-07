@@ -11,7 +11,7 @@ fn main() {
 fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2d);
     cmds.spawn((
-        WorldSdf,
+        Sdf,
         Point,
         Rounded { rounded: 50. },
         Fill(css::SKY_BLUE),

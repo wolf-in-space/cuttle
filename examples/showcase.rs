@@ -62,7 +62,7 @@ fn spawn(mut cmds: Commands) {
 
     spin::<SmoothUnion>(&mut cmds, -500., -50., |cmds, x, y| {
         cmds.spawn((
-            WorldSdf,
+            Sdf,
             Quad {
                 half_size: Vec2::new(15., 220.),
             },
@@ -75,7 +75,7 @@ fn spawn(mut cmds: Commands) {
 
     spin::<SmoothSubtract>(&mut cmds, 0., -50., |cmds, x, y| {
         cmds.spawn((
-            WorldSdf,
+            Sdf,
             Quad {
                 half_size: Vec2::new(100., 220.),
             },
@@ -87,7 +87,7 @@ fn spawn(mut cmds: Commands) {
     });
 
     cmds.spawn((
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(500., -250., -100.),
         Point,
         Rounded { rounded: 10. },
@@ -124,7 +124,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
     let pos = pos.into().extend(0.);
     let quad = cmds
         .spawn((
-            WorldSdf,
+            Sdf,
             Quad {
                 half_size: Vec2::new(25., 25.),
             },
@@ -148,7 +148,7 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
     let pos = pos.into().extend(0.);
     let quad = cmds
         .spawn((
-            WorldSdf,
+            Sdf,
             Line { length: 30. },
             Rounded { rounded: 15. },
             Transform::from_translation(pos).with_rotation(Quat::from_rotation_z(PI * 0.5)),
@@ -275,7 +275,7 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
 
     let sdf = cmds
         .spawn((
-            WorldSdf,
+            Sdf,
             Transform::from_xyz(pos.x, pos.y, 0.),
             Point,
             Rounded { rounded: 30. },

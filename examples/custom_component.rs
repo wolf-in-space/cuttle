@@ -13,7 +13,7 @@ fn main() {
 fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2d);
     cmds.spawn((
-        WorldSdf,
+        Sdf,
         Point,
         Rounded { rounded: 200. },
         DoAWave {
@@ -25,7 +25,7 @@ fn spawn(mut cmds: Commands) {
 }
 
 fn do_a_wave(app: &mut App) {
-    app.sdf_group::<WorldSdf>()
+    app.sdf_group::<Sdf>()
         .component::<DoAWave>()
         .snippet(stringify!(
             fn do_a_wave(comp: DoAWave) {

@@ -24,7 +24,7 @@ fn delete_and_spawn(current: Query<Entity, With<Point>>, mut cmds: Commands) {
     }
     for i in 0..thread_rng().gen_range(0..30) {
         cmds.spawn((
-            WorldSdf,
+            Sdf,
             Transform::from_xyz(
                 (i % 10) as f32 * 100. - 500.,
                 (i / 10) as f32 * 100. - 100.,

@@ -28,7 +28,7 @@ fn spawn(mut cmds: Commands) {
         for y in 0..Y_AMOUNT {
             let (x, y) = (x as f32, y as f32);
             entities.push((
-                WorldSdf,
+                Sdf,
                 Transform::from_xyz(
                     x * X_DISTANCE - X_HALF_SIZE,
                     y * Y_DISTANCE - Y_HALF_SIZE,

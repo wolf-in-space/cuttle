@@ -5,7 +5,7 @@ use crate::prelude::Annular;
 use bevy::prelude::{App, Component};
 
 pub fn plugin(app: &mut App) {
-    app.sdf_group::<WorldSdf>()
+    app.sdf_group::<Sdf>()
         .snippet_file("embedded://cuttle/builtins/builtins.wgsl")
         .calculation("world_position", "vec2<f32>")
         .calculation("position", "vec2<f32>")
@@ -42,11 +42,8 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Component, Debug, Default, Clone)]
-pub struct WorldSdf;
+pub struct Sdf;
 
-impl SdfGroup for WorldSdf {
+impl SdfGroup for Sdf {
     // type Phase = Transparent2d;
 }
-
-#[derive(Component, Debug, Default, Clone)]
-pub struct UiSdf;

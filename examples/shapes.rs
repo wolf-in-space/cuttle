@@ -17,7 +17,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Circle"),
-        WorldSdf,
+        Sdf,
         Point,
         Rounded { rounded: 50. },
         Fill(css::RED),
@@ -25,7 +25,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Donut"),
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(0., 200., 0.),
         Point,
         Rounded { rounded: 15. },
@@ -35,7 +35,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Gradient Circle"),
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(0., -200., 0.),
         Point,
         Rounded { rounded: 50. },
@@ -44,7 +44,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Rounded Square"),
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(-200., -200., 0.),
         Quad {
             half_size: Vec2::splat(30.),
@@ -55,7 +55,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Square"),
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(-200., 0., 0.),
         Quad {
             half_size: Vec2::splat(50.),
@@ -65,7 +65,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Rectangle"),
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(-200., 200., 0.),
         Quad {
             half_size: Vec2::new(70., 30.),
@@ -75,7 +75,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Annular Square"),
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(-400., 200., 0.),
         Quad {
             half_size: Vec2::splat(30.),
@@ -87,7 +87,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Rotated Square"),
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(-400., 0., 0.).with_rotation(Quat::from_rotation_z(PI * 0.25)),
         Quad {
             half_size: Vec2::splat(30.),
@@ -98,7 +98,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Gradient Line"),
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(200., 200., 0.),
         Line { length: 32. },
         Annular { annular: 10. },
@@ -112,7 +112,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Line"),
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(200., 0., 0.),
         Line { length: 32. },
         Rounded { rounded: 32. },
@@ -121,7 +121,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Name::new("Annular Line"),
-        WorldSdf,
+        Sdf,
         Transform::from_xyz(-400., -200., 0.),
         Line { length: 32. },
         Annular { annular: 10. },

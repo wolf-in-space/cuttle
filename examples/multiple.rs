@@ -14,7 +14,7 @@ fn spawn(mut cmds: Commands) {
     for i in 0..30 {
         let base = (
             Name::new(format!("[{} : {}]", i / 10, i % 10)),
-            WorldSdf,
+            Sdf,
             Transform::from_xyz(
                 (i % 10) as f32 * 100. - 500.,
                 (i / 10) as f32 * 100. - 100.,

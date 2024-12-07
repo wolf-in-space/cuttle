@@ -28,7 +28,7 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2d);
 
     cmds.spawn((
-        WorldSdf,
+        Sdf,
         Point,
         Rounded { rounded: 10. },
         Repetition::default(),
