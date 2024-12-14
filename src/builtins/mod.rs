@@ -1,7 +1,7 @@
 pub(crate) mod groups;
 
-use crate::components::initialization::{SdfComponent, SdfRenderDataFrom, ZstSdfComponent};
-use crate::prelude::BoundingSet;
+use crate::components::initialization::{CuttleComponent, CuttleRenderDataFrom, CuttleZstComponent};
+use crate::prelude::Bounding;
 use bevy::{asset::embedded_asset, prelude::*, render::render_resource::ShaderType};
 
 pub struct BuiltinsPlugin;
@@ -20,9 +20,9 @@ pub struct Rounded {
     pub rounded: f32,
 }
 
-impl SdfComponent for Rounded {
+impl CuttleComponent for Rounded {
     type RenderData = Self;
-    const AFFECT_BOUNDS: BoundingSet = BoundingSet::Add;
+    const AFFECT_BOUNDS: Bounding = Bounding::Add;
     const SORT: u32 = DISTANCE_POS + 100;
 
     fn affect_bounds(comp: &Self) -> f32 {
@@ -36,9 +36,9 @@ pub struct Annular {
     pub annular: f32,
 }
 
-impl SdfComponent for Annular {
+impl CuttleComponent for Annular {
     type RenderData = Self;
-    const AFFECT_BOUNDS: BoundingSet = BoundingSet::Add;
+    const AFFECT_BOUNDS: Bounding = Bounding::Add;
     const SORT: u32 = DISTANCE_POS + 200;
 
     fn affect_bounds(comp: &Self) -> f32 {
@@ -52,7 +52,7 @@ pub const PREPARE_POS: u32 = 0;
 #[reflect(Component)]
 pub struct PrepareBase;
 
-impl ZstSdfComponent for PrepareBase {
+impl CuttleZstComponent for PrepareBase {
     const SORT: u32 = PREPARE_POS + 100;
 }
 
@@ -63,7 +63,7 @@ pub const BASE_POS: u32 = 2000;
 #[require(PrepareBase)]
 pub struct Point;
 
-impl ZstSdfComponent for Point {
+impl CuttleZstComponent for Point {
     const SORT: u32 = BASE_POS + 100;
 }
 
@@ -74,9 +74,9 @@ pub struct Line {
     pub length: f32,
 }
 
-impl SdfComponent for Line {
+impl CuttleComponent for Line {
     type RenderData = Self;
-    const AFFECT_BOUNDS: BoundingSet = BoundingSet::Add;
+    const AFFECT_BOUNDS: Bounding = Bounding::Add;
     const SORT: u32 = BASE_POS + 200;
 
     fn affect_bounds(comp: &Self) -> f32 {
@@ -91,9 +91,9 @@ pub struct Quad {
     pub half_size: Vec2,
 }
 
-impl SdfComponent for Quad {
+impl CuttleComponent for Quad {
     type RenderData = Self;
-    const AFFECT_BOUNDS: BoundingSet = BoundingSet::Add;
+    const AFFECT_BOUNDS: Bounding = Bounding::Add;
     const SORT: u32 = BASE_POS + 300;
 
     fn affect_bounds(comp: &Self) -> f32 {
@@ -110,15 +110,15 @@ pub struct FillRender {
     pub color: Vec3,
 }
 
-impl SdfRenderDataFrom<Fill> for FillRender {
-    fn from_sdf_comp(comp: &Fill) -> Self {
+impl CuttleRenderDataFrom<Fill> for FillRender {
+    fn from_comp(comp: &Fill) -> Self {
         FillRender {
             color: comp.0.to_vec3(),
         }
     }
 }
 
-impl SdfComponent for Fill {
+impl CuttleComponent for Fill {
     type RenderData = FillRender;
     const SORT: u32 = 5000;
 }
@@ -130,7 +130,7 @@ pub struct DistanceGradient {
     pub color: Vec3,
 }
 
-impl SdfComponent for DistanceGradient {
+impl CuttleComponent for DistanceGradient {
     type RenderData = Self;
     const SORT: u32 = 99999;
 }
@@ -140,8 +140,8 @@ pub struct GlobalTransformRender {
     pub transform: Mat4,
 }
 
-impl SdfRenderDataFrom<GlobalTransform> for GlobalTransformRender {
-    fn from_sdf_comp(comp: &GlobalTransform) -> Self {
+impl CuttleRenderDataFrom<GlobalTransform> for GlobalTransformRender {
+    fn from_comp(comp: &GlobalTransform) -> Self {
         GlobalTransformRender {
             transform: comp.compute_matrix().inverse(),
         }
@@ -154,7 +154,7 @@ pub const OPERATION_POS: u32 = 10000;
 #[reflect(Component)]
 pub struct PrepareOperation;
 
-impl ZstSdfComponent for PrepareOperation {
+impl CuttleZstComponent for PrepareOperation {
     const SORT: u32 = PREPARE_POS + 200;
 }
 
@@ -163,7 +163,7 @@ impl ZstSdfComponent for PrepareOperation {
 #[require(PrepareOperation)]
 pub struct Unioni;
 
-impl ZstSdfComponent for Unioni {
+impl CuttleZstComponent for Unioni {
     const SORT: u32 = OPERATION_POS + 100;
 }
 
@@ -172,7 +172,7 @@ impl ZstSdfComponent for Unioni {
 #[require(PrepareOperation)]
 pub struct Subtract;
 
-impl ZstSdfComponent for Subtract {
+impl CuttleZstComponent for Subtract {
     const SORT: u32 = OPERATION_POS + 200;
 }
 
@@ -181,7 +181,7 @@ impl ZstSdfComponent for Subtract {
 #[require(PrepareOperation)]
 pub struct Intersect;
 
-impl ZstSdfComponent for Intersect {
+impl CuttleZstComponent for Intersect {
     const SORT: u32 = OPERATION_POS + 300;
 }
 
@@ -190,7 +190,7 @@ impl ZstSdfComponent for Intersect {
 #[require(PrepareOperation)]
 pub struct Xor;
 
-impl ZstSdfComponent for Xor {
+impl CuttleZstComponent for Xor {
     const SORT: u32 = OPERATION_POS + 400;
 }
 
@@ -207,7 +207,7 @@ impl Default for SmoothUnion {
     }
 }
 
-impl SdfComponent for SmoothUnion {
+impl CuttleComponent for SmoothUnion {
     type RenderData = Self;
     const SORT: u32 = OPERATION_POS + 500;
 }
@@ -225,7 +225,7 @@ impl Default for SmoothSubtract {
     }
 }
 
-impl SdfComponent for SmoothSubtract {
+impl CuttleComponent for SmoothSubtract {
     type RenderData = Self;
     const SORT: u32 = OPERATION_POS + 600;
 }
@@ -243,7 +243,7 @@ impl Default for SmoothIntersect {
     }
 }
 
-impl SdfComponent for SmoothIntersect {
+impl CuttleComponent for SmoothIntersect {
     type RenderData = Self;
     const SORT: u32 = OPERATION_POS + 700;
 }
@@ -261,7 +261,7 @@ impl Default for SmoothXor {
     }
 }
 
-impl SdfComponent for SmoothXor {
+impl CuttleComponent for SmoothXor {
     type RenderData = Self;
     const SORT: u32 = OPERATION_POS + 800;
 }
@@ -282,9 +282,9 @@ impl Default for Repetition {
     }
 }
 
-impl SdfComponent for Repetition {
+impl CuttleComponent for Repetition {
     type RenderData = Self;
-    const AFFECT_BOUNDS: BoundingSet = BoundingSet::Multiply;
+    const AFFECT_BOUNDS: Bounding = Bounding::Multiply;
     const SORT: u32 = 1100;
 
     fn affect_bounds(comp: &Self) -> f32 {
@@ -299,7 +299,7 @@ pub struct Morph {
     pub morph: f32,
 }
 
-impl SdfComponent for Morph {
+impl CuttleComponent for Morph {
     type RenderData = Self;
     const SORT: u32 = OPERATION_POS + 900;
 }

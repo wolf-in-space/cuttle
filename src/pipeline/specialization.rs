@@ -22,14 +22,14 @@ use bevy::{
 };
 
 #[derive(Event, Debug, PartialEq, Clone)]
-pub struct SdfSpecializationData {
+pub struct CuttleSpecializationData {
     pub shader: Handle<Shader>,
     pub bind_group_layout: BindGroupLayout,
     pub bindings: Vec<usize>,
 }
 
 #[derive(Resource)]
-pub struct SdfPipeline {
+pub struct CuttlePipeline {
     pub _common_shader: Handle<Shader>,
     pub vertex_shader: Handle<Shader>,
     pub fragment_shaders: HashMap<GroupId, Handle<Shader>>,
@@ -39,7 +39,7 @@ pub struct SdfPipeline {
     pub indices: RawBufferVec<u16>,
 }
 
-impl SdfPipeline {
+impl CuttlePipeline {
     pub fn new(world: &mut World, comp_buf_count: u32) -> Self {
         let device = world.resource::<RenderDevice>();
         let queue = world.resource::<RenderQueue>();
@@ -66,7 +66,7 @@ impl SdfPipeline {
             asset_server.load::<Shader>("embedded://cuttle/shader/common.wgsl");
         let vertex_shader = asset_server.load::<Shader>("embedded://cuttle/shader/vertex.wgsl");
 
-        SdfPipeline {
+        CuttlePipeline {
             indices,
             global_layout,
             _common_shader,
@@ -78,7 +78,7 @@ impl SdfPipeline {
     }
 }
 
-impl SpecializedRenderPipeline for SdfPipeline {
+impl SpecializedRenderPipeline for CuttlePipeline {
     type Key = SdfPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
@@ -168,7 +168,7 @@ pub fn prepare_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
-    pipeline: Res<SdfPipeline>,
+    pipeline: Res<CuttlePipeline>,
     views: Query<Entity, With<ExtractedView>>,
 ) {
     let Some(view_binding) = view_uniforms.uniforms.binding() else {

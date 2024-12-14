@@ -1,9 +1,9 @@
 use super::{
-    draw::DrawSdf, extract::ExtractedRenderSdf, specialization::SdfPipeline, RenderPhase,
+    draw::DrawSdf, extract::ExtractedRenderSdf, specialization::CuttlePipeline, RenderPhase,
     SdfPipelineKey,
 };
 use crate::groups::GroupId;
-use crate::pipeline::extract::{ExtractedSdfTransform, ExtractedVisibility};
+use crate::pipeline::extract::{ExtractedCuttleTransform, ExtractedVisibility};
 use bevy::core_pipeline::core_2d::Transparent2d;
 use bevy::render::render_phase::PhaseItem;
 use bevy::{
@@ -24,14 +24,14 @@ pub(crate) fn queue_sdfs(
             Entity,
             &MainEntity,
             &ExtractedVisibility,
-            &ExtractedSdfTransform,
+            &ExtractedCuttleTransform,
         ),
         With<ExtractedRenderSdf>,
     >,
     views: Query<Entity, With<ExtractedView>>,
-    sdf_pipeline: Res<SdfPipeline>,
+    sdf_pipeline: Res<CuttlePipeline>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
-    mut pipelines: ResMut<SpecializedRenderPipelines<SdfPipeline>>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<CuttlePipeline>>,
     cache: Res<PipelineCache>,
     mut render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
 ) {

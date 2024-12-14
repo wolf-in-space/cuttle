@@ -1,12 +1,12 @@
 use crate::bounding::{make_compute_aabb_system, InitBoundingFn};
 use crate::components::buffer::BufferEntity;
 use crate::components::initialization::{
-    init_component_with_render_data, init_components, init_zst_component, InitComponentInfo,
-    RegisterSdfComponent, SdfComponent, SdfRenderDataFrom, ZstSdfComponent,
+    init_component, init_components, init_zst_component, InitComponentInfo,
+    RegisterCuttleComponent, CuttleComponent, CuttleRenderDataFrom, CuttleZstComponent,
 };
 use crate::pipeline::extract::extract_group_marker;
 use crate::shader::{load_shader_to_pipeline, ShaderSettings};
-use crate::{calculations::Calculation, shader::snippets::AddSnippet, SdfInternals};
+use crate::{calculations::Calculation, shader::snippets::AddSnippet, CuttleFlags};
 use bevy::prelude::*;
 use bevy::render::sync_component::SyncComponentPlugin;
 use bevy::render::sync_world::RenderEntity;
@@ -14,7 +14,7 @@ use bevy::render::RenderApp;
 use bevy::utils::HashMap;
 use std::{any::TypeId, marker::PhantomData};
 
-pub trait SdfGroup: Component {
+pub trait CuttleGroup: Component {
     // type Phase: RenderPhase;
 }
 
@@ -70,11 +70,11 @@ impl<G> FromWorld for GroupData<G> {
 #[derive(Copy, Clone, Deref, DerefMut, Debug, Hash, Eq, PartialEq)]
 pub struct GroupId(pub(crate) u32);
 
-pub struct GroupBuilder<'a, G> {
+pub struct CuttleGroupBuilder<'a, G> {
     pub(crate) group: &'a mut GroupData<G>,
 }
 
-impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
+impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
     pub fn calculation(
         &mut self,
         name: impl Into<String>,
@@ -91,11 +91,11 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
     ///
     /// ```
     /// # use bevy::prelude::*;
-    /// # use cuttle::groups::{SdfGroup, SdfGroupBuilderAppExt};
+    /// # use cuttle::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
     /// # let mut app = App::new();
     /// # #[derive(Component)]
     /// # struct MyGroup;
-    /// # impl SdfGroup for MyGroup {}
+    /// # impl CuttleGroup for MyGroup {}
     ///
     /// app.sdf_group::<MyGroup>()
     /// .snippet(stringify!(
@@ -115,11 +115,11 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
     /// Supports hot reloading.
     /// ```
     /// # use bevy::prelude::*;
-    /// # use cuttle::groups::{SdfGroup, SdfGroupBuilderAppExt};
+    /// # use cuttle::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
     /// # let mut app = App::new();
     /// # #[derive(Component)]
     /// # struct MyGroup;
-    /// # impl SdfGroup for MyGroup {}
+    /// # impl CuttleGroup for MyGroup {}
     ///
     /// app.sdf_group::<MyGroup>()
     /// // Adds an embedded file to the Group.
@@ -142,13 +142,13 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
     /// ```
     /// # use bevy::prelude::{Component, Reflect};
     /// # use bevy::render::render_resource::ShaderType;
-    /// # use cuttle::components::initialization::{SdfComponent, ZstSdfComponent};
+    /// # use cuttle::components::initialization::{CuttleComponent, CuttleZstComponent};
     /// # use cuttle::prelude::DISTANCE_POS;
     ///
     /// #[derive(Component, Reflect, ShaderType, Clone, Debug)]
     /// struct MyZstComponent;
     ///
-    /// impl ZstSdfComponent for MyZstComponent {
+    /// impl CuttleZstComponent for MyZstComponent {
     ///     const SORT: u32 = DISTANCE_POS + 500;
     /// }
     /// ```
@@ -159,7 +159,7 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
     ///     distance *= 2.0;
     /// }
     /// ```
-    pub fn zst_component<C: ZstSdfComponent>(&'a mut self) -> &mut Self {
+    pub fn zst_component<C: CuttleZstComponent>(&'a mut self) -> &mut Self {
         self.group.init_comp_fns.push(InitComponentInfo {
             sort: C::SORT,
             init_bounding: None,
@@ -173,7 +173,7 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
     /// ```
     /// # use bevy::prelude::{Component, Reflect};
     /// # use bevy::render::render_resource::ShaderType;
-    /// # use cuttle::components::initialization::SdfComponent;
+    /// # use cuttle::components::initialization::CuttleComponent;
     /// # use cuttle::prelude::DISTANCE_POS;
     ///
     /// #[derive(Component, Reflect, ShaderType, Clone, Debug)]
@@ -181,7 +181,7 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
     ///     value: f32,
     /// }
     ///
-    /// impl SdfComponent for MyComponent {
+    /// impl CuttleComponent for MyComponent {
     ///     type RenderData = Self;
     ///     const SORT: u32 = DISTANCE_POS + 500;
     /// }
@@ -193,16 +193,16 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
     ///     distance += input.value;
     /// }
     /// ```
-    pub fn component<C: SdfComponent>(&'a mut self) -> &mut Self {
+    pub fn component<C: CuttleComponent>(&'a mut self) -> &mut Self {
         self.component_with(C::registration_data())
     }
 
     /// Specify all the data for the component manually. Useful to
     /// evade the orphan rule.
-    /// see [`component`](GroupBuilder::component) for more info.
-    pub fn component_with<C: Component, R: SdfRenderDataFrom<C>>(
+    /// see [`component`](CuttleGroupBuilder::component) for more info.
+    pub fn component_with<C: Component, R: CuttleRenderDataFrom<C>>(
         &'a mut self,
-        data: RegisterSdfComponent<C, R>,
+        data: RegisterCuttleComponent<C, R>,
     ) -> &mut Self {
         let init_bounding = data.affect_bounds_fn.map(|func| {
             let result: InitBoundingFn = Box::new(move |app: &mut App| {
@@ -218,22 +218,22 @@ impl<'a, G: SdfGroup> GroupBuilder<'a, G> {
         self.group.init_comp_fns.push(InitComponentInfo {
             sort: data.sort,
             init_bounding,
-            init_fn: init_component_with_render_data::<C, R, G>,
+            init_fn: init_component::<C, R, G>,
         });
         self
     }
 }
 
-pub trait SdfGroupBuilderAppExt {
-    fn sdf_group<G: SdfGroup>(&mut self) -> GroupBuilder<G>;
+pub trait CuttleGroupBuilderAppExt {
+    fn sdf_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder<G>;
 }
 
-impl SdfGroupBuilderAppExt for App {
-    fn sdf_group<G: SdfGroup>(&mut self) -> GroupBuilder<G> {
+impl CuttleGroupBuilderAppExt for App {
+    fn sdf_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder<G> {
         if !self.is_plugin_added::<GroupPlugin<G>>() {
             self.add_plugins(GroupPlugin::<G>::new());
         }
-        GroupBuilder {
+        CuttleGroupBuilder {
             group: self.world_mut().resource_mut::<GroupData<G>>().into_inner(),
         }
     }
@@ -247,7 +247,7 @@ impl<G> GroupPlugin<G> {
     }
 }
 
-impl<G: SdfGroup> Plugin for GroupPlugin<G> {
+impl<G: CuttleGroup> Plugin for GroupPlugin<G> {
     fn build(&self, app: &mut App) {
         if !app.world().contains_resource::<GlobalGroupInfos>() {
             let infos = GlobalGroupInfos::new(app);
@@ -257,7 +257,7 @@ impl<G: SdfGroup> Plugin for GroupPlugin<G> {
     }
 
     fn finish(&self, app: &mut App) {
-        app.register_required_components::<G, SdfInternals>();
+        app.register_required_components::<G, CuttleFlags>();
         app.add_plugins(SyncComponentPlugin::<G>::default());
         app.sub_app_mut(RenderApp)
             .add_systems(ExtractSchedule, extract_group_marker::<G>);

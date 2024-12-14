@@ -1,6 +1,6 @@
 use bevy::{color::palettes::css, prelude::*};
 use cuttle::prelude::*;
-use cuttle::SdfInternals;
+use cuttle::CuttleFlags;
 
 fn main() {
     App::new()
@@ -14,7 +14,7 @@ fn spawn(mut cmds: Commands) {
 
     let subtract = cmds
         .spawn((
-            SdfInternals::default(),
+            CuttleFlags::default(),
             Transform::from_xyz(35., 10., 0.),
             Quad {
                 half_size: Vec2::splat(30.),
@@ -26,7 +26,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Sdf,
-        SdfExtensions(vec![subtract]),
+        Extensions(vec![subtract]),
         Point,
         Rounded { rounded: 100. },
         Fill(css::SKY_BLUE),

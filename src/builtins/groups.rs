@@ -1,6 +1,6 @@
 use crate::builtins::*;
-use crate::components::initialization::RegisterSdfComponent;
-use crate::groups::{SdfGroup, SdfGroupBuilderAppExt};
+use crate::components::initialization::RegisterCuttleComponent;
+use crate::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
 use crate::prelude::Annular;
 use bevy::prelude::{App, Component};
 
@@ -22,7 +22,7 @@ pub fn plugin(app: &mut App) {
         .component::<Line>()
         .component::<Quad>()
         .component_with(
-            RegisterSdfComponent::<GlobalTransform, GlobalTransformRender> {
+            RegisterCuttleComponent::<GlobalTransform, GlobalTransformRender> {
                 sort: 1100,
                 ..default()
             },
@@ -44,6 +44,6 @@ pub fn plugin(app: &mut App) {
 #[derive(Component, Debug, Default, Clone)]
 pub struct Sdf;
 
-impl SdfGroup for Sdf {
+impl CuttleGroup for Sdf {
     // type Phase = Transparent2d;
 }

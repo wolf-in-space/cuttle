@@ -1,7 +1,7 @@
 use super::queue::RenderPhaseBuffers;
 use super::specialization::SdfViewBindGroup;
 use super::RenderPhase;
-use super::{queue::SdfBatch, specialization::SdfPipeline};
+use super::{queue::SdfBatch, specialization::CuttlePipeline};
 use crate::components::buffer::CompBufferBindgroup;
 use crate::extensions::OpBindgroup;
 use bevy::{
@@ -40,7 +40,7 @@ impl<P: RenderPhase> RenderCommand<P> for SetSdfViewBindGroup {
 pub struct DrawSdfDispatch;
 impl<P: RenderPhase> RenderCommand<P> for DrawSdfDispatch {
     type Param = (
-        SRes<SdfPipeline>,
+        SRes<CuttlePipeline>,
         SRes<RenderPhaseBuffers>,
         SRes<CompBufferBindgroup>,
         SRes<OpBindgroup>,

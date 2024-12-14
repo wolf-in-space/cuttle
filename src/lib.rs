@@ -3,10 +3,10 @@
 
 use crate::flag::Flag;
 use bevy::prelude::*;
-use bounding::SdfBoundingRadius;
+use bounding::CuttleBoundingRadius;
 use builtins::BuiltinsPlugin;
 use components::CompPlugin;
-use extensions::SdfExtensions;
+use extensions::Extensions;
 use pipeline::PipelinePlugin;
 use shader::ShaderPlugin;
 use std::collections::BTreeMap;
@@ -24,11 +24,11 @@ pub mod shader;
 
 pub mod prelude {
     pub use crate::CuttlePlugin;
-    pub use crate::bounding::BoundingSet;
+    pub use crate::bounding::Bounding;
     #[cfg(feature = "builtins")]
     pub use crate::builtins::{groups::*, *};
-    pub use crate::extensions::ExtendSdf;
-    pub use crate::extensions::SdfExtensions;
+    pub use crate::extensions::Extension;
+    pub use crate::extensions::Extensions;
 }
 
 pub struct CuttlePlugin;
@@ -47,8 +47,8 @@ impl Plugin for CuttlePlugin {
 }
 
 #[derive(Component, Debug, Default, Clone)]
-#[require(Transform, Visibility, SdfExtensions, SdfBoundingRadius)]
-pub struct SdfInternals {
+#[require(Transform, Visibility, Extensions, CuttleBoundingRadius)]
+pub struct CuttleFlags {
     flag: Flag,
     indices: BTreeMap<u8, u32>,
 }

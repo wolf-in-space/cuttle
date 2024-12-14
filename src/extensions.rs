@@ -1,6 +1,6 @@
-use crate::pipeline::extract::ExtractedSdfTransform;
-use crate::pipeline::{extract::ExtractedRenderSdf, specialization::SdfPipeline, CuttleRenderSet};
-use crate::SdfInternals;
+use crate::pipeline::extract::ExtractedCuttleTransform;
+use crate::pipeline::{extract::ExtractedRenderSdf, specialization::CuttlePipeline, CuttleRenderSet};
+use crate::CuttleFlags;
 use bevy::math::bounding::BoundingVolume;
 use bevy::{
     prelude::*,
@@ -14,7 +14,7 @@ use bevy::{
 use std::fmt::{self, Debug};
 
 pub fn plugin(app: &mut App) {
-    register_extend_sdf_hooks(app.world_mut());
+    register_extension_hooks(app.world_mut());
 
     app.sub_app_mut(RenderApp)
         .init_resource::<OpsBuffer>()
@@ -31,38 +31,32 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Debug, Component, Clone, Copy)]
-#[require(SdfInternals, SyncToRenderWorld)]
-pub struct ExtendSdf {
+#[require(CuttleFlags, SyncToRenderWorld)]
+pub struct Extension {
     target: Entity,
 }
 
-impl ExtendSdf {
+impl Extension {
     pub fn new(target: Entity) -> Self {
         Self { target }
     }
 }
 
-fn register_extend_sdf_hooks(world: &mut World) {
+fn register_extension_hooks(world: &mut World) {
     world
-        .register_component_hooks::<ExtendSdf>()
+        .register_component_hooks::<Extension>()
         .on_add(|mut world, entity, _| {
-            let target = world.get::<ExtendSdf>(entity).unwrap().target;
+            let target = world.get::<Extension>(entity).unwrap().target;
             let mut target = world.entity_mut(target);
-            match target.get_mut::<SdfExtensions>() {
+            match target.get_mut::<Extensions>() {
                 Some(mut extensions) => extensions.push(entity),
                 None => panic!("HI"),
             }
         });
 }
 
-#[derive(Debug, Component, Clone, Copy)]
-pub enum BoundingEffect {
-    Nothing,
-    Combine,
-}
-
 #[derive(Debug, Component, Clone, Deref, DerefMut, Default)]
-pub struct SdfExtensions(pub Vec<Entity>);
+pub struct Extensions(pub Vec<Entity>);
 
 #[derive(ShaderType, Clone, Copy)]
 pub struct Op {
@@ -90,12 +84,12 @@ pub struct OpBindgroup(pub Option<BindGroup>);
 
 fn build_op_buffer(
     mut sdfs: Query<(
-        &SdfInternals,
-        &ExtractedSdfTransform,
+        &CuttleFlags,
+        &ExtractedCuttleTransform,
         &mut ExtractedRenderSdf,
-        &SdfExtensions,
+        &Extensions,
     )>,
-    extracted: Query<(&SdfInternals, &ExtractedSdfTransform)>,
+    extracted: Query<(&CuttleFlags, &ExtractedCuttleTransform)>,
     mut ops_buffer: ResMut<OpsBuffer>,
     mut indices_buffer: ResMut<CompIndicesBuffer>,
 ) {
@@ -104,7 +98,7 @@ fn build_op_buffer(
     let ops = ops_buffer.get_mut();
     ops.clear();
 
-    let mut add_op = |ops: &mut Vec<Op>, sdf: &SdfInternals| {
+    let mut add_op = |ops: &mut Vec<Op>, sdf: &CuttleFlags| {
         let op = Op {
             start_index: indices.len() as u32,
             flag: sdf.flag.0,
@@ -113,17 +107,17 @@ fn build_op_buffer(
         ops.push(op);
     };
 
-    for (sdf, transform, mut render_sdf, extensions) in &mut sdfs {
+    for (flags, transform, mut render_sdf, extensions) in &mut sdfs {
         render_sdf.op_count = extensions.len() as u32 + 1;
         render_sdf.op_start_index = ops.len() as u32;
         render_sdf.final_bounds = transform.bounding;
 
-        add_op(ops, sdf);
+        add_op(ops, flags);
 
         for extension_entity in extensions.iter() {
-            let (sdf, transform) = extracted.get(*extension_entity).unwrap();
+            let (flags, transform) = extracted.get(*extension_entity).unwrap();
             render_sdf.final_bounds = render_sdf.final_bounds.merge(&transform.bounding);
-            add_op(ops, sdf);
+            add_op(ops, flags);
         }
     }
 }
@@ -132,7 +126,7 @@ fn build_op_bindgroups(
     mut ops_buffer: ResMut<OpsBuffer>,
     mut indices_buffer: ResMut<CompIndicesBuffer>,
     mut op_bindgroup: ResMut<OpBindgroup>,
-    pipeline: Res<SdfPipeline>,
+    pipeline: Res<CuttlePipeline>,
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
 ) {
@@ -144,6 +138,6 @@ fn build_op_bindgroups(
         indices_buffer.binding().unwrap(),
     ));
 
-    let bindgroup = device.create_bind_group("sdf operations", &pipeline.op_layout, &entries);
+    let bindgroup = device.create_bind_group("cuttle operations", &pipeline.op_layout, &entries);
     op_bindgroup.0 = Some(bindgroup);
 }

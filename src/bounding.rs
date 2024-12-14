@@ -1,37 +1,32 @@
 use bevy::render::primitives::{Frustum, Sphere};
-use bevy::render::view::{
-    NoCpuCulling, NoFrustumCulling, RenderLayers, VisibilitySystems, VisibleEntities,
-};
+use bevy::render::view::{NoCpuCulling, NoFrustumCulling, RenderLayers, VisibilitySystems, VisibleEntities};
 use bevy::utils::Parallel;
-use bevy::{color::palettes::tailwind, input::common_conditions::input_pressed, prelude::*};
+use bevy::prelude::*;
 
 pub fn plugin(app: &mut App) {
     app.configure_sets(
         PostUpdate,
-        (BoundingSet::Add, BoundingSet::Multiply, BoundingSet::Apply).chain(),
+        (Bounding::Add, Bounding::Multiply, Bounding::Apply).chain(),
     )
-    .add_systems(
-        PostUpdate,
-        (
-            apply_bounding.in_set(BoundingSet::Apply),
-            debug_bounding
-                .after(BoundingSet::Apply)
-                .run_if(input_pressed(KeyCode::KeyB)),
-            check_visibility.in_set(VisibilitySystems::CheckVisibility),
-        ),
-    );
+        .add_systems(
+            PostUpdate,
+            (
+                apply_bounding.in_set(Bounding::Apply),
+                check_visibility.in_set(VisibilitySystems::CheckVisibility),
+            ),
+        );
 }
 
 pub type InitBoundingFn = Box<dyn FnMut(&mut App) + Send + Sync>;
 
 #[derive(Clone, Copy, Debug, Component, Default)]
-pub struct SdfBoundingRadius {
+pub struct CuttleBoundingRadius {
     pub bounding: f32,
     compute_bounding: f32,
 }
 
 #[derive(SystemSet, Hash, PartialEq, Eq, Debug, Clone, Copy, Default)]
-pub enum BoundingSet {
+pub enum Bounding {
     #[default]
     None,
     Add,
@@ -39,7 +34,7 @@ pub enum BoundingSet {
     Apply,
 }
 
-pub fn apply_bounding(mut query: Query<&mut SdfBoundingRadius>) {
+pub fn apply_bounding(mut query: Query<&mut CuttleBoundingRadius>) {
     for mut sdf in &mut query {
         if sdf.bounding == sdf.compute_bounding {
             sdf.bypass_change_detection().compute_bounding = 0.;
@@ -52,21 +47,22 @@ pub fn apply_bounding(mut query: Query<&mut SdfBoundingRadius>) {
 
 pub const fn make_compute_aabb_system<C: Component>(
     func: fn(&C) -> f32,
-    set: BoundingSet,
-) -> impl Fn(Query<(&mut SdfBoundingRadius, &C)>) {
+    set: Bounding,
+) -> impl Fn(Query<(&mut CuttleBoundingRadius, &C)>) {
     move |mut query| {
         for (mut sdf, c) in &mut query {
             let val = func(c);
             let bounds = &mut sdf.bypass_change_detection().compute_bounding;
             match set {
-                BoundingSet::Add => *bounds += val,
-                BoundingSet::Multiply => *bounds *= val,
-                BoundingSet::Apply | BoundingSet::None => panic!("NO"),
+                Bounding::Add => *bounds += val,
+                Bounding::Multiply => *bounds *= val,
+                Bounding::Apply | Bounding::None => panic!("NO"),
             }
         }
     }
 }
 
+/*
 fn debug_bounding(mut gizmos: Gizmos, bounds: Query<(&SdfBoundingRadius, &GlobalTransform)>) {
     for (bound, transform) in &bounds {
         gizmos.rect_2d(
@@ -76,7 +72,9 @@ fn debug_bounding(mut gizmos: Gizmos, bounds: Query<(&SdfBoundingRadius, &Global
         )
     }
 }
+*/
 
+//TODO: Change Comments
 /// System updating the visibility of entities each frame.
 ///
 /// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each
@@ -101,7 +99,7 @@ pub fn check_visibility(
         &InheritedVisibility,
         &mut ViewVisibility,
         Option<&RenderLayers>,
-        &SdfBoundingRadius,
+        &CuttleBoundingRadius,
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
@@ -154,7 +152,7 @@ pub fn check_visibility(
             },
         );
 
-        visible_entities.clear::<SdfBoundingRadius>();
-        thread_queues.drain_into(visible_entities.get_mut::<SdfBoundingRadius>());
+        visible_entities.clear::<CuttleBoundingRadius>();
+        thread_queues.drain_into(visible_entities.get_mut::<CuttleBoundingRadius>());
     }
 }

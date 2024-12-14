@@ -1,7 +1,6 @@
 use crate::calculations::Calculation;
-use crate::components::initialization::ComponentShaderInfo;
 use crate::groups::{GlobalGroupInfos, GroupId};
-use crate::pipeline::specialization::SdfPipeline;
+use crate::pipeline::specialization::CuttlePipeline;
 use bevy::render::RenderApp;
 use bevy::{
     asset::{embedded_asset, io::Reader, AssetLoader, LoadContext, LoadDirectError},
@@ -30,6 +29,18 @@ impl Plugin for ShaderPlugin {
     }
 }
 
+#[derive(Deserialize, Serialize, Clone)]
+pub struct ComponentShaderInfo {
+    pub name: String,
+    pub(crate) render_data: Option<RenderDataShaderInfo>,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+pub struct RenderDataShaderInfo {
+    pub binding: u32,
+    pub struct_wgsl: String,
+}
+
 pub(crate) fn load_shader_to_pipeline(
     app: &mut App,
     shader_settings: ShaderSettings,
@@ -45,12 +56,12 @@ pub(crate) fn load_shader_to_pipeline(
         *s = shader_settings.clone()
     });
     let render_world = app.sub_app_mut(RenderApp).world_mut();
-    match render_world.get_resource_mut::<SdfPipeline>() {
+    match render_world.get_resource_mut::<CuttlePipeline>() {
         Some(mut pipeline) => {
             pipeline.fragment_shaders.insert(group_id, shader);
         }
         None => {
-            let mut pipeline = SdfPipeline::new(render_world, comp_count);
+            let mut pipeline = CuttlePipeline::new(render_world, comp_count);
             pipeline.fragment_shaders.insert(group_id, shader);
             render_world.insert_resource(pipeline);
         }
@@ -58,7 +69,7 @@ pub(crate) fn load_shader_to_pipeline(
 }
 
 #[derive(Asset, Reflect)]
-pub struct SdfShaderImport(String);
+pub struct CuttleShaderImport(String);
 
 #[derive(Default)]
 struct ShaderLoader;

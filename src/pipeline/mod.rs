@@ -15,7 +15,7 @@ use bevy::{
 use draw::DrawSdf;
 use queue::{cleanup_batches, prepare_sdfs, queue_sdfs, RenderPhaseBuffers};
 use specialization::{
-    prepare_view_bind_groups, write_phase_buffers, SdfPipeline, SdfSpecializationData,
+    prepare_view_bind_groups, write_phase_buffers, CuttlePipeline, CuttleSpecializationData,
 };
 
 mod draw;
@@ -89,8 +89,8 @@ impl Plugin for PipelinePlugin {
                     .after(RenderSet::ExtractCommands)
                     .before(RenderSet::Render),
             )
-            .init_resource::<SpecializedRenderPipelines<SdfPipeline>>()
-            .add_event::<SdfSpecializationData>()
+            .init_resource::<SpecializedRenderPipelines<CuttlePipeline>>()
+            .add_event::<CuttleSpecializationData>()
             .add_systems(Render, cleanup_batches.in_set(RenderSet::Cleanup));
     }
 }

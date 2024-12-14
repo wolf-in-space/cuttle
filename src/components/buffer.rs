@@ -1,5 +1,5 @@
-use crate::components::initialization::SdfRenderData;
-use crate::pipeline::{specialization::SdfPipeline, CuttleRenderSet};
+use crate::components::initialization::CuttleRenderData;
+use crate::pipeline::{specialization::CuttlePipeline, CuttleRenderSet};
 use bevy::{
     prelude::*,
     render::{
@@ -31,15 +31,15 @@ impl Plugin for BufferPlugin {
 }
 
 #[derive(Component, Deref, DerefMut)]
-pub(crate) struct CompBuffer<C: SdfRenderData>(StorageBuffer<Vec<C>>);
+pub(crate) struct CompBuffer<C: CuttleRenderData>(StorageBuffer<Vec<C>>);
 
-impl<C: SdfRenderData> Default for CompBuffer<C> {
+impl<C: CuttleRenderData> Default for CompBuffer<C> {
     fn default() -> Self {
         Self(default())
     }
 }
 
-impl<C: SdfRenderData> CompBuffer<C> {
+impl<C: CuttleRenderData> CompBuffer<C> {
     pub fn write(entity: &mut EntityMut, device: &RenderDevice, queue: &RenderQueue) {
         if let Some(mut buffer) = entity.get_mut::<Self>() {
             buffer.write_buffer(device, queue);
@@ -86,7 +86,7 @@ fn build_buffer_bindgroup(
     entity: Single<EntityRef, With<BufferEntity>>,
     fns: Res<BufferFns>,
     device: Res<RenderDevice>,
-    pipeline: Res<SdfPipeline>,
+    pipeline: Res<CuttlePipeline>,
     mut bindgroup: ResMut<CompBufferBindgroup>,
 ) {
     let entries: Vec<BindGroupEntry> = fns

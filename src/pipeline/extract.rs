@@ -1,10 +1,10 @@
-use crate::components::initialization::SdfRenderDataFrom;
-use crate::groups::SdfGroup;
+use crate::components::initialization::CuttleRenderDataFrom;
+use crate::groups::CuttleGroup;
 use crate::{
-    bounding::SdfBoundingRadius,
+    bounding::CuttleBoundingRadius,
     components::{arena::IndexArena, buffer::CompBuffer},
-    extensions::SdfExtensions,
-    SdfInternals,
+    extensions::Extensions,
+    CuttleFlags,
 };
 use bevy::render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy::{
@@ -16,38 +16,38 @@ use std::fmt::Debug;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((
-        SyncComponentPlugin::<SdfExtensions>::default(),
-        ExtractComponentPlugin::<SdfBoundingRadius>::default(),
-        ExtractComponentPlugin::<SdfInternals>::default(),
+        SyncComponentPlugin::<Extensions>::default(),
+        ExtractComponentPlugin::<CuttleBoundingRadius>::default(),
+        ExtractComponentPlugin::<CuttleFlags>::default(),
         ExtractComponentPlugin::<ExtractedVisibility>::default(),
     ))
     .sub_app_mut(RenderApp)
-    .add_systems(ExtractSchedule, extract_sdf_extensions);
+    .add_systems(ExtractSchedule, extract_extensions);
 }
 
-pub(crate) const fn build_extract_sdf_comp<C: Component, R: SdfRenderDataFrom<C>>(
+pub(crate) const fn build_extract_cuttle_comp<C: Component, R: CuttleRenderDataFrom<C>>(
     pos: u8,
 ) -> impl FnMut(
     Single<&mut CompBuffer<R>>,
     Extract<Res<IndexArena<C>>>,
-    Extract<Query<(&SdfInternals, &C), Changed<C>>>,
+    Extract<Query<(&CuttleFlags, &C), Changed<C>>>,
 ) {
     move |mut buffer, arena, comps| {
         let buffer = buffer.get_mut();
         buffer.resize_with(arena.max as usize, || R::default());
 
-        for (sdf, comp) in &comps {
-            let index = *sdf.indices.get(&pos).unwrap() as usize;
+        for (flags, comp) in &comps {
+            let index = *flags.indices.get(&pos).unwrap() as usize;
             let elem = buffer.get_mut(index).unwrap();
-            *elem = R::from_sdf_comp(comp);
+            *elem = R::from_comp(comp);
         }
     }
 }
 
-fn extract_sdf_extensions(
+fn extract_extensions(
     mut cmds: Commands,
     render_entities: Extract<Query<&RenderEntity>>,
-    extend: Extract<Query<(&RenderEntity, &SdfExtensions), Changed<SdfExtensions>>>,
+    extend: Extract<Query<(&RenderEntity, &Extensions), Changed<Extensions>>>,
 ) {
     for (render, extend) in &extend {
         let render_extensions = extend
@@ -66,12 +66,12 @@ fn extract_sdf_extensions(
             })
             .collect();
         cmds.entity(render.id())
-            .insert(SdfExtensions(render_extensions));
+            .insert(Extensions(render_extensions));
     }
 }
 
 #[derive(Component)]
-pub struct ExtractedSdfTransform {
+pub struct ExtractedCuttleTransform {
     pub bounding: BoundingCircle,
     pub z: f32,
 }
@@ -93,7 +93,7 @@ impl Default for ExtractedRenderSdf {
     }
 }
 
-pub(crate) fn extract_group_marker<G: SdfGroup>(
+pub(crate) fn extract_group_marker<G: CuttleGroup>(
     mut cmds: Commands,
     query: Extract<Query<RenderEntity, With<G>>>,
 ) {
@@ -104,26 +104,26 @@ pub(crate) fn extract_group_marker<G: SdfGroup>(
     cmds.insert_or_spawn_batch(extracted)
 }
 
-impl ExtractComponent for SdfBoundingRadius {
-    type QueryData = (&'static SdfBoundingRadius, &'static GlobalTransform);
-    type QueryFilter = Or<(Changed<SdfBoundingRadius>, Changed<GlobalTransform>)>;
-    type Out = ExtractedSdfTransform;
+impl ExtractComponent for CuttleBoundingRadius {
+    type QueryData = (&'static CuttleBoundingRadius, &'static GlobalTransform);
+    type QueryFilter = Or<(Changed<CuttleBoundingRadius>, Changed<GlobalTransform>)>;
+    type Out = ExtractedCuttleTransform;
 
     fn extract_component(
-        (radius, transform): (&SdfBoundingRadius, &GlobalTransform),
+        (radius, transform): (&CuttleBoundingRadius, &GlobalTransform),
     ) -> Option<Self::Out> {
         let translation = transform.translation();
-        Some(ExtractedSdfTransform {
+        Some(ExtractedCuttleTransform {
             bounding: BoundingCircle::new(translation.xy(), radius.bounding),
             z: translation.z,
         })
     }
 }
 
-impl ExtractComponent for SdfInternals {
-    type QueryData = &'static SdfInternals;
-    type QueryFilter = Changed<SdfInternals>;
-    type Out = SdfInternals;
+impl ExtractComponent for CuttleFlags {
+    type QueryData = &'static CuttleFlags;
+    type QueryFilter = Changed<CuttleFlags>;
+    type Out = CuttleFlags;
 
     fn extract_component(internals: &Self) -> Option<Self::Out> {
         Some(internals.clone())

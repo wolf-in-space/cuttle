@@ -1,6 +1,6 @@
 use bevy::{color::palettes::css, prelude::*, render::render_resource::ShaderType};
-use cuttle::components::initialization::SdfComponent;
-use cuttle::groups::SdfGroupBuilderAppExt;
+use cuttle::components::initialization::CuttleComponent;
+use cuttle::groups::CuttleGroupBuilderAppExt;
 use cuttle::prelude::*;
 
 fn main() {
@@ -42,7 +42,7 @@ struct DoAWave {
     frequency: f32,
 }
 
-impl SdfComponent for DoAWave {
+impl CuttleComponent for DoAWave {
     type RenderData = Self;
     const SORT: u32 = DISTANCE_POS + 500;
 }

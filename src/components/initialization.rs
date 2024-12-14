@@ -1,18 +1,18 @@
-use crate::bounding::{BoundingSet, InitBoundingFn};
+use crate::bounding::{Bounding, InitBoundingFn};
 use crate::components::arena::IndexArena;
 use crate::components::buffer::{BufferFns, CompBuffer};
 use crate::components::build_set_flag_bit;
-use crate::groups::{GlobalGroupInfos, GroupBuilder, SdfGroup};
-use crate::pipeline::extract::build_extract_sdf_comp;
+use crate::groups::{GlobalGroupInfos, CuttleGroup};
+use crate::pipeline::extract::build_extract_cuttle_comp;
 use crate::shader::wgsl_struct::WgslTypeInfos;
 use bevy::prelude::*;
 use bevy::reflect::{TypeInfo, Typed};
 use bevy::render::render_resource::encase::private::WriteInto;
 use bevy::render::render_resource::ShaderSize;
 use bevy::render::RenderApp;
-use serde::{Deserialize, Serialize};
 use std::any::{type_name, TypeId};
 use std::marker::PhantomData;
+use crate::shader::{ComponentShaderInfo, RenderDataShaderInfo};
 
 pub type InitComponentFn = fn(&mut App, u8) -> ComponentShaderInfo;
 
@@ -22,17 +22,6 @@ pub struct InitComponentInfo {
     pub(crate) init_bounding: Option<InitBoundingFn>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
-pub struct ComponentShaderInfo {
-    pub name: String,
-    pub(crate) render_data: Option<RenderDataShaderInfo>,
-}
-
-#[derive(Deserialize, Serialize, Clone)]
-pub struct RenderDataShaderInfo {
-    pub binding: u32,
-    pub struct_wgsl: String,
-}
 
 pub(crate) fn init_components(
     app: &mut App,
@@ -51,7 +40,7 @@ pub(crate) fn init_components(
         .collect()
 }
 
-pub(crate) fn common_component_init<C: Component, R: Typed, G: SdfGroup>(app: &mut App, pos: u8) {
+pub(crate) fn common_component_init<C: Component, G: CuttleGroup>(app: &mut App, pos: u8) {
     app.init_resource::<IndexArena<C>>();
     app.add_observer(build_set_flag_bit::<C, G, OnAdd, true>(pos));
     app.add_observer(build_set_flag_bit::<C, G, OnRemove, false>(pos));
@@ -60,9 +49,9 @@ pub(crate) fn common_component_init<C: Component, R: Typed, G: SdfGroup>(app: &m
 pub(crate) fn init_zst_component<C, G>(app: &mut App, pos: u8) -> ComponentShaderInfo
 where
     C: Component + Typed,
-    G: SdfGroup,
+    G: CuttleGroup,
 {
-    common_component_init::<C, C, G>(app, pos);
+    common_component_init::<C, G>(app, pos);
 
     let Some(name) = C::type_ident() else {
         panic!("Component {} is not a named struct!", type_name::<C>())
@@ -74,18 +63,18 @@ where
     }
 }
 
-pub(crate) fn init_component_with_render_data<C, R, G>(
+pub(crate) fn init_component<C, R, G>(
     app: &mut App,
     pos: u8,
 ) -> ComponentShaderInfo
 where
     C: Component,
-    R: SdfRenderDataFrom<C>,
-    G: SdfGroup,
+    R: CuttleRenderDataFrom<C>,
+    G: CuttleGroup,
 {
-    common_component_init::<C, R, G>(app, pos);
+    common_component_init::<C, G>(app, pos);
     app.sub_app_mut(RenderApp)
-        .add_systems(ExtractSchedule, build_extract_sdf_comp::<C, R>(pos));
+        .add_systems(ExtractSchedule, build_extract_cuttle_comp::<C, R>(pos));
 
     let binding = global_init_component::<C, R>(app);
 
@@ -111,7 +100,7 @@ where
     }
 }
 
-pub(crate) fn global_init_component<C: Component, R: SdfRenderData>(app: &mut App) -> u32 {
+pub(crate) fn global_init_component<C: Component, R: CuttleRenderData>(app: &mut App) -> u32 {
     let id = TypeId::of::<C>();
     if let Some(binding) = app
         .world()
@@ -142,47 +131,41 @@ pub(crate) fn global_init_component<C: Component, R: SdfRenderData>(app: &mut Ap
     binding
 }
 
-pub trait ZstSdfComponent: Component + Sized + Typed {
+pub trait CuttleZstComponent: Component + Sized + Typed {
     const SORT: u32;
 }
 
-pub trait SdfRenderData: ShaderSize + Default + Typed + WriteInto {}
-impl<T: ShaderSize + Default + Typed + WriteInto> SdfRenderData for T {}
+pub trait CuttleRenderData: ShaderSize + Default + Typed + WriteInto {}
+impl<T: ShaderSize + Default + Typed + WriteInto> CuttleRenderData for T {}
 
-pub struct ComponentBuilder<'a, G, C, R> {
-    pub builder: &'a mut GroupBuilder<'a, G>,
-    pub init_bounding: Option<InitBoundingFn>,
-    pub marker: PhantomData<(C, R)>,
+pub trait CuttleRenderDataFrom<C>: CuttleRenderData {
+    fn from_comp(comp: &C) -> Self;
 }
 
-pub trait SdfRenderDataFrom<C>: SdfRenderData {
-    fn from_sdf_comp(comp: &C) -> Self;
-}
-
-impl<C> SdfRenderDataFrom<C> for C
+impl<C> CuttleRenderDataFrom<C> for C
 where
-    C: Component + SdfRenderData + Clone,
+    C: Component + CuttleRenderData + Clone,
 {
-    fn from_sdf_comp(comp: &C) -> C {
+    fn from_comp(comp: &C) -> C {
         comp.clone()
     }
 }
 
-pub trait SdfComponent: Component + Sized {
-    type RenderData: SdfRenderDataFrom<Self>;
-    const AFFECT_BOUNDS: BoundingSet = BoundingSet::None;
+pub trait CuttleComponent: Component + Sized {
+    type RenderData: CuttleRenderDataFrom<Self>;
+    const AFFECT_BOUNDS: Bounding = Bounding::None;
     const SORT: u32;
 
     #[allow(unused)]
     fn affect_bounds(comp: &Self) -> f32 {
         0.
     }
-    fn registration_data() -> RegisterSdfComponent<Self, Self::RenderData> {
-        RegisterSdfComponent {
+    fn registration_data() -> RegisterCuttleComponent<Self, Self::RenderData> {
+        RegisterCuttleComponent {
             affect_bounds: Self::AFFECT_BOUNDS,
             affect_bounds_fn: match Self::AFFECT_BOUNDS {
-                BoundingSet::None | BoundingSet::Apply => None,
-                BoundingSet::Add | BoundingSet::Multiply => Some(Self::affect_bounds),
+                Bounding::None | Bounding::Apply => None,
+                Bounding::Add | Bounding::Multiply => Some(Self::affect_bounds),
             },
             sort: Self::SORT,
             marker: default(),
@@ -190,14 +173,14 @@ pub trait SdfComponent: Component + Sized {
     }
 }
 
-pub struct RegisterSdfComponent<C: Component, R: SdfRenderDataFrom<C>> {
-    pub affect_bounds: BoundingSet,
+pub struct RegisterCuttleComponent<C: Component, R: CuttleRenderDataFrom<C>> {
+    pub affect_bounds: Bounding,
     pub affect_bounds_fn: Option<fn(&C) -> f32>,
     pub sort: u32,
     pub marker: PhantomData<R>,
 }
 
-impl<C: Component, R: SdfRenderDataFrom<C>> Default for RegisterSdfComponent<C, R> {
+impl<C: Component, R: CuttleRenderDataFrom<C>> Default for RegisterCuttleComponent<C, R> {
     fn default() -> Self {
         Self {
             affect_bounds: default(),
