@@ -14,8 +14,7 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2d);
     cmds.spawn((
         Sdf,
-        Point,
-        Rounded { rounded: 200. },
+        builtins::Circle { radius: 200. },
         DoAWave {
             amplitude: 50.,
             frequency: 10.,

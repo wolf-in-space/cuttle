@@ -1,3 +1,4 @@
+use bevy::render::render_phase::SortedPhaseItem;
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     math::FloatOrd,
@@ -13,10 +14,11 @@ use bevy::{
     ui::TransparentUi,
 };
 use draw::DrawSdf;
-use queue::{cleanup_batches, prepare_sdfs, queue_sdfs, RenderPhaseBuffers};
+use queue::{cleanup_batches, cuttle_prepare_sorted_for_group, cuttle_queue_sorted_for_group, GroupBuffers};
 use specialization::{
-    prepare_view_bind_groups, write_phase_buffers, CuttlePipeline, CuttleSpecializationData,
+    prepare_view_bind_groups, write_group_buffer, CuttlePipeline, CuttleSpecializationData,
 };
+use std::any::TypeId;
 
 mod draw;
 pub mod extract;
@@ -25,10 +27,10 @@ pub mod specialization;
 
 #[derive(Debug, Component, PartialEq, Eq, Clone, Hash)]
 pub struct SdfPipelineKey {
-    group_id: GroupId,
+    group_id: TypeId,
 }
 
-pub trait RenderPhase: Send + CachedRenderPipelinePhaseItem {
+pub trait RenderPhase: Send + CachedRenderPipelinePhaseItem + SortedPhaseItem {
     fn phase_item(
         sort: f32,
         entity: (Entity, MainEntity),
@@ -76,14 +78,14 @@ impl RenderPhase for TransparentUi {
 pub struct PipelinePlugin;
 impl Plugin for PipelinePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((extract::plugin, render_phase_plugin::<Transparent2d>));
+        app.add_plugins(extract::plugin);
 
         app.sub_app_mut(RenderApp)
             .configure_sets(
                 Render,
                 (
                     Buffer,
-                    PrepareBindgroups,
+                    PrepareBindGroups,
                     (OpPreparation, Queue, ItemPreparation, WriteBuffers).chain(),
                 )
                     .after(RenderSet::ExtractCommands)
@@ -102,23 +104,23 @@ pub enum CuttleRenderSet {
     Queue,
     ItemPreparation,
     WriteBuffers,
-    PrepareBindgroups,
+    PrepareBindGroups,
 }
-use crate::groups::GroupId;
+use crate::groups::CuttleGroup;
 use CuttleRenderSet::*;
 
-fn render_phase_plugin<P: RenderPhase>(app: &mut App) {
-    app.sub_app_mut(RenderApp)
-        .init_resource::<RenderPhaseBuffers>()
-        .add_render_command::<P, DrawSdf>()
+pub(crate) fn render_group_plugin<G: CuttleGroup>(app: &mut App) {
+    app
+        .init_resource::<GroupBuffers<G>>()
+        .add_render_command::<G::Phase, DrawSdf<G>>()
         .add_systems(
             Render,
             (
-                queue_sdfs.in_set(Queue),
-                prepare_sdfs.in_set(ItemPreparation),
-                write_phase_buffers.in_set(WriteBuffers),
+                cuttle_queue_sorted_for_group::<G>.in_set(Queue),
+                cuttle_prepare_sorted_for_group::<G>.in_set(ItemPreparation),
+                write_group_buffer::<G>.in_set(WriteBuffers),
                 prepare_view_bind_groups
-                    .in_set(PrepareBindgroups)
+                    .in_set(PrepareBindGroups)
                     .after(RenderSet::PrepareBindGroups),
             ),
         );

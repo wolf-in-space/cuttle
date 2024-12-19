@@ -16,8 +16,8 @@ fn fragment(vert: VertexOut) -> @location(0) vec4<f32> {
 		operation(op);
 	}
 
-    let alpha = step(0.0, -distance);
-    return vec4(color, alpha);
+    color.w *= smoothstep(0.0, 1.0, -distance);
+    return color;
 }
 
 fn operation(op: Op) {

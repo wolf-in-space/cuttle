@@ -29,8 +29,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Sdf,
-        Point,
-        Rounded { rounded: 10. },
+        builtins::Circle { radius: 10. },
         Repetition::default(),
         Fill(css::RED),
     ));

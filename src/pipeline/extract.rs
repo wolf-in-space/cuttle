@@ -99,7 +99,7 @@ pub(crate) fn extract_group_marker<G: CuttleGroup>(
 ) {
     let extracted: Vec<_> = query
         .iter()
-        .map(|e| (e, ExtractedRenderSdf::default()))
+        .map(|e| (e, (ExtractedRenderSdf::default(), G::default())))
         .collect();
     cmds.insert_or_spawn_batch(extracted)
 }

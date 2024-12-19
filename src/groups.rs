@@ -13,9 +13,10 @@ use bevy::render::sync_world::RenderEntity;
 use bevy::render::RenderApp;
 use bevy::utils::HashMap;
 use std::{any::TypeId, marker::PhantomData};
+use crate::pipeline::{render_group_plugin, RenderPhase};
 
-pub trait CuttleGroup: Component {
-    // type Phase: RenderPhase;
+pub trait CuttleGroup: Component + Default {
+    type Phase: RenderPhase;
 }
 
 #[derive(Resource)]
@@ -90,12 +91,15 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
     /// Adds a snippet of wgsl code to the shader generated for this Group
     ///
     /// ```
+    /// # use bevy::core_pipeline::core_2d::Transparent2d;
     /// # use bevy::prelude::*;
     /// # use cuttle::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
     /// # let mut app = App::new();
-    /// # #[derive(Component)]
+    /// # #[derive(Component, Default)]
     /// # struct MyGroup;
-    /// # impl CuttleGroup for MyGroup {}
+    /// # impl CuttleGroup for MyGroup {
+    /// #     type Phase = Transparent2d;
+    /// # }
     ///
     /// app.sdf_group::<MyGroup>()
     /// .snippet(stringify!(
@@ -114,12 +118,15 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
     /// generated for this Group.
     /// Supports hot reloading.
     /// ```
+    /// # use bevy::core_pipeline::core_2d::Transparent2d;
     /// # use bevy::prelude::*;
     /// # use cuttle::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
     /// # let mut app = App::new();
-    /// # #[derive(Component)]
+    /// # #[derive(Component, Default)]
     /// # struct MyGroup;
-    /// # impl CuttleGroup for MyGroup {}
+    /// # impl CuttleGroup for MyGroup {
+    /// #     type Phase = Transparent2d;
+    /// # }
     ///
     /// app.sdf_group::<MyGroup>()
     /// // Adds an embedded file to the Group.
@@ -260,13 +267,13 @@ impl<G: CuttleGroup> Plugin for GroupPlugin<G> {
         app.register_required_components::<G, CuttleFlags>();
         app.add_plugins(SyncComponentPlugin::<G>::default());
         app.sub_app_mut(RenderApp)
+            .add_plugins(render_group_plugin::<G>)
             .add_systems(ExtractSchedule, extract_group_marker::<G>);
         let world = app.world_mut();
         let GroupData {
             init_comp_fns,
             snippets,
             calculations,
-            id,
             ..
         } = world.remove_resource::<GroupData<G>>().unwrap();
         let infos = init_components(app, init_comp_fns);
@@ -275,6 +282,6 @@ impl<G: CuttleGroup> Plugin for GroupPlugin<G> {
             calculations,
             snippets,
         };
-        load_shader_to_pipeline(app, shader_settings, id);
+        load_shader_to_pipeline(app, shader_settings, TypeId::of::<G>());
     }
 }

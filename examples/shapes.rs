@@ -18,8 +18,7 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn((
         Name::new("Circle"),
         Sdf,
-        Point,
-        Rounded { rounded: 50. },
+        builtins::Circle { radius: 50. },
         Fill(css::RED),
     ));
 
@@ -27,8 +26,7 @@ fn spawn(mut cmds: Commands) {
         Name::new("Donut"),
         Sdf,
         Transform::from_xyz(0., 200., 0.),
-        Point,
-        Rounded { rounded: 15. },
+        builtins::Circle { radius: 15. },
         Annular { annular: 15. },
         Fill(css::REBECCA_PURPLE),
     ));
@@ -37,8 +35,7 @@ fn spawn(mut cmds: Commands) {
         Name::new("Gradient Circle"),
         Sdf,
         Transform::from_xyz(0., -200., 0.),
-        Point,
-        Rounded { rounded: 50. },
+        builtins::Circle { radius: 50. },
         Fill(css::BLACK),
     ));
 

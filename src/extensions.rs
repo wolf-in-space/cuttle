@@ -24,7 +24,7 @@ pub fn plugin(app: &mut App) {
             Render,
             (
                 build_op_buffer.in_set(CuttleRenderSet::OpPreparation),
-                build_op_bindgroups.in_set(CuttleRenderSet::PrepareBindgroups),
+                build_op_bindgroups.in_set(CuttleRenderSet::PrepareBindGroups),
             )
                 .chain(),
         );

@@ -58,13 +58,21 @@ impl CuttleZstComponent for PrepareBase {
 
 pub const BASE_POS: u32 = 2000;
 
-#[derive(Debug, Component, Reflect)]
+#[derive(Debug, Default, Component, Reflect, ShaderType, Clone)]
 #[reflect(Component)]
 #[require(PrepareBase)]
-pub struct Point;
+pub struct Circle {
+    pub radius: f32,
+}
 
-impl CuttleZstComponent for Point {
+impl CuttleComponent for Circle {
+    type RenderData = Self;
+    const AFFECT_BOUNDS: Bounding = Bounding::Add;
     const SORT: u32 = BASE_POS + 100;
+
+    fn affect_bounds(comp: &Self) -> f32 {
+        comp.radius
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType)]
@@ -107,13 +115,13 @@ pub struct Fill(pub Srgba);
 
 #[derive(Debug, Default, ShaderType, Reflect)]
 pub struct FillRender {
-    pub color: Vec3,
+    pub color: Vec4,
 }
 
 impl CuttleRenderDataFrom<Fill> for FillRender {
     fn from_comp(comp: &Fill) -> Self {
         FillRender {
-            color: comp.0.to_vec3(),
+            color: comp.0.to_vec4(),
         }
     }
 }
@@ -127,12 +135,20 @@ impl CuttleComponent for Fill {
 #[reflect(Component)]
 pub struct DistanceGradient {
     pub interval: f32,
-    pub color: Vec3,
+    pub color: Vec4,
 }
 
 impl CuttleComponent for DistanceGradient {
     type RenderData = Self;
     const SORT: u32 = 99999;
+}
+
+#[derive(Debug, Default, Clone, Component, Reflect)]
+#[reflect(Component)]
+pub struct ForceFieldAlpha;
+
+impl CuttleZstComponent for ForceFieldAlpha {
+    const SORT: u32 = 10000;
 }
 
 #[derive(Debug, Default, ShaderType, Reflect)]

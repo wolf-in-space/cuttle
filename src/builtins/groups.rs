@@ -1,3 +1,4 @@
+use bevy::core_pipeline::core_2d::Transparent2d;
 use crate::builtins::*;
 use crate::components::initialization::RegisterCuttleComponent;
 use crate::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
@@ -11,14 +12,15 @@ pub fn plugin(app: &mut App) {
         .calculation("position", "vec2<f32>")
         .calculation("distance", "f32")
         .calculation("size", "f32")
-        .calculation("color", "vec3<f32>")
+        .calculation("color", "vec4<f32>")
         .calculation("prev_distance", "f32")
-        .calculation("prev_color", "vec3<f32>")
+        .calculation("prev_color", "vec4<f32>")
         .component::<Annular>()
         .component::<Fill>()
         .component::<DistanceGradient>()
+        .zst_component::<ForceFieldAlpha>()
         .zst_component::<PrepareBase>()
-        .zst_component::<Point>()
+        .component::<Circle>()
         .component::<Line>()
         .component::<Quad>()
         .component_with(
@@ -45,5 +47,5 @@ pub fn plugin(app: &mut App) {
 pub struct Sdf;
 
 impl CuttleGroup for Sdf {
-    // type Phase = Transparent2d;
+    type Phase = Transparent2d;
 }

@@ -3,8 +3,8 @@ fn prepare_base() {
     position = vertex.world_position;
 }
 
-fn point() {
-    distance = length(position);
+fn circle(input: Circle) {
+    distance = length(position) - input.radius;
 }
 
 fn line(input: Line) {
@@ -35,6 +35,10 @@ fn fill_render(input: FillRender) {
 
 fn distance_gradient(input: DistanceGradient) {
     color = mix(color, input.color, cos(distance * input.interval));
+}
+
+fn force_field_alpha() {
+    color.w = smoothstep(0.0, -distance, 1.0);
 }
 
 fn prepare_operation() {

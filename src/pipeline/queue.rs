@@ -2,9 +2,8 @@ use super::{
     draw::DrawSdf, extract::ExtractedRenderSdf, specialization::CuttlePipeline, RenderPhase,
     SdfPipelineKey,
 };
-use crate::groups::GroupId;
+use crate::groups::CuttleGroup;
 use crate::pipeline::extract::{ExtractedCuttleTransform, ExtractedVisibility};
-use bevy::core_pipeline::core_2d::Transparent2d;
 use bevy::render::render_phase::PhaseItem;
 use bevy::{
     prelude::*,
@@ -16,31 +15,33 @@ use bevy::{
     },
 };
 use bytemuck::NoUninit;
+use std::any::TypeId;
+use std::marker::PhantomData;
 use std::ops::Range;
 
-pub(crate) fn queue_sdfs(
-    sdfs: Query<
+pub(crate) fn cuttle_queue_sorted_for_group<G: CuttleGroup>(
+    entities: Query<
         (
             Entity,
             &MainEntity,
             &ExtractedVisibility,
             &ExtractedCuttleTransform,
         ),
-        With<ExtractedRenderSdf>,
+        With<G>,
     >,
     views: Query<Entity, With<ExtractedView>>,
     sdf_pipeline: Res<CuttlePipeline>,
-    draw_functions: Res<DrawFunctions<Transparent2d>>,
+    draw_functions: Res<DrawFunctions<G::Phase>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<CuttlePipeline>>,
     cache: Res<PipelineCache>,
-    mut render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
+    mut render_phases: ResMut<ViewSortedRenderPhases<G::Phase>>,
 ) {
-    let draw_function = draw_functions.read().id::<DrawSdf>();
+    let draw_function = draw_functions.read().id::<DrawSdf<G>>();
     for view_entity in views.into_iter() {
         let Some(render_phase) = render_phases.get_mut(&view_entity) else {
             continue;
         };
-        for (entity, main_entity, visibility, transform) in sdfs.iter() {
+        for (entity, main_entity, visibility, transform) in entities.iter() {
             if !visibility.0 {
                 continue;
             }
@@ -48,10 +49,10 @@ pub(crate) fn queue_sdfs(
                 &cache,
                 &sdf_pipeline,
                 SdfPipelineKey {
-                    group_id: GroupId(0),
+                    group_id: TypeId::of::<G>(),
                 },
             );
-            render_phase.add(Transparent2d::phase_item(
+            render_phase.add(G::Phase::phase_item(
                 transform.z,
                 (entity, *main_entity),
                 pipeline,
@@ -76,23 +77,25 @@ pub struct SdfInstance {
 }
 
 #[derive(Resource)]
-pub struct RenderPhaseBuffers {
+pub struct GroupBuffers<G: CuttleGroup> {
     pub vertex: RawBufferVec<SdfInstance>,
+    _phantom: PhantomData<G>,
 }
 
-impl Default for RenderPhaseBuffers {
+impl<G: CuttleGroup> Default for GroupBuffers<G> {
     fn default() -> Self {
         Self {
             vertex: RawBufferVec::new(BufferUsages::VERTEX),
+            _phantom: PhantomData
         }
     }
 }
 
-pub(crate) fn prepare_sdfs(
+pub(crate) fn cuttle_prepare_sorted_for_group<G: CuttleGroup>(
     mut cmds: Commands,
-    mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut buffers: ResMut<RenderPhaseBuffers>,
-    sdfs: Query<&ExtractedRenderSdf>,
+    mut phases: ResMut<ViewSortedRenderPhases<G::Phase>>,
+    mut buffers: ResMut<GroupBuffers<G>>,
+    entities: Query<&ExtractedRenderSdf, With<G>>,
 ) {
     let mut batches = Vec::new();
     buffers.vertex.clear();
@@ -103,7 +106,7 @@ pub(crate) fn prepare_sdfs(
 
         for index in 0..transparent_phase.items.len() {
             let item = &transparent_phase.items[index];
-            let Ok(sdf) = sdfs.get(item.entity()) else {
+            let Ok(sdf) = entities.get(item.entity()) else {
                 batch = false;
                 continue;
             };

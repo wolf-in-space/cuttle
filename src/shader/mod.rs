@@ -1,5 +1,6 @@
+use std::any::TypeId;
 use crate::calculations::Calculation;
-use crate::groups::{GlobalGroupInfos, GroupId};
+use crate::groups::GlobalGroupInfos;
 use crate::pipeline::specialization::CuttlePipeline;
 use bevy::render::RenderApp;
 use bevy::{
@@ -44,7 +45,7 @@ pub struct RenderDataShaderInfo {
 pub(crate) fn load_shader_to_pipeline(
     app: &mut App,
     shader_settings: ShaderSettings,
-    group_id: GroupId,
+    group_id: TypeId,
 ) {
     let comp_count = app
         .world()

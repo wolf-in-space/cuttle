@@ -10,8 +10,8 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: WindowResolution::new(1920., 1080.),
-                    decorations: false,
+                    //resolution: WindowResolution::new(1920., 1080.),
+                    //decorations: false,
                     ..default()
                 }),
                 ..default()
@@ -70,7 +70,7 @@ fn spawn(mut cmds: Commands) {
             Fill(tailwind::GRAY_100),
             Rotate { speed: 0.2 },
         ))
-        .id()
+            .id()
     });
 
     spin::<SmoothSubtract>(&mut cmds, 0., -50., |cmds, x, y| {
@@ -83,14 +83,13 @@ fn spawn(mut cmds: Commands) {
             Fill(tailwind::GRAY_100),
             Rotate { speed: 0.2 },
         ))
-        .id()
+            .id()
     });
 
     cmds.spawn((
         Sdf,
         Transform::from_xyz(500., -250., -100.),
-        Point,
-        Rounded { rounded: 10. },
+        builtins::Circle { radius: 10. },
         Fill(css::RED),
         Repetition {
             repetitions: Vec2::new(3., 5.),
@@ -135,12 +134,16 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
 
     cmds.spawn((
         Extension::new(quad),
-        Point,
-        Rounded { rounded: 15. },
+        builtins::Circle { radius: 15. },
         Transform::from_translation(pos),
         Fill(tailwind::TEAL_400),
         Morph::default(),
         AnimateMorph { speed: 1., scale },
+    ));
+
+    cmds.spawn((
+        Extension::new(quad),
+        ForceFieldAlpha
     ));
 }
 
@@ -163,6 +166,11 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         Fill(tailwind::BLUE_700),
         Morph::default(),
         AnimateMorph { speed: 1., scale },
+    ));
+
+    cmds.spawn((
+        Extension::new(quad),
+        ForceFieldAlpha
     ));
 }
 
@@ -190,8 +198,7 @@ fn spin<OP: Default + Component>(
         (
             Extension::new(sdf),
             Transform::from_xyz(x, pos, 0.),
-            Point,
-            Rounded { rounded: 10. },
+            builtins::Circle { radius: 10. },
             Fill(color),
             MovingBall { offset, start: x },
             OP::default(),
@@ -199,17 +206,17 @@ fn spin<OP: Default + Component>(
     };
 
     [
-        (make_ball(y - 40. * 0., tailwind::GREEN_400, 0.)),
-        (make_ball(y - 40. * 1., tailwind::RED_400, 0.3)),
-        (make_ball(y - 40. * 2., tailwind::TEAL_400, 0.6)),
-        (make_ball(y - 40. * 3., tailwind::SKY_400, 0.9)),
-        (make_ball(y - 40. * 4., tailwind::EMERALD_400, 1.2)),
-        (make_ball(y - 40. * 5., tailwind::ZINC_400, 1.5)),
-        (make_ball(y - 40. * 6., tailwind::FUCHSIA_400, 1.8)),
+        make_ball(y - 40. * 0., tailwind::GREEN_400, 0.),
+        make_ball(y - 40. * 1., tailwind::RED_400, 0.3),
+        make_ball(y - 40. * 2., tailwind::TEAL_400, 0.6),
+        make_ball(y - 40. * 3., tailwind::SKY_400, 0.9),
+        make_ball(y - 40. * 4., tailwind::EMERALD_400, 1.2),
+        make_ball(y - 40. * 5., tailwind::ZINC_400, 1.5),
+        make_ball(y - 40. * 6., tailwind::FUCHSIA_400, 1.8),
     ]
-    .map(|bundle| {
-        cmds.spawn(bundle);
-    });
+        .map(|bundle| {
+            cmds.spawn(bundle);
+        });
 
     cmds.spawn((
         Extension::new(sdf),
@@ -243,8 +250,7 @@ fn spin<OP: Default + Component>(
     cmds.spawn((
         Extension::new(sdf),
         Transform::from_xyz(x, y - 40. * 9., 0.),
-        Point,
-        Rounded { rounded: 7. },
+        builtins::Circle { radius: 7. },
         Fill(tailwind::GREEN_400),
         MovingBall {
             offset: 2.7,
@@ -277,12 +283,11 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
         .spawn((
             Sdf,
             Transform::from_xyz(pos.x, pos.y, 0.),
-            Point,
-            Rounded { rounded: 30. },
+            builtins::Circle { radius: 30. },
             Fill(tailwind::SKY_400),
             // Gradient {
             //     color: tailwind::NEUTRAL_200.into(),
-            //     intervall: 1.,
+            //     interval: 1.,
             // },
         ))
         .id();
@@ -297,7 +302,7 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
         MovingBox,
         DistanceGradient {
             interval: 1.,
-            color: Vec3::ZERO,
+            color: Vec4::ZERO,
         },
     ));
 }

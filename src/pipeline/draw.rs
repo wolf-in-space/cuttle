@@ -1,5 +1,6 @@
-use super::queue::RenderPhaseBuffers;
-use super::specialization::SdfViewBindGroup;
+use std::marker::PhantomData;
+use super::queue::GroupBuffers;
+use super::specialization::CuttleViewBindGroup;
 use super::RenderPhase;
 use super::{queue::SdfBatch, specialization::CuttlePipeline};
 use crate::components::buffer::CompBufferBindgroup;
@@ -15,18 +16,19 @@ use bevy::{
         view::ViewUniformOffset,
     },
 };
+use crate::groups::CuttleGroup;
 
-pub type DrawSdf = (SetItemPipeline, SetSdfViewBindGroup, DrawSdfDispatch);
+pub type DrawSdf<G> = (SetItemPipeline, SetSdfViewBindGroup, DrawSdfDispatch<G>);
 
 pub struct SetSdfViewBindGroup;
 impl<P: RenderPhase> RenderCommand<P> for SetSdfViewBindGroup {
     type Param = ();
-    type ViewQuery = (Read<ViewUniformOffset>, Read<SdfViewBindGroup>);
+    type ViewQuery = (Read<ViewUniformOffset>, Read<CuttleViewBindGroup>);
     type ItemQuery = ();
 
     fn render<'w>(
         _item: &P,
-        view: (&'w ViewUniformOffset, &'w SdfViewBindGroup),
+        view: (&'w ViewUniformOffset, &'w CuttleViewBindGroup),
         _entity: Option<()>,
         _param: (),
         pass: &mut TrackedRenderPass<'w>,
@@ -37,11 +39,11 @@ impl<P: RenderPhase> RenderCommand<P> for SetSdfViewBindGroup {
     }
 }
 
-pub struct DrawSdfDispatch;
-impl<P: RenderPhase> RenderCommand<P> for DrawSdfDispatch {
+pub struct DrawSdfDispatch<G>(PhantomData<G>);
+impl<G: CuttleGroup> RenderCommand<G::Phase> for DrawSdfDispatch<G> {
     type Param = (
         SRes<CuttlePipeline>,
-        SRes<RenderPhaseBuffers>,
+        SRes<GroupBuffers<G>>,
         SRes<CompBufferBindgroup>,
         SRes<OpBindgroup>,
     );
@@ -50,7 +52,7 @@ impl<P: RenderPhase> RenderCommand<P> for DrawSdfDispatch {
 
     #[inline]
     fn render<'w>(
-        _item: &P,
+        _item: &G::Phase,
         _view: (),
         sdf_instance: Option<&'w SdfBatch>,
         (pipeline, vertices, comp_buffers, op_buffers): SystemParamItem<'w, '_, Self::Param>,

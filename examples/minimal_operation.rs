@@ -27,8 +27,7 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn((
         Sdf,
         Extensions(vec![subtract]),
-        Point,
-        Rounded { rounded: 100. },
+        builtins::Circle { radius: 100. },
         Fill(css::SKY_BLUE),
     ));
 }

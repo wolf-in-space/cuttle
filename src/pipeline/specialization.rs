@@ -1,6 +1,7 @@
-use super::{queue::RenderPhaseBuffers, SdfPipelineKey};
+use std::any::TypeId;
+use super::{queue::GroupBuffers, SdfPipelineKey};
 use crate::components::buffer::build_buffer_layout;
-use crate::groups::GroupId;
+use crate::groups::CuttleGroup;
 use bevy::utils::HashMap;
 use bevy::image::BevyDefault;
 use bevy::{
@@ -32,7 +33,7 @@ pub struct CuttleSpecializationData {
 pub struct CuttlePipeline {
     pub _common_shader: Handle<Shader>,
     pub vertex_shader: Handle<Shader>,
-    pub fragment_shaders: HashMap<GroupId, Handle<Shader>>,
+    pub fragment_shaders: HashMap<TypeId, Handle<Shader>>,
     pub global_layout: BindGroupLayout,
     pub op_layout: BindGroupLayout,
     pub comp_layout: BindGroupLayout,
@@ -160,7 +161,7 @@ impl SpecializedRenderPipeline for CuttlePipeline {
 }
 
 #[derive(Component)]
-pub struct SdfViewBindGroup {
+pub struct CuttleViewBindGroup {
     pub value: BindGroup,
 }
 
@@ -177,21 +178,21 @@ pub fn prepare_view_bind_groups(
 
     for entity in &views {
         let view_bind_group = render_device.create_bind_group(
-            "sdf_view_bind_group",
+            "cuttle_view_bind_group",
             &pipeline.global_layout,
             &BindGroupEntries::single(view_binding.clone()),
         );
 
-        commands.entity(entity).insert(SdfViewBindGroup {
+        commands.entity(entity).insert(CuttleViewBindGroup {
             value: view_bind_group,
         });
     }
 }
 
-pub fn write_phase_buffers(
+pub fn write_group_buffer<G: CuttleGroup>(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    mut buffers: ResMut<RenderPhaseBuffers>,
+    mut buffers: ResMut<GroupBuffers<G>>,
 ) {
     buffers.vertex.write_buffer(&device, &queue);
 }
