@@ -1,9 +1,8 @@
-use std::any::TypeId;
 use super::{queue::GroupBuffers, SdfPipelineKey};
 use crate::components::buffer::build_buffer_layout;
 use crate::groups::CuttleGroup;
-use bevy::utils::HashMap;
 use bevy::image::BevyDefault;
+use bevy::utils::HashMap;
 use bevy::{
     core_pipeline::core_2d::CORE_2D_DEPTH_FORMAT,
     prelude::*,
@@ -21,6 +20,7 @@ use bevy::{
         view::{ExtractedView, ViewUniform, ViewUniforms},
     },
 };
+use std::any::TypeId;
 
 #[derive(Event, Debug, PartialEq, Clone)]
 pub struct CuttleSpecializationData {
@@ -83,28 +83,26 @@ impl SpecializedRenderPipeline for CuttlePipeline {
     type Key = SdfPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        // let multisample_count = match key.pipeline {
-        //     UsePipeline::World => 4,
-        //     UsePipeline::Ui => 1,
-        // };
-        let multisample_count = 4;
-
-        let depth_stencil = Some(DepthStencilState {
-            format: CORE_2D_DEPTH_FORMAT,
-            depth_write_enabled: false,
-            depth_compare: CompareFunction::GreaterEqual,
-            stencil: StencilState {
-                front: StencilFaceState::IGNORE,
-                back: StencilFaceState::IGNORE,
-                read_mask: 0,
-                write_mask: 0,
-            },
-            bias: DepthBiasState {
-                constant: 0,
-                slope_scale: 0.0,
-                clamp: 0.0,
-            },
-        });
+        let depth_stencil = if key.has_depth {
+            Some(DepthStencilState {
+                format: CORE_2D_DEPTH_FORMAT,
+                depth_write_enabled: false,
+                depth_compare: CompareFunction::GreaterEqual,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            })
+        } else {
+            None
+        };
 
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
             VertexStepMode::Instance,
@@ -149,7 +147,7 @@ impl SpecializedRenderPipeline for CuttlePipeline {
             },
             depth_stencil,
             multisample: MultisampleState {
-                count: multisample_count,
+                count: key.multisample_count,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },

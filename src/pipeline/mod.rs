@@ -28,6 +28,8 @@ pub mod specialization;
 #[derive(Debug, Component, PartialEq, Eq, Clone, Hash)]
 pub struct SdfPipelineKey {
     group_id: TypeId,
+    multisample_count: u32,
+    has_depth: bool,
 }
 
 pub trait RenderPhase: Send + CachedRenderPipelinePhaseItem + SortedPhaseItem {
@@ -37,6 +39,8 @@ pub trait RenderPhase: Send + CachedRenderPipelinePhaseItem + SortedPhaseItem {
         pipeline: CachedRenderPipelineId,
         draw_function: DrawFunctionId,
     ) -> Self;
+    fn multisample_count() -> u32;
+    fn depth() -> bool;
 }
 
 impl RenderPhase for Transparent2d {
@@ -55,6 +59,14 @@ impl RenderPhase for Transparent2d {
             extra_index: PhaseItemExtraIndex::NONE,
         }
     }
+
+    fn multisample_count() -> u32 {
+        4
+    }
+
+    fn depth() -> bool {
+        true
+    }
 }
 
 impl RenderPhase for TransparentUi {
@@ -72,6 +84,14 @@ impl RenderPhase for TransparentUi {
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::NONE,
         }
+    }
+
+    fn multisample_count() -> u32 {
+        1
+    }
+
+    fn depth() -> bool {
+        false
     }
 }
 

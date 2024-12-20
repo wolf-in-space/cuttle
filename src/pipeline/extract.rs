@@ -14,6 +14,7 @@ use bevy::{
     render::{sync_component::SyncComponentPlugin, sync_world::RenderEntity, Extract, RenderApp},
 };
 use std::fmt::Debug;
+use crate::prelude::Extension;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((
@@ -26,12 +27,12 @@ pub fn plugin(app: &mut App) {
     .add_systems(ExtractSchedule, extract_extensions);
 }
 
-pub(crate) const fn build_extract_cuttle_comp<C: Component, R: CuttleRenderDataFrom<C>>(
+pub(crate) const fn build_extract_cuttle_comp<G: CuttleGroup, C: Component, R: CuttleRenderDataFrom<C>>(
     pos: u8,
 ) -> impl FnMut(
     Single<&mut CompBuffer<R>>,
     Extract<Res<IndexArena<C>>>,
-    Extract<Query<(&CuttleFlags, &C), Changed<C>>>,
+    Extract<Query<(&CuttleFlags, &C), (Or<(With<G>, With<Extension<G>>)>, Changed<C>)>>,
 ) {
     move |mut buffer, arena, comps| {
         let buffer = buffer.get_mut();
@@ -64,7 +65,7 @@ fn extract_extensions(
                     .get(*e)
                     .map_or_else(
                         |e| {
-                            warn!("SdfExtension");
+                            error!("Extension could not be mapped");
                             Err(e)
                         },
                         |e| Ok(e.id()),

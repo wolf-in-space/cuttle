@@ -49,7 +49,9 @@ pub(crate) fn cuttle_queue_sorted_for_group<G: CuttleGroup>(
                 &cache,
                 &sdf_pipeline,
                 SdfPipelineKey {
+                    multisample_count: G::Phase::multisample_count(),
                     group_id: TypeId::of::<G>(),
+                    has_depth: G::Phase::depth(),
                 },
             );
             render_phase.add(G::Phase::phase_item(

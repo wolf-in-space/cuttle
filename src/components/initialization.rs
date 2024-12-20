@@ -75,6 +75,9 @@ where
     common_component_init::<C, G>(app, pos);
     let binding = global_init_component::<C, R>(app, pos);
 
+    app.sub_app_mut(RenderApp)
+        .add_systems(ExtractSchedule, build_extract_cuttle_comp::<G, C, R>(pos));
+
     let (TypeInfo::Struct(structure), Some(name)) = (R::type_info(), R::type_ident()) else {
         panic!(
             "Render data {} for component {} is not a named struct",
@@ -87,6 +90,7 @@ where
         .world()
         .resource::<WgslTypeInfos>()
         .structure_to_wgsl(structure, name);
+
 
     ComponentShaderInfo {
         name: name.to_string(),
@@ -107,9 +111,6 @@ pub(crate) fn global_init_component<C: Component, R: CuttleRenderDataFrom<C>>(ap
     {
         return *binding;
     }
-
-    app.sub_app_mut(RenderApp)
-        .add_systems(ExtractSchedule, build_extract_cuttle_comp::<C, R>(pos));
 
     let mut globals = app
         .world_mut()
