@@ -8,11 +8,11 @@ use crate::pipeline::extract::extract_group_marker;
 use crate::shader::{load_shader_to_pipeline, ShaderSettings};
 use crate::{calculations::Calculation, shader::snippets::AddSnippet, CuttleFlags};
 use bevy::prelude::*;
-use bevy::render::sync_component::SyncComponentPlugin;
 use bevy::render::sync_world::RenderEntity;
 use bevy::render::RenderApp;
 use bevy::utils::HashMap;
 use std::{any::TypeId, marker::PhantomData};
+use crate::extensions::register_extension_hooks;
 use crate::pipeline::{render_group_plugin, RenderPhase};
 
 pub trait CuttleGroup: Component + Default {
@@ -43,7 +43,7 @@ impl GlobalGroupInfos {
 
 #[derive(Resource)]
 pub(crate) struct GroupData<G> {
-    pub id: GroupId,
+    pub _id: GroupId,
     pub init_comp_fns: Vec<InitComponentInfo>,
     pub calculations: Vec<Calculation>,
     pub snippets: Vec<AddSnippet>,
@@ -56,7 +56,7 @@ impl<G> FromWorld for GroupData<G> {
         let id = global.group_count;
         global.group_count += 1;
         Self {
-            id: GroupId(id),
+            _id: GroupId(id),
             marker: PhantomData,
             init_comp_fns: default(),
             calculations: vec![Calculation {
@@ -261,14 +261,15 @@ impl<G: CuttleGroup> Plugin for GroupPlugin<G> {
             app.insert_resource(infos);
         }
         app.init_resource::<GroupData<G>>();
-    }
-
-    fn finish(&self, app: &mut App) {
         app.register_required_components::<G, CuttleFlags>();
-        app.add_plugins(SyncComponentPlugin::<G>::default());
+        // app.add_plugins(SyncComponentPlugin::<G>::default());
+        register_extension_hooks::<G>(app.world_mut());
         app.sub_app_mut(RenderApp)
             .add_plugins(render_group_plugin::<G>)
             .add_systems(ExtractSchedule, extract_group_marker::<G>);
+    }
+
+    fn finish(&self, app: &mut App) {
         let world = app.world_mut();
         let GroupData {
             init_comp_fns,

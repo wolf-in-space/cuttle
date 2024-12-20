@@ -5,7 +5,7 @@ use crate::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
 use crate::prelude::Annular;
 use bevy::prelude::{App, Component};
 
-pub fn plugin(app: &mut App) {
+pub(super) fn plugin(app: &mut App) {
     app.sdf_group::<Sdf>()
         .snippet_file("embedded://cuttle/builtins/builtins.wgsl")
         .calculation("world_position", "vec2<f32>")

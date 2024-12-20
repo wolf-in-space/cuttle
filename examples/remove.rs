@@ -18,7 +18,7 @@ fn setup(mut cmds: Commands) {
     cmds.spawn(Camera2d);
 }
 
-fn delete_and_spawn(current: Query<Entity, With<Circle>>, mut cmds: Commands) {
+fn delete_and_spawn(current: Query<Entity, With<builtins::Circle>>, mut cmds: Commands) {
     for entity in current.into_iter() {
         cmds.entity(entity).despawn();
     }

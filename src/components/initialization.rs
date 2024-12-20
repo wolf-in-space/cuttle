@@ -73,10 +73,7 @@ where
     G: CuttleGroup,
 {
     common_component_init::<C, G>(app, pos);
-    app.sub_app_mut(RenderApp)
-        .add_systems(ExtractSchedule, build_extract_cuttle_comp::<C, R>(pos));
-
-    let binding = global_init_component::<C, R>(app);
+    let binding = global_init_component::<C, R>(app, pos);
 
     let (TypeInfo::Struct(structure), Some(name)) = (R::type_info(), R::type_ident()) else {
         panic!(
@@ -100,7 +97,7 @@ where
     }
 }
 
-pub(crate) fn global_init_component<C: Component, R: CuttleRenderData>(app: &mut App) -> u32 {
+pub(crate) fn global_init_component<C: Component, R: CuttleRenderDataFrom<C>>(app: &mut App, pos: u8) -> u32 {
     let id = TypeId::of::<C>();
     if let Some(binding) = app
         .world()
@@ -110,6 +107,9 @@ pub(crate) fn global_init_component<C: Component, R: CuttleRenderData>(app: &mut
     {
         return *binding;
     }
+
+    app.sub_app_mut(RenderApp)
+        .add_systems(ExtractSchedule, build_extract_cuttle_comp::<C, R>(pos));
 
     let mut globals = app
         .world_mut()

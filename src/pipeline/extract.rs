@@ -1,3 +1,4 @@
+use std::any::type_name;
 use crate::components::initialization::CuttleRenderDataFrom;
 use crate::groups::CuttleGroup;
 use crate::{
@@ -37,8 +38,14 @@ pub(crate) const fn build_extract_cuttle_comp<C: Component, R: CuttleRenderDataF
         buffer.resize_with(arena.max as usize, || R::default());
 
         for (flags, comp) in &comps {
-            let index = *flags.indices.get(&pos).unwrap() as usize;
-            let elem = buffer.get_mut(index).unwrap();
+            let Some(&index) = flags.indices.get(&pos) else {
+                error!("Index for '{}' not set despite the component being present", type_name::<C>());
+                continue;
+            };
+            let Some(elem) = buffer.get_mut(index as usize) else {
+                error!("Index {} out of bounds for CompBuffer<{}> with size {}", index, type_name::<C>(), buffer.len());
+                continue;
+            };
             *elem = R::from_comp(comp);
         }
     }

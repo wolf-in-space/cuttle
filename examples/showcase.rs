@@ -3,7 +3,6 @@ use bevy::{color::palettes::tailwind, prelude::*};
 use cuttle::extensions::Extension;
 use cuttle::prelude::*;
 use std::f32::consts::PI;
-use bevy::window::WindowResolution;
 
 fn main() {
     App::new()
@@ -133,7 +132,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         .id();
 
     cmds.spawn((
-        Extension::new(quad),
+        Extension::<Sdf>::new(quad),
         builtins::Circle { radius: 15. },
         Transform::from_translation(pos),
         Fill(tailwind::TEAL_400),
@@ -142,7 +141,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
     ));
 
     cmds.spawn((
-        Extension::new(quad),
+        Extension::<Sdf>::new(quad),
         ForceFieldAlpha
     ));
 }
@@ -160,7 +159,7 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         .id();
 
     cmds.spawn((
-        Extension::new(quad),
+        Extension::<Sdf>::new(quad),
         Quad { half_size: Vec2::splat(20.) },
         Transform::from_translation(pos),
         Fill(tailwind::BLUE_700),
@@ -169,7 +168,7 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
     ));
 
     cmds.spawn((
-        Extension::new(quad),
+        Extension::<Sdf>::new(quad),
         ForceFieldAlpha
     ));
 }
@@ -196,7 +195,7 @@ fn spin<OP: Default + Component>(
 
     let make_ball = |pos: f32, color: Srgba, offset: f32| {
         (
-            Extension::new(sdf),
+            Extension::<Sdf>::new(sdf),
             Transform::from_xyz(x, pos, 0.),
             builtins::Circle { radius: 10. },
             Fill(color),
@@ -219,7 +218,7 @@ fn spin<OP: Default + Component>(
         });
 
     cmds.spawn((
-        Extension::new(sdf),
+        Extension::<Sdf>::new(sdf),
         Transform::from_xyz(x, y - 40. * 7., 0.),
         Quad {
             half_size: Vec2::splat(10.),
@@ -233,7 +232,7 @@ fn spin<OP: Default + Component>(
     ));
 
     cmds.spawn((
-        Extension::new(sdf),
+        Extension::<Sdf>::new(sdf),
         Quad {
             half_size: Vec2::splat(10.),
         },
@@ -248,7 +247,7 @@ fn spin<OP: Default + Component>(
     ));
 
     cmds.spawn((
-        Extension::new(sdf),
+        Extension::<Sdf>::new(sdf),
         Transform::from_xyz(x, y - 40. * 9., 0.),
         builtins::Circle { radius: 7. },
         Fill(tailwind::GREEN_400),
@@ -261,7 +260,7 @@ fn spin<OP: Default + Component>(
     ));
 
     cmds.spawn((
-        Extension::new(sdf),
+        Extension::<Sdf>::new(sdf),
         Transform::from_xyz(x, y - 40. * 10., 0.),
         Quad {
             half_size: Vec2::splat(7.),
@@ -292,7 +291,7 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
         ))
         .id();
     cmds.spawn((
-        Extension::new(sdf),
+        Extension::<Sdf>::new(sdf),
         Transform::from_xyz(pos.x, pos.y, 0.),
         Quad {
             half_size: Vec2::splat(25.),

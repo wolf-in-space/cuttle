@@ -26,7 +26,7 @@ pub mod prelude {
     pub use crate::CuttlePlugin;
     pub use crate::bounding::Bounding;
     #[cfg(feature = "builtins")]
-    pub use crate::builtins::{self, groups::*, *};
+    pub use crate::builtins::{self, sdf::*, ui_sdf::*, *};
     pub use crate::extensions::Extension;
     pub use crate::extensions::Extensions;
 }

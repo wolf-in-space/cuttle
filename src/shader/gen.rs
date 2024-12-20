@@ -12,9 +12,7 @@ pub fn gen_shader(
     let stuff = structs_and_bindings(infos);
     let calculations = gen_calculations(calculations);
 
-    let shader = format!("{snippets}\n{stuff}\n{calculations}\n{selector}");
-    println!("{shader}");
-    shader
+    format!("{snippets}\n{stuff}\n{calculations}\n{selector}")
 }
 
 fn gen_calculations(calculations: &[Calculation]) -> String {

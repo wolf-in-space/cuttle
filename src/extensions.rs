@@ -12,10 +12,10 @@ use bevy::{
     },
 };
 use std::fmt::{self, Debug};
+use std::marker::PhantomData;
+use crate::groups::CuttleGroup;
 
 pub fn plugin(app: &mut App) {
-    register_extension_hooks(app.world_mut());
-
     app.sub_app_mut(RenderApp)
         .init_resource::<OpsBuffer>()
         .init_resource::<CompIndicesBuffer>()
@@ -32,21 +32,22 @@ pub fn plugin(app: &mut App) {
 
 #[derive(Debug, Component, Clone, Copy)]
 #[require(CuttleFlags, SyncToRenderWorld)]
-pub struct Extension {
+pub struct Extension<G> {
     target: Entity,
+    _phantom: PhantomData<G>
 }
 
-impl Extension {
+impl<G: CuttleGroup> Extension<G> {
     pub fn new(target: Entity) -> Self {
-        Self { target }
+        Self { target, _phantom: PhantomData }
     }
 }
 
-fn register_extension_hooks(world: &mut World) {
+pub(crate) fn register_extension_hooks<G: CuttleGroup>(world: &mut World) {
     world
-        .register_component_hooks::<Extension>()
+        .register_component_hooks::<Extension<G>>()
         .on_add(|mut world, entity, _| {
-            let target = world.get::<Extension>(entity).unwrap().target;
+            let target = world.get::<Extension<G>>(entity).unwrap().target;
             let mut target = world.entity_mut(target);
             match target.get_mut::<Extensions>() {
                 Some(mut extensions) => extensions.push(entity),

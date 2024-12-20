@@ -80,20 +80,19 @@ impl Plugin for PipelinePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(extract::plugin);
 
-        app.sub_app_mut(RenderApp)
-            .configure_sets(
-                Render,
-                (
-                    Buffer,
-                    PrepareBindGroups,
-                    (OpPreparation, Queue, ItemPreparation, WriteBuffers).chain(),
-                )
-                    .after(RenderSet::ExtractCommands)
-                    .before(RenderSet::Render),
-            )
-            .init_resource::<SpecializedRenderPipelines<CuttlePipeline>>()
+        app.sub_app_mut(RenderApp).configure_sets(
+            Render,
+            (
+                Buffer,
+                PrepareBindGroups,
+                (OpPreparation, Queue, ItemPreparation, WriteBuffers).chain(),
+            ).after(RenderSet::ExtractCommands).before(RenderSet::Render),
+        ).init_resource::<SpecializedRenderPipelines<CuttlePipeline>>()
             .add_event::<CuttleSpecializationData>()
-            .add_systems(Render, cleanup_batches.in_set(RenderSet::Cleanup));
+            .add_systems(Render, (
+                cleanup_batches.in_set(RenderSet::Cleanup),
+                prepare_view_bind_groups.in_set(PrepareBindGroups).after(RenderSet::PrepareBindGroups)
+            ));
     }
 }
 
@@ -110,18 +109,12 @@ use crate::groups::CuttleGroup;
 use CuttleRenderSet::*;
 
 pub(crate) fn render_group_plugin<G: CuttleGroup>(app: &mut App) {
-    app
-        .init_resource::<GroupBuffers<G>>()
-        .add_render_command::<G::Phase, DrawSdf<G>>()
-        .add_systems(
-            Render,
-            (
-                cuttle_queue_sorted_for_group::<G>.in_set(Queue),
-                cuttle_prepare_sorted_for_group::<G>.in_set(ItemPreparation),
-                write_group_buffer::<G>.in_set(WriteBuffers),
-                prepare_view_bind_groups
-                    .in_set(PrepareBindGroups)
-                    .after(RenderSet::PrepareBindGroups),
-            ),
-        );
+    app.init_resource::<GroupBuffers<G>>().add_render_command::<G::Phase, DrawSdf<G>>().add_systems(
+        Render,
+        (
+            cuttle_queue_sorted_for_group::<G>.in_set(Queue),
+            cuttle_prepare_sorted_for_group::<G>.in_set(ItemPreparation),
+            write_group_buffer::<G>.in_set(WriteBuffers),
+        ),
+    );
 }
