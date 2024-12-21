@@ -1,7 +1,7 @@
 use crate::calculations::Calculation;
+use crate::shader::ComponentShaderInfo;
 use convert_case::{Case, Casing};
 use std::fmt::Write;
-use crate::shader::ComponentShaderInfo;
 
 pub fn gen_shader(
     infos: &[ComponentShaderInfo],

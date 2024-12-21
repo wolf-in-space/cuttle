@@ -24,13 +24,11 @@ fn spawn(mut cmds: Commands) {
                 ((i % 10) + 1) as f32 * 0.1,
                 ((i / 10) + 1) as f32 * 0.333,
                 0.,
-                0.,
+                1.,
             )),
         );
         match thread_rng().gen_range(0..2) {
-            0 => cmds.spawn((base, (
-                builtins::Circle { radius: 40. },
-            ))),
+            0 => cmds.spawn((base, (builtins::Circle { radius: 40. },))),
             _ => cmds.spawn((
                 base,
                 (Quad {

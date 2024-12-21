@@ -4,10 +4,7 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            CuttlePlugin,
-        ))
+        .add_plugins((DefaultPlugins, CuttlePlugin))
         .add_systems(Startup, spawn)
         .run();
 }

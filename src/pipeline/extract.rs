@@ -1,6 +1,6 @@
-use std::any::type_name;
 use crate::components::initialization::CuttleRenderDataFrom;
 use crate::groups::CuttleGroup;
+use crate::prelude::Extension;
 use crate::{
     bounding::CuttleBoundingRadius,
     components::{arena::IndexArena, buffer::CompBuffer},
@@ -13,8 +13,8 @@ use bevy::{
     prelude::*,
     render::{sync_component::SyncComponentPlugin, sync_world::RenderEntity, Extract, RenderApp},
 };
+use std::any::type_name;
 use std::fmt::Debug;
-use crate::prelude::Extension;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((
@@ -27,7 +27,11 @@ pub fn plugin(app: &mut App) {
     .add_systems(ExtractSchedule, extract_extensions);
 }
 
-pub(crate) const fn build_extract_cuttle_comp<G: CuttleGroup, C: Component, R: CuttleRenderDataFrom<C>>(
+pub(crate) const fn build_extract_cuttle_comp<
+    G: CuttleGroup,
+    C: Component,
+    R: CuttleRenderDataFrom<C>,
+>(
     pos: u8,
 ) -> impl FnMut(
     Single<&mut CompBuffer<R>>,
@@ -40,11 +44,19 @@ pub(crate) const fn build_extract_cuttle_comp<G: CuttleGroup, C: Component, R: C
 
         for (flags, comp) in &comps {
             let Some(&index) = flags.indices.get(&pos) else {
-                error!("Index for '{}' not set despite the component being present", type_name::<C>());
+                error!(
+                    "Index for '{}' not set despite the component being present",
+                    type_name::<C>()
+                );
                 continue;
             };
             let Some(elem) = buffer.get_mut(index as usize) else {
-                error!("Index {} out of bounds for CompBuffer<{}> with size {}", index, type_name::<C>(), buffer.len());
+                error!(
+                    "Index {} out of bounds for CompBuffer<{}> with size {}",
+                    index,
+                    type_name::<C>(),
+                    buffer.len()
+                );
                 continue;
             };
             *elem = R::from_comp(comp);

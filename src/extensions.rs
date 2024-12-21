@@ -1,5 +1,8 @@
+use crate::groups::CuttleGroup;
 use crate::pipeline::extract::ExtractedCuttleTransform;
-use crate::pipeline::{extract::ExtractedRenderSdf, specialization::CuttlePipeline, CuttleRenderSet};
+use crate::pipeline::{
+    extract::ExtractedRenderSdf, specialization::CuttlePipeline, CuttleRenderSet,
+};
 use crate::CuttleFlags;
 use bevy::math::bounding::BoundingVolume;
 use bevy::{
@@ -13,7 +16,6 @@ use bevy::{
 };
 use std::fmt::{self, Debug};
 use std::marker::PhantomData;
-use crate::groups::CuttleGroup;
 
 pub fn plugin(app: &mut App) {
     app.sub_app_mut(RenderApp)
@@ -34,12 +36,15 @@ pub fn plugin(app: &mut App) {
 #[require(CuttleFlags, SyncToRenderWorld)]
 pub struct Extension<G> {
     target: Entity,
-    _phantom: PhantomData<G>
+    _phantom: PhantomData<G>,
 }
 
 impl<G: CuttleGroup> Extension<G> {
     pub fn new(target: Entity) -> Self {
-        Self { target, _phantom: PhantomData }
+        Self {
+            target,
+            _phantom: PhantomData,
+        }
     }
 }
 

@@ -2,9 +2,10 @@ use crate::bounding::{Bounding, InitBoundingFn};
 use crate::components::arena::IndexArena;
 use crate::components::buffer::{BufferFns, CompBuffer};
 use crate::components::build_set_flag_bit;
-use crate::groups::{GlobalGroupInfos, CuttleGroup};
+use crate::groups::{CuttleGroup, GlobalGroupInfos};
 use crate::pipeline::extract::build_extract_cuttle_comp;
 use crate::shader::wgsl_struct::WgslTypeInfos;
+use crate::shader::{ComponentShaderInfo, RenderDataShaderInfo};
 use bevy::prelude::*;
 use bevy::reflect::{TypeInfo, Typed};
 use bevy::render::render_resource::encase::private::WriteInto;
@@ -12,7 +13,6 @@ use bevy::render::render_resource::ShaderSize;
 use bevy::render::RenderApp;
 use std::any::{type_name, TypeId};
 use std::marker::PhantomData;
-use crate::shader::{ComponentShaderInfo, RenderDataShaderInfo};
 
 pub type InitComponentFn = fn(&mut App, u8) -> ComponentShaderInfo;
 
@@ -21,7 +21,6 @@ pub struct InitComponentInfo {
     pub(crate) init_fn: InitComponentFn,
     pub(crate) init_bounding: Option<InitBoundingFn>,
 }
-
 
 pub(crate) fn init_components(
     app: &mut App,
@@ -63,17 +62,14 @@ where
     }
 }
 
-pub(crate) fn init_component<C, R, G>(
-    app: &mut App,
-    pos: u8,
-) -> ComponentShaderInfo
+pub(crate) fn init_component<C, R, G>(app: &mut App, pos: u8) -> ComponentShaderInfo
 where
     C: Component,
     R: CuttleRenderDataFrom<C>,
     G: CuttleGroup,
 {
     common_component_init::<C, G>(app, pos);
-    let binding = global_init_component::<C, R>(app, pos);
+    let binding = global_init_component::<C, R>(app);
 
     app.sub_app_mut(RenderApp)
         .add_systems(ExtractSchedule, build_extract_cuttle_comp::<G, C, R>(pos));
@@ -91,7 +87,6 @@ where
         .resource::<WgslTypeInfos>()
         .structure_to_wgsl(structure, name);
 
-
     ComponentShaderInfo {
         name: name.to_string(),
         render_data: Some(RenderDataShaderInfo {
@@ -101,33 +96,30 @@ where
     }
 }
 
-pub(crate) fn global_init_component<C: Component, R: CuttleRenderDataFrom<C>>(app: &mut App, pos: u8) -> u32 {
+/// Returns the registered binding for the component or if it does not exist yet, do the setup needed
+/// once per component and return the newly registered binding.
+pub(crate) fn global_init_component<C: Component, R: CuttleRenderDataFrom<C>>(
+    app: &mut App,
+) -> u32 {
     let id = TypeId::of::<C>();
-    if let Some(binding) = app
-        .world()
-        .resource::<GlobalGroupInfos>()
-        .component_bindings
-        .get(&id)
-    {
+    let mut globals = app.world_mut().resource_mut::<GlobalGroupInfos>();
+    if let Some(binding) = globals.component_bindings.get(&id) {
         return *binding;
     }
 
-    let mut globals = app
-        .world_mut()
-        .remove_resource::<GlobalGroupInfos>()
-        .unwrap();
     let binding = globals.component_bindings.len() as u32;
     globals.component_bindings.insert(id, binding);
 
+    let buffer_entity = globals.buffer_entity.id();
     let render_world = app.sub_app_mut(RenderApp).world_mut();
+
     render_world
-        .entity_mut(globals.buffer_entity.id())
+        .entity_mut(buffer_entity)
         .insert(CompBuffer::<R>::default());
+
     let mut buffer_fns = render_world.resource_mut::<BufferFns>();
     buffer_fns.write.push(CompBuffer::<R>::write);
     buffer_fns.bindings.push(CompBuffer::<R>::get_binding_res);
-
-    app.world_mut().insert_resource(globals);
 
     binding
 }

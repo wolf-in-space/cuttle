@@ -1,20 +1,22 @@
-use bevy::render::primitives::{Frustum, Sphere};
-use bevy::render::view::{NoCpuCulling, NoFrustumCulling, RenderLayers, VisibilitySystems, VisibleEntities};
-use bevy::utils::Parallel;
 use bevy::prelude::*;
+use bevy::render::primitives::{Frustum, Sphere};
+use bevy::render::view::{
+    NoCpuCulling, NoFrustumCulling, RenderLayers, VisibilitySystems, VisibleEntities,
+};
+use bevy::utils::Parallel;
 
 pub fn plugin(app: &mut App) {
     app.configure_sets(
         PostUpdate,
         (Bounding::Add, Bounding::Multiply, Bounding::Apply).chain(),
     )
-        .add_systems(
-            PostUpdate,
-            (
-                apply_bounding.in_set(Bounding::Apply),
-                check_visibility.in_set(VisibilitySystems::CheckVisibility),
-            ),
-        );
+    .add_systems(
+        PostUpdate,
+        (
+            apply_bounding.in_set(Bounding::Apply),
+            check_visibility.in_set(VisibilitySystems::CheckVisibility),
+        ),
+    );
 }
 
 pub type InitBoundingFn = Box<dyn FnMut(&mut App) + Send + Sync>;

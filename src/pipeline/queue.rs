@@ -88,7 +88,7 @@ impl<G: CuttleGroup> Default for GroupBuffers<G> {
     fn default() -> Self {
         Self {
             vertex: RawBufferVec::new(BufferUsages::VERTEX),
-            _phantom: PhantomData
+            _phantom: PhantomData,
         }
     }
 }

@@ -1,10 +1,10 @@
-use std::marker::PhantomData;
 use super::queue::GroupBuffers;
 use super::specialization::CuttleViewBindGroup;
 use super::RenderPhase;
 use super::{queue::SdfBatch, specialization::CuttlePipeline};
 use crate::components::buffer::CompBufferBindgroup;
 use crate::extensions::OpBindgroup;
+use crate::groups::CuttleGroup;
 use bevy::{
     ecs::system::{
         lifetimeless::{Read, SRes},
@@ -16,7 +16,7 @@ use bevy::{
         view::ViewUniformOffset,
     },
 };
-use crate::groups::CuttleGroup;
+use std::marker::PhantomData;
 
 pub type DrawSdf<G> = (SetItemPipeline, SetSdfViewBindGroup, DrawSdfDispatch<G>);
 

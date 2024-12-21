@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use bevy::color::palettes::tailwind;
+use bevy::prelude::*;
 use cuttle::prelude::*;
 
 fn main() {
@@ -20,25 +20,28 @@ fn spawn(mut cmds: Commands) {
             justify_content: JustifyContent::Center,
             ..default()
         },
-        Quad { half_size: Vec2::new(50., 20.)},
+        Quad {
+            half_size: Vec2::new(50., 20.),
+        },
         Fill(tailwind::SKY_800),
-    )).with_children(|c| {
+    ))
+    .with_children(|c| {
         c.spawn((
             UiSdf,
-            builtins::Circle { radius: 15.},
+            builtins::Circle { radius: 15. },
             Fill(tailwind::EMERALD_400),
         ));
 
         c.spawn((
             UiSdf,
-            builtins::Circle { radius: 10.},
+            builtins::Circle { radius: 10. },
             Annular { annular: 5. },
             Fill(tailwind::EMERALD_400),
         ));
 
         c.spawn((
             UiSdf,
-            builtins::Circle { radius: 15.},
+            builtins::Circle { radius: 15. },
             Fill(tailwind::EMERALD_400),
         ));
     });

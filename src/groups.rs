@@ -1,10 +1,12 @@
 use crate::bounding::{make_compute_aabb_system, InitBoundingFn};
 use crate::components::buffer::BufferEntity;
 use crate::components::initialization::{
-    init_component, init_components, init_zst_component, InitComponentInfo,
-    RegisterCuttleComponent, CuttleComponent, CuttleRenderDataFrom, CuttleZstComponent,
+    init_component, init_components, init_zst_component, CuttleComponent, CuttleRenderDataFrom,
+    CuttleZstComponent, InitComponentInfo, RegisterCuttleComponent,
 };
+use crate::extensions::register_extension_hooks;
 use crate::pipeline::extract::extract_group_marker;
+use crate::pipeline::{render_group_plugin, RenderPhase};
 use crate::shader::{load_shader_to_pipeline, ShaderSettings};
 use crate::{calculations::Calculation, shader::snippets::AddSnippet, CuttleFlags};
 use bevy::prelude::*;
@@ -12,8 +14,6 @@ use bevy::render::sync_world::RenderEntity;
 use bevy::render::RenderApp;
 use bevy::utils::HashMap;
 use std::{any::TypeId, marker::PhantomData};
-use crate::extensions::register_extension_hooks;
-use crate::pipeline::{render_group_plugin, RenderPhase};
 
 pub trait CuttleGroup: Component + Default {
     type Phase: RenderPhase;

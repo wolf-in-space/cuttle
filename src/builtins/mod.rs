@@ -1,7 +1,9 @@
 pub(crate) mod sdf;
 pub(crate) mod ui_sdf;
 
-use crate::components::initialization::{CuttleComponent, CuttleRenderDataFrom, CuttleZstComponent};
+use crate::components::initialization::{
+    CuttleComponent, CuttleRenderDataFrom, CuttleZstComponent,
+};
 use crate::prelude::Bounding;
 use bevy::{asset::embedded_asset, prelude::*, render::render_resource::ShaderType};
 

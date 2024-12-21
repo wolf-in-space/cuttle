@@ -1,4 +1,3 @@
-use std::any::TypeId;
 use crate::calculations::Calculation;
 use crate::groups::GlobalGroupInfos;
 use crate::pipeline::specialization::CuttlePipeline;
@@ -11,6 +10,7 @@ use derive_more::derive::{Display, Error, From};
 use gen::gen_shader;
 use serde::{Deserialize, Serialize};
 use snippets::{AddSnippet, Snippet, SnippetPlugin};
+use std::any::TypeId;
 
 pub mod gen;
 pub mod snippets;

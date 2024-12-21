@@ -69,7 +69,7 @@ fn spawn(mut cmds: Commands) {
             Fill(tailwind::GRAY_100),
             Rotate { speed: 0.2 },
         ))
-            .id()
+        .id()
     });
 
     spin::<SmoothSubtract>(&mut cmds, 0., -50., |cmds, x, y| {
@@ -82,7 +82,7 @@ fn spawn(mut cmds: Commands) {
             Fill(tailwind::GRAY_100),
             Rotate { speed: 0.2 },
         ))
-            .id()
+        .id()
     });
 
     cmds.spawn((
@@ -140,10 +140,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         AnimateMorph { speed: 1., scale },
     ));
 
-    cmds.spawn((
-        Extension::<Sdf>::new(quad),
-        ForceFieldAlpha
-    ));
+    cmds.spawn((Extension::<Sdf>::new(quad), ForceFieldAlpha));
 }
 
 fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
@@ -160,17 +157,16 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
 
     cmds.spawn((
         Extension::<Sdf>::new(quad),
-        Quad { half_size: Vec2::splat(20.) },
+        Quad {
+            half_size: Vec2::splat(20.),
+        },
         Transform::from_translation(pos),
         Fill(tailwind::BLUE_700),
         Morph::default(),
         AnimateMorph { speed: 1., scale },
     ));
 
-    cmds.spawn((
-        Extension::<Sdf>::new(quad),
-        ForceFieldAlpha
-    ));
+    cmds.spawn((Extension::<Sdf>::new(quad), ForceFieldAlpha));
 }
 
 #[derive(Component)]
@@ -213,9 +209,9 @@ fn spin<OP: Default + Component>(
         make_ball(y - 40. * 5., tailwind::ZINC_400, 1.5),
         make_ball(y - 40. * 6., tailwind::FUCHSIA_400, 1.8),
     ]
-        .map(|bundle| {
-            cmds.spawn(bundle);
-        });
+    .map(|bundle| {
+        cmds.spawn(bundle);
+    });
 
     cmds.spawn((
         Extension::<Sdf>::new(sdf),

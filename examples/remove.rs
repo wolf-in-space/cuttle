@@ -35,7 +35,7 @@ fn delete_and_spawn(current: Query<Entity, With<builtins::Circle>>, mut cmds: Co
                 ((i % 10) + 1) as f32 * 0.1,
                 ((i / 10) + 1) as f32 * 0.333,
                 0.,
-                0.,
+                1.,
             )),
         ));
     }

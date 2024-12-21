@@ -63,8 +63,7 @@ impl CuttlePipeline {
 
         let asset_server = world.resource_mut::<AssetServer>();
 
-        let _common_shader =
-            asset_server.load::<Shader>("embedded://cuttle/shader/common.wgsl");
+        let _common_shader = asset_server.load::<Shader>("embedded://cuttle/shader/common.wgsl");
         let vertex_shader = asset_server.load::<Shader>("embedded://cuttle/shader/vertex.wgsl");
 
         CuttlePipeline {

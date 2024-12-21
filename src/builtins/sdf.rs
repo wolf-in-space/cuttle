@@ -1,8 +1,8 @@
-use bevy::core_pipeline::core_2d::Transparent2d;
 use crate::builtins::*;
 use crate::components::initialization::RegisterCuttleComponent;
 use crate::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
 use crate::prelude::Annular;
+use bevy::core_pipeline::core_2d::Transparent2d;
 use bevy::prelude::{App, Component};
 
 pub(super) fn plugin(app: &mut App) {
