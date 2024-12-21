@@ -12,6 +12,26 @@ impl Plugin for BuiltinsPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "builtins.wgsl");
         app.add_plugins((sdf::plugin, ui_sdf::plugin));
+        app
+            .register_type::<Rounded>()
+            .register_type::<Annular>()
+            .register_type::<PrepareBase>()
+            .register_type::<Circle>()
+            .register_type::<Line>()
+            .register_type::<Quad>()
+            .register_type::<Fill>()
+            .register_type::<DistanceGradient>()
+            .register_type::<ForceFieldAlpha>()
+            .register_type::<PrepareOperation>()
+            .register_type::<Unioni>()
+            .register_type::<SmoothUnion>()
+            .register_type::<Subtract>()
+            .register_type::<SmoothSubtract>()
+            .register_type::<Intersect>()
+            .register_type::<SmoothIntersect>()
+            .register_type::<Xor>()
+            .register_type::<Morph>()
+            .register_type::<Repetition>();
     }
 }
 
