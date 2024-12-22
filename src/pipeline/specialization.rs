@@ -58,8 +58,8 @@ impl CuttlePipeline {
         );
 
         let comp_layout =
-            build_buffer_layout(comp_buf_count, device, "sdf component buffers layout");
-        let op_layout = build_buffer_layout(2, device, "sdf global buffers layout");
+            build_buffer_layout(comp_buf_count, device, "cuttle component buffers layout");
+        let op_layout = build_buffer_layout(1, device, "cuttle index buffers layout");
 
         let asset_server = world.resource_mut::<AssetServer>();
 

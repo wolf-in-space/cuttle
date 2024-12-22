@@ -1,9 +1,9 @@
 use super::{
-    draw::DrawSdf, extract::ExtractedRenderSdf, specialization::CuttlePipeline, RenderPhase,
+    draw::DrawSdf, specialization::CuttlePipeline, RenderPhase,
     SdfPipelineKey,
 };
 use crate::groups::CuttleGroup;
-use crate::pipeline::extract::{ExtractedCuttleTransform, ExtractedVisibility};
+use crate::pipeline::extract::{CombinedBounding, ExtractedVisibility, ExtractedZ, RenderIndexRange};
 use bevy::render::render_phase::PhaseItem;
 use bevy::{
     prelude::*,
@@ -25,7 +25,7 @@ pub(crate) fn cuttle_queue_sorted_for_group<G: CuttleGroup>(
             Entity,
             &MainEntity,
             &ExtractedVisibility,
-            &ExtractedCuttleTransform,
+            &ExtractedZ,
         ),
         With<G>,
     >,
@@ -41,7 +41,7 @@ pub(crate) fn cuttle_queue_sorted_for_group<G: CuttleGroup>(
         let Some(render_phase) = render_phases.get_mut(&view_entity) else {
             continue;
         };
-        for (entity, main_entity, visibility, transform) in entities.iter() {
+        for (entity, main_entity, visibility, z) in entities.iter() {
             if !visibility.0 {
                 continue;
             }
@@ -55,7 +55,7 @@ pub(crate) fn cuttle_queue_sorted_for_group<G: CuttleGroup>(
                 },
             );
             render_phase.add(G::Phase::phase_item(
-                transform.z,
+                z.0,
                 (entity, *main_entity),
                 pipeline,
                 draw_function,
@@ -65,22 +65,22 @@ pub(crate) fn cuttle_queue_sorted_for_group<G: CuttleGroup>(
 }
 
 #[derive(Component, Debug)]
-pub struct SdfBatch {
+pub struct CuttleBatch {
     pub range: Range<u32>,
 }
 
 #[derive(Debug, NoUninit, Clone, Copy)]
 #[repr(C)]
-pub struct SdfInstance {
+pub struct CuttleInstance {
     pos: Vec2,
     bounding_radius: f32,
-    start_index: u32,
-    op_count: u32,
+    start: u32,
+    end: u32,
 }
 
 #[derive(Resource)]
 pub struct GroupBuffers<G: CuttleGroup> {
-    pub vertex: RawBufferVec<SdfInstance>,
+    pub vertex: RawBufferVec<CuttleInstance>,
     _phantom: PhantomData<G>,
 }
 
@@ -97,7 +97,7 @@ pub(crate) fn cuttle_prepare_sorted_for_group<G: CuttleGroup>(
     mut cmds: Commands,
     mut phases: ResMut<ViewSortedRenderPhases<G::Phase>>,
     mut buffers: ResMut<GroupBuffers<G>>,
-    entities: Query<&ExtractedRenderSdf, With<G>>,
+    entities: Query<(&CombinedBounding, &RenderIndexRange), With<G>>,
 ) {
     let mut batches = Vec::new();
     buffers.vertex.clear();
@@ -108,7 +108,7 @@ pub(crate) fn cuttle_prepare_sorted_for_group<G: CuttleGroup>(
 
         for index in 0..transparent_phase.items.len() {
             let item = &transparent_phase.items[index];
-            let Ok(sdf) = entities.get(item.entity()) else {
+            let Ok((bounds, range)) = entities.get(item.entity()) else {
                 batch = false;
                 continue;
             };
@@ -119,17 +119,17 @@ pub(crate) fn cuttle_prepare_sorted_for_group<G: CuttleGroup>(
                 let index = index as u32;
                 batches.push((
                     item.entity(),
-                    SdfBatch {
+                    CuttleBatch {
                         range: index..index,
                     },
                 ));
             }
 
-            let instance = SdfInstance {
-                bounding_radius: sdf.final_bounds.circle.radius,
-                pos: sdf.final_bounds.center,
-                start_index: sdf.op_start_index,
-                op_count: sdf.op_count,
+            let instance = CuttleInstance {
+                bounding_radius: bounds.circle.radius,
+                pos: bounds.center,
+                start: range.start,
+                end: range.end,
             };
 
             buffers.vertex.push(instance);
@@ -142,8 +142,8 @@ pub(crate) fn cuttle_prepare_sorted_for_group<G: CuttleGroup>(
     cmds.insert_or_spawn_batch(batches);
 }
 
-pub(super) fn cleanup_batches(batches: Query<Entity, With<SdfBatch>>, mut cmds: Commands) {
+pub(super) fn cleanup_batches(batches: Query<Entity, With<CuttleBatch>>, mut cmds: Commands) {
     for entity in &batches {
-        cmds.entity(entity).remove::<SdfBatch>();
+        cmds.entity(entity).remove::<CuttleBatch>();
     }
 }

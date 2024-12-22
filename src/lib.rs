@@ -1,9 +1,8 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 
-use crate::flag::Flag;
 use bevy::prelude::*;
-use bounding::CuttleBoundingRadius;
+use bounding::CuttleBounding;
 use builtins::BuiltinsPlugin;
 use components::CompPlugin;
 use extensions::Extensions;
@@ -17,7 +16,6 @@ pub mod builtins;
 mod calculations;
 pub mod components;
 pub mod extensions;
-pub mod flag;
 pub mod groups;
 pub mod pipeline;
 pub mod shader;
@@ -47,8 +45,7 @@ impl Plugin for CuttlePlugin {
 }
 
 #[derive(Component, Debug, Default, Clone)]
-#[require(Transform, Visibility, Extensions, CuttleBoundingRadius)]
+#[require(Transform, Visibility, Extensions, CuttleBounding)]
 pub struct CuttleFlags {
-    flag: Flag,
     indices: BTreeMap<u8, u32>,
 }

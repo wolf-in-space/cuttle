@@ -107,8 +107,10 @@ impl Plugin for PipelinePlugin {
                 Render,
                 (
                     Buffer,
-                    PrepareBindGroups,
-                    (OpPreparation, Queue, ItemPreparation, WriteBuffers).chain(),
+                    PrepareBindGroups.after(RenderSet::PrepareBindGroups),
+                    PrepareIndices.before(ItemPreparation),
+                    PrepareBounds.before(ItemPreparation),
+                    (Queue, ItemPreparation, WriteBuffers).chain(),
                 )
                     .after(RenderSet::ExtractCommands)
                     .before(RenderSet::Render),
@@ -120,8 +122,7 @@ impl Plugin for PipelinePlugin {
                 (
                     cleanup_batches.in_set(RenderSet::Cleanup),
                     prepare_view_bind_groups
-                        .in_set(PrepareBindGroups)
-                        .after(RenderSet::PrepareBindGroups),
+                        .in_set(PrepareBindGroups),
                 ),
             );
     }
@@ -130,7 +131,8 @@ impl Plugin for PipelinePlugin {
 #[derive(SystemSet, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum CuttleRenderSet {
     Buffer,
-    OpPreparation,
+    PrepareIndices,
+    PrepareBounds,
     Queue,
     ItemPreparation,
     WriteBuffers,

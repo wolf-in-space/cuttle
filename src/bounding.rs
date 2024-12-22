@@ -1,9 +1,14 @@
+use bevy::math::bounding::BoundingVolume;
 use bevy::prelude::*;
 use bevy::render::primitives::{Frustum, Sphere};
+use bevy::render::{Render, RenderApp};
 use bevy::render::view::{
     NoCpuCulling, NoFrustumCulling, RenderLayers, VisibilitySystems, VisibleEntities,
 };
 use bevy::utils::Parallel;
+use crate::extensions::{Extensions};
+use crate::pipeline::CuttleRenderSet;
+use crate::pipeline::extract::{CombinedBounding, ExtractedBounding};
 
 pub fn plugin(app: &mut App) {
     app.configure_sets(
@@ -17,12 +22,13 @@ pub fn plugin(app: &mut App) {
             check_visibility.in_set(VisibilitySystems::CheckVisibility),
         ),
     );
+    app.sub_app_mut(RenderApp).add_systems(Render, combine_bindings.in_set(CuttleRenderSet::PrepareBounds));
 }
 
 pub type InitBoundingFn = Box<dyn FnMut(&mut App) + Send + Sync>;
 
 #[derive(Clone, Copy, Debug, Component, Default)]
-pub struct CuttleBoundingRadius {
+pub struct CuttleBounding {
     pub bounding: f32,
     compute_bounding: f32,
 }
@@ -36,7 +42,7 @@ pub enum Bounding {
     Apply,
 }
 
-pub fn apply_bounding(mut query: Query<&mut CuttleBoundingRadius>) {
+pub fn apply_bounding(mut query: Query<&mut CuttleBounding>) {
     for mut sdf in &mut query {
         if sdf.bounding == sdf.compute_bounding {
             sdf.bypass_change_detection().compute_bounding = 0.;
@@ -50,7 +56,7 @@ pub fn apply_bounding(mut query: Query<&mut CuttleBoundingRadius>) {
 pub const fn make_compute_aabb_system<C: Component>(
     func: fn(&C) -> f32,
     set: Bounding,
-) -> impl Fn(Query<(&mut CuttleBoundingRadius, &C)>) {
+) -> impl Fn(Query<(&mut CuttleBounding, &C)>) {
     move |mut query| {
         for (mut sdf, c) in &mut query {
             let val = func(c);
@@ -60,6 +66,24 @@ pub const fn make_compute_aabb_system<C: Component>(
                 Bounding::Multiply => *bounds *= val,
                 Bounding::Apply | Bounding::None => panic!("NO"),
             }
+        }
+    }
+}
+
+fn combine_bindings(
+    mut roots: Query<(
+        &ExtractedBounding,
+        &Extensions,
+        &mut CombinedBounding,
+    )>,
+    extension_bounds: Query<&ExtractedBounding>,
+) {
+    for (root_bound, extensions, mut combined_bound) in &mut roots {
+        combined_bound.0 = root_bound.0;
+
+        for extension_entity in extensions.iter() {
+            let bound = extension_bounds.get(*extension_entity).unwrap();
+            combined_bound.0 = combined_bound.merge(&bound);
         }
     }
 }
@@ -101,7 +125,7 @@ pub fn check_visibility(
         &InheritedVisibility,
         &mut ViewVisibility,
         Option<&RenderLayers>,
-        &CuttleBoundingRadius,
+        &CuttleBounding,
         &GlobalTransform,
         Has<NoFrustumCulling>,
     )>,
@@ -154,7 +178,7 @@ pub fn check_visibility(
             },
         );
 
-        visible_entities.clear::<CuttleBoundingRadius>();
-        thread_queues.drain_into(visible_entities.get_mut::<CuttleBoundingRadius>());
+        visible_entities.clear::<CuttleBounding>();
+        thread_queues.drain_into(visible_entities.get_mut::<CuttleBounding>());
     }
 }

@@ -1,9 +1,9 @@
 use super::queue::GroupBuffers;
 use super::specialization::CuttleViewBindGroup;
 use super::RenderPhase;
-use super::{queue::SdfBatch, specialization::CuttlePipeline};
+use super::{queue::CuttleBatch, specialization::CuttlePipeline};
 use crate::components::buffer::CompBufferBindgroup;
-use crate::extensions::OpBindgroup;
+use crate::extensions::CompIndicesBindgroup;
 use crate::groups::CuttleGroup;
 use bevy::{
     ecs::system::{
@@ -45,16 +45,16 @@ impl<G: CuttleGroup> RenderCommand<G::Phase> for DrawSdfDispatch<G> {
         SRes<CuttlePipeline>,
         SRes<GroupBuffers<G>>,
         SRes<CompBufferBindgroup>,
-        SRes<OpBindgroup>,
+        SRes<CompIndicesBindgroup>,
     );
     type ViewQuery = ();
-    type ItemQuery = Read<SdfBatch>;
+    type ItemQuery = Read<CuttleBatch>;
 
     #[inline]
     fn render<'w>(
         _item: &G::Phase,
         _view: (),
-        sdf_instance: Option<&'w SdfBatch>,
+        sdf_instance: Option<&'w CuttleBatch>,
         (pipeline, vertices, comp_buffers, op_buffers): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

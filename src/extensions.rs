@@ -1,32 +1,30 @@
 use crate::groups::CuttleGroup;
-use crate::pipeline::extract::ExtractedCuttleTransform;
+use crate::pipeline::extract::{ExtractedCuttleFlags, RenderIndexRange};
 use crate::pipeline::{
-    extract::ExtractedRenderSdf, specialization::CuttlePipeline, CuttleRenderSet,
+    specialization::CuttlePipeline, CuttleRenderSet,
 };
 use crate::CuttleFlags;
-use bevy::math::bounding::BoundingVolume;
 use bevy::{
     prelude::*,
     render::{
-        render_resource::{BindGroup, BindGroupEntries, ShaderType, StorageBuffer},
+        render_resource::{BindGroup, BindGroupEntries, StorageBuffer},
         renderer::{RenderDevice, RenderQueue},
         sync_world::SyncToRenderWorld,
         Render, RenderApp,
     },
 };
-use std::fmt::{self, Debug};
+use std::fmt::Debug;
 use std::marker::PhantomData;
 
 pub fn plugin(app: &mut App) {
     app.sub_app_mut(RenderApp)
-        .init_resource::<OpsBuffer>()
         .init_resource::<CompIndicesBuffer>()
-        .init_resource::<OpBindgroup>()
+        .init_resource::<CompIndicesBindgroup>()
         .add_systems(
             Render,
             (
-                build_op_buffer.in_set(CuttleRenderSet::OpPreparation),
-                build_op_bindgroups.in_set(CuttleRenderSet::PrepareBindGroups),
+                prepare_component_indices.in_set(CuttleRenderSet::PrepareIndices),
+                build_component_indices_bind_group.in_set(CuttleRenderSet::PrepareBindGroups),
             )
                 .chain(),
         );
@@ -64,86 +62,51 @@ pub(crate) fn register_extension_hooks<G: CuttleGroup>(world: &mut World) {
 #[derive(Debug, Component, Clone, Deref, DerefMut, Default)]
 pub struct Extensions(pub Vec<Entity>);
 
-#[derive(ShaderType, Clone, Copy)]
-pub struct Op {
-    pub start_index: u32,
-    pub flag: u32,
-}
-
-impl Debug for Op {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "Op[start={},flag={:b}]",
-            self.start_index, self.flag
-        ))
-    }
-}
-
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct OpsBuffer(StorageBuffer<Vec<Op>>);
-
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct CompIndicesBuffer(StorageBuffer<Vec<u32>>);
 
 #[derive(Resource, Default)]
-pub struct OpBindgroup(pub Option<BindGroup>);
+pub struct CompIndicesBindgroup(pub Option<BindGroup>);
 
-fn build_op_buffer(
-    mut sdfs: Query<(
-        &CuttleFlags,
-        &ExtractedCuttleTransform,
-        &mut ExtractedRenderSdf,
+fn prepare_component_indices(
+    mut roots: Query<(
+        &ExtractedCuttleFlags,
         &Extensions,
+        &mut RenderIndexRange,
     )>,
-    extracted: Query<(&CuttleFlags, &ExtractedCuttleTransform)>,
-    mut ops_buffer: ResMut<OpsBuffer>,
+    extension_flags: Query<&ExtractedCuttleFlags>,
     mut indices_buffer: ResMut<CompIndicesBuffer>,
 ) {
     let indices = indices_buffer.get_mut();
     indices.clear();
-    let ops = ops_buffer.get_mut();
-    ops.clear();
 
-    let mut add_op = |ops: &mut Vec<Op>, sdf: &CuttleFlags| {
-        let op = Op {
-            start_index: indices.len() as u32,
-            flag: sdf.flag.0,
-        };
-        indices.extend(sdf.indices.values());
-        ops.push(op);
-    };
-
-    for (flags, transform, mut render_sdf, extensions) in &mut sdfs {
-        render_sdf.op_count = extensions.len() as u32 + 1;
-        render_sdf.op_start_index = ops.len() as u32;
-        render_sdf.final_bounds = transform.bounding;
-
-        add_op(ops, flags);
+    for (flags, extensions, mut range) in &mut roots {
+        range.end = indices.len() as u32;
+        range.start = indices.len() as u32;
+        range.end += flags.len() as u32;
+        indices.extend(flags.iter());
 
         for extension_entity in extensions.iter() {
-            let (flags, transform) = extracted.get(*extension_entity).unwrap();
-            render_sdf.final_bounds = render_sdf.final_bounds.merge(&transform.bounding);
-            add_op(ops, flags);
+            let flags = extension_flags.get(*extension_entity).unwrap();
+            range.end += flags.len() as u32;
+            indices.extend(flags.iter());
         }
     }
 }
 
-fn build_op_bindgroups(
-    mut ops_buffer: ResMut<OpsBuffer>,
+fn build_component_indices_bind_group(
     mut indices_buffer: ResMut<CompIndicesBuffer>,
-    mut op_bindgroup: ResMut<OpBindgroup>,
+    mut op_bindgroup: ResMut<CompIndicesBindgroup>,
     pipeline: Res<CuttlePipeline>,
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
 ) {
-    ops_buffer.write_buffer(&device, &queue);
     indices_buffer.write_buffer(&device, &queue);
 
     let entries = BindGroupEntries::sequential((
-        ops_buffer.binding().unwrap(),
         indices_buffer.binding().unwrap(),
     ));
 
-    let bindgroup = device.create_bind_group("cuttle operations", &pipeline.op_layout, &entries);
+    let bindgroup = device.create_bind_group("cuttle indices", &pipeline.op_layout, &entries);
     op_bindgroup.0 = Some(bindgroup);
 }
