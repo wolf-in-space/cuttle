@@ -25,7 +25,7 @@ impl Plugin for BufferPlugin {
                     build_buffer_bindgroup,
                 )
                     .chain()
-                    .in_set(CuttleRenderSet::Buffer),
+                    .in_set(CuttleRenderSet::ComponentBuffers),
             );
     }
 }

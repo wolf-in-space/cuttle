@@ -1,4 +1,4 @@
-use super::{queue::GroupBuffers, SdfPipelineKey};
+use super::{queue::GroupInstanceBuffer, CuttlePipelineKey};
 use crate::components::buffer::build_buffer_layout;
 use crate::groups::CuttleGroup;
 use bevy::image::BevyDefault;
@@ -22,13 +22,6 @@ use bevy::{
 };
 use std::any::TypeId;
 
-#[derive(Event, Debug, PartialEq, Clone)]
-pub struct CuttleSpecializationData {
-    pub shader: Handle<Shader>,
-    pub bind_group_layout: BindGroupLayout,
-    pub bindings: Vec<usize>,
-}
-
 #[derive(Resource)]
 pub struct CuttlePipeline {
     pub _common_shader: Handle<Shader>,
@@ -50,7 +43,7 @@ impl CuttlePipeline {
         indices.write_buffer(device, queue);
 
         let global_layout = device.create_bind_group_layout(
-            "sdf_pipeline_view_uniform_layout",
+            "cuttle pipeline view uniform layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
                 (uniform_buffer::<ViewUniform>(true),),
@@ -79,7 +72,7 @@ impl CuttlePipeline {
 }
 
 impl SpecializedRenderPipeline for CuttlePipeline {
-    type Key = SdfPipelineKey;
+    type Key = CuttlePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let depth_stencil = if key.has_depth {
@@ -150,7 +143,7 @@ impl SpecializedRenderPipeline for CuttlePipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some(format!("SdfPipeline for Sdf '{key:?}'").into()),
+            label: Some(format!("CuttlePipeline for Key '{key:?}'").into()),
             push_constant_ranges: Vec::new(),
             zero_initialize_workgroup_memory: true,
         }
@@ -189,7 +182,7 @@ pub fn prepare_view_bind_groups(
 pub fn write_group_buffer<G: CuttleGroup>(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    mut buffers: ResMut<GroupBuffers<G>>,
+    mut buffers: ResMut<GroupInstanceBuffer<G>>,
 ) {
     buffers.vertex.write_buffer(&device, &queue);
 }

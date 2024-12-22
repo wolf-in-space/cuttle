@@ -1,6 +1,6 @@
 use super::{
-    draw::DrawSdf, specialization::CuttlePipeline, RenderPhase,
-    SdfPipelineKey,
+    draw::DrawSdf, specialization::CuttlePipeline, SortedCuttlePhaseItem,
+    CuttlePipelineKey,
 };
 use crate::groups::CuttleGroup;
 use crate::pipeline::extract::{CombinedBounding, ExtractedVisibility, ExtractedZ, RenderIndexRange};
@@ -48,7 +48,7 @@ pub(crate) fn cuttle_queue_sorted_for_group<G: CuttleGroup>(
             let pipeline = pipelines.specialize(
                 &cache,
                 &sdf_pipeline,
-                SdfPipelineKey {
+                CuttlePipelineKey {
                     multisample_count: G::Phase::multisample_count(),
                     group_id: TypeId::of::<G>(),
                     has_depth: G::Phase::depth(),
@@ -79,12 +79,12 @@ pub struct CuttleInstance {
 }
 
 #[derive(Resource)]
-pub struct GroupBuffers<G: CuttleGroup> {
+pub struct GroupInstanceBuffer<G: CuttleGroup> {
     pub vertex: RawBufferVec<CuttleInstance>,
     _phantom: PhantomData<G>,
 }
 
-impl<G: CuttleGroup> Default for GroupBuffers<G> {
+impl<G: CuttleGroup> Default for GroupInstanceBuffer<G> {
     fn default() -> Self {
         Self {
             vertex: RawBufferVec::new(BufferUsages::VERTEX),
@@ -96,7 +96,7 @@ impl<G: CuttleGroup> Default for GroupBuffers<G> {
 pub(crate) fn cuttle_prepare_sorted_for_group<G: CuttleGroup>(
     mut cmds: Commands,
     mut phases: ResMut<ViewSortedRenderPhases<G::Phase>>,
-    mut buffers: ResMut<GroupBuffers<G>>,
+    mut buffers: ResMut<GroupInstanceBuffer<G>>,
     entities: Query<(&CombinedBounding, &RenderIndexRange), With<G>>,
 ) {
     let mut batches = Vec::new();

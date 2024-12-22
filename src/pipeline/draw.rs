@@ -1,6 +1,6 @@
-use super::queue::GroupBuffers;
+use super::queue::GroupInstanceBuffer;
 use super::specialization::CuttleViewBindGroup;
-use super::RenderPhase;
+use super::SortedCuttlePhaseItem;
 use super::{queue::CuttleBatch, specialization::CuttlePipeline};
 use crate::components::buffer::CompBufferBindgroup;
 use crate::extensions::CompIndicesBindgroup;
@@ -21,7 +21,7 @@ use std::marker::PhantomData;
 pub type DrawSdf<G> = (SetItemPipeline, SetSdfViewBindGroup, DrawSdfDispatch<G>);
 
 pub struct SetSdfViewBindGroup;
-impl<P: RenderPhase> RenderCommand<P> for SetSdfViewBindGroup {
+impl<P: SortedCuttlePhaseItem> RenderCommand<P> for SetSdfViewBindGroup {
     type Param = ();
     type ViewQuery = (Read<ViewUniformOffset>, Read<CuttleViewBindGroup>);
     type ItemQuery = ();
@@ -43,7 +43,7 @@ pub struct DrawSdfDispatch<G>(PhantomData<G>);
 impl<G: CuttleGroup> RenderCommand<G::Phase> for DrawSdfDispatch<G> {
     type Param = (
         SRes<CuttlePipeline>,
-        SRes<GroupBuffers<G>>,
+        SRes<GroupInstanceBuffer<G>>,
         SRes<CompBufferBindgroup>,
         SRes<CompIndicesBindgroup>,
     );

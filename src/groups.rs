@@ -6,7 +6,7 @@ use crate::components::initialization::{
 };
 use crate::extensions::register_extension_hooks;
 use crate::pipeline::extract::extract_group_marker;
-use crate::pipeline::{render_group_plugin, RenderPhase};
+use crate::pipeline::{render_group_plugin, SortedCuttlePhaseItem};
 use crate::shader::{load_shader_to_pipeline, ShaderSettings};
 use crate::{calculations::Calculation, shader::snippets::AddSnippet, CuttleFlags};
 use bevy::prelude::*;
@@ -16,7 +16,7 @@ use bevy::utils::HashMap;
 use std::{any::TypeId, marker::PhantomData};
 
 pub trait CuttleGroup: Component + Default {
-    type Phase: RenderPhase;
+    type Phase: SortedCuttlePhaseItem;
 }
 
 #[derive(Resource)]

@@ -15,10 +15,10 @@ use bevy::{
 };
 use draw::DrawSdf;
 use queue::{
-    cleanup_batches, cuttle_prepare_sorted_for_group, cuttle_queue_sorted_for_group, GroupBuffers,
+    cleanup_batches, cuttle_prepare_sorted_for_group, cuttle_queue_sorted_for_group, GroupInstanceBuffer,
 };
 use specialization::{
-    prepare_view_bind_groups, write_group_buffer, CuttlePipeline, CuttleSpecializationData,
+    prepare_view_bind_groups, write_group_buffer, CuttlePipeline,
 };
 use std::any::TypeId;
 
@@ -28,13 +28,13 @@ mod queue;
 pub mod specialization;
 
 #[derive(Debug, Component, PartialEq, Eq, Clone, Hash)]
-pub struct SdfPipelineKey {
+pub struct CuttlePipelineKey {
     group_id: TypeId,
     multisample_count: u32,
     has_depth: bool,
 }
 
-pub trait RenderPhase: Send + CachedRenderPipelinePhaseItem + SortedPhaseItem {
+pub trait SortedCuttlePhaseItem: Send + CachedRenderPipelinePhaseItem + SortedPhaseItem {
     fn phase_item(
         sort: f32,
         entity: (Entity, MainEntity),
@@ -45,7 +45,7 @@ pub trait RenderPhase: Send + CachedRenderPipelinePhaseItem + SortedPhaseItem {
     fn depth() -> bool;
 }
 
-impl RenderPhase for Transparent2d {
+impl SortedCuttlePhaseItem for Transparent2d {
     fn phase_item(
         sort: f32,
         entity: (Entity, MainEntity),
@@ -71,7 +71,7 @@ impl RenderPhase for Transparent2d {
     }
 }
 
-impl RenderPhase for TransparentUi {
+impl SortedCuttlePhaseItem for TransparentUi {
     fn phase_item(
         sort: f32,
         entity: (Entity, MainEntity),
@@ -106,7 +106,7 @@ impl Plugin for PipelinePlugin {
             .configure_sets(
                 Render,
                 (
-                    Buffer,
+                    ComponentBuffers,
                     PrepareBindGroups.after(RenderSet::PrepareBindGroups),
                     PrepareIndices.before(ItemPreparation),
                     PrepareBounds.before(ItemPreparation),
@@ -116,7 +116,6 @@ impl Plugin for PipelinePlugin {
                     .before(RenderSet::Render),
             )
             .init_resource::<SpecializedRenderPipelines<CuttlePipeline>>()
-            .add_event::<CuttleSpecializationData>()
             .add_systems(
                 Render,
                 (
@@ -130,7 +129,7 @@ impl Plugin for PipelinePlugin {
 
 #[derive(SystemSet, Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum CuttleRenderSet {
-    Buffer,
+    ComponentBuffers,
     PrepareIndices,
     PrepareBounds,
     Queue,
@@ -142,7 +141,7 @@ use crate::groups::CuttleGroup;
 use CuttleRenderSet::*;
 
 pub(crate) fn render_group_plugin<G: CuttleGroup>(app: &mut App) {
-    app.init_resource::<GroupBuffers<G>>()
+    app.init_resource::<GroupInstanceBuffer<G>>()
         .add_render_command::<G::Phase, DrawSdf<G>>()
         .add_systems(
             Render,
