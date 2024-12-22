@@ -1,5 +1,4 @@
 pub(crate) mod sdf;
-pub(crate) mod ui_sdf;
 
 use crate::components::initialization::{
     CuttleComponent, CuttleRenderDataFrom, CuttleZstComponent,
@@ -11,7 +10,7 @@ pub struct BuiltinsPlugin;
 impl Plugin for BuiltinsPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "builtins.wgsl");
-        app.add_plugins((sdf::plugin, ui_sdf::plugin));
+        app.add_plugins(sdf::plugin);
         app
             .register_type::<Rounded>()
             .register_type::<Annular>()

@@ -1,28 +1,31 @@
 use crate::calculations::Calculation;
-use crate::groups::GlobalGroupInfos;
+use crate::groups::{GlobalGroupInfos};
 use crate::pipeline::specialization::CuttlePipeline;
 use bevy::render::RenderApp;
 use bevy::{
-    asset::{embedded_asset, io::Reader, AssetLoader, LoadContext, LoadDirectError},
+    asset::{embedded_asset, io::Reader},
     prelude::*,
 };
 use derive_more::derive::{Display, Error, From};
 use gen::gen_shader;
 use serde::{Deserialize, Serialize};
-use snippets::{AddSnippet, Snippet, SnippetPlugin};
-use std::any::TypeId;
+use std::any::{TypeId};
+use std::string::FromUtf8Error;
+use bevy::asset::AssetPath;
+use bevy::asset::io::{AssetReaderError, MissingAssetSourceError};
+use bevy::render::render_resource::ShaderLoader;
 
 pub mod gen;
-pub mod snippets;
 pub mod wgsl_struct;
 
 pub struct ShaderPlugin;
 impl Plugin for ShaderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((wgsl_struct::plugin, SnippetPlugin));
+        // app.world_mut().resource_mut::<Assets<Shader>>().insert();
+        app.add_plugins(wgsl_struct::plugin);
         app.init_asset_loader::<ShaderLoader>();
-
-        embedded_asset!(app, "dummy.dummy");
+        app.init_asset::<Snippet>()
+            .init_resource::<AddSnippets>();
 
         embedded_asset!(app, "common.wgsl");
         embedded_asset!(app, "vertex.wgsl");
@@ -44,7 +47,7 @@ pub struct RenderDataShaderInfo {
 
 pub(crate) fn load_shader_to_pipeline(
     app: &mut App,
-    shader_settings: ShaderSettings,
+    settings: ShaderSettings,
     group_id: TypeId,
 ) {
     let comp_count = app
@@ -52,10 +55,10 @@ pub(crate) fn load_shader_to_pipeline(
         .resource::<GlobalGroupInfos>()
         .component_bindings
         .len() as u32;
-    let assets = app.world_mut().resource_mut::<AssetServer>();
-    let shader = assets.load_with_settings("embedded://cuttle/shader/dummy.dummy", move |s| {
-        *s = shader_settings.clone()
-    });
+
+    let assets = app.world().resource::<AssetServer>().clone();
+    let shader = assets.clone().add_async(load_shader(assets, settings, group_id));
+
     let render_world = app.sub_app_mut(RenderApp).world_mut();
     match render_world.get_resource_mut::<CuttlePipeline>() {
         Some(mut pipeline) => {
@@ -69,11 +72,44 @@ pub(crate) fn load_shader_to_pipeline(
     }
 }
 
-#[derive(Asset, Reflect)]
-pub struct CuttleShaderImport(String);
+#[derive(Debug, Error, Display, From)]
+enum LoadShaderError {
+    AssetSource(MissingAssetSourceError),
+    Read(AssetReaderError),
+    IO(std::io::Error),
+    Utf8(FromUtf8Error)
+}
 
-#[derive(Default)]
-struct ShaderLoader;
+async fn load_shader(assets: AssetServer, settings: ShaderSettings, group_id: TypeId) -> Result<Shader, LoadShaderError> {
+    let mut snippets = String::new();
+    let base = [AddSnippet::File(
+        "embedded://cuttle/shader/fragment.wgsl".to_string(),
+    )];
+    let snippet_sources = base.into_iter().chain(settings.snippets);
+    for add in snippet_sources {
+        let Snippet(snippet) = match add {
+            AddSnippet::Inline(snippet) => Snippet(snippet.clone()),
+            AddSnippet::File(path) => {
+                let bytes = manual_load_asset_bytes(&assets, path).await?;
+                Snippet(String::from_utf8(bytes)?)
+            }
+        };
+        snippets.push_str(&snippet);
+    }
+
+    let shader = gen_shader(&settings.infos, &settings.calculations, snippets);
+    println!("{}", shader);
+    let shader = Shader::from_wgsl(shader, format!("Generated at {} | {}: {:?}", file!(), line!(), group_id));
+    Ok(shader)
+}
+
+async fn manual_load_asset_bytes(assets: &AssetServer, path: String) -> Result<Vec<u8>, LoadShaderError> {
+    let path = AssetPath::from(path);
+    let mut reader = assets.get_source(path.source())?.reader().read(path.path()).await?;
+    let mut bytes = Vec::new();
+    Reader::read_to_end(&mut reader, &mut bytes).await?;
+    Ok(bytes)
+}
 
 #[derive(Serialize, Deserialize, Default, Clone)]
 pub(crate) struct ShaderSettings {
@@ -82,44 +118,14 @@ pub(crate) struct ShaderSettings {
     pub snippets: Vec<AddSnippet>,
 }
 
-#[derive(Debug, Error, Display, From)]
-enum ShaderLoaderError {
-    Load(LoadDirectError),
-}
+#[derive(Asset, TypePath, Debug)]
+pub struct Snippet(pub String);
 
-impl AssetLoader for ShaderLoader {
-    type Asset = Shader;
-    type Settings = ShaderSettings;
-    type Error = ShaderLoaderError;
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct AddSnippets(Vec<AddSnippet>);
 
-    async fn load(
-        &self,
-        _reader: &mut dyn Reader,
-        settings: &ShaderSettings,
-        load_context: &mut LoadContext<'_>,
-    ) -> Result<Self::Asset, Self::Error> {
-        let mut snippets = String::new();
-        let base = [AddSnippet::File(
-            "embedded://cuttle/shader/fragment.wgsl".to_string(),
-        )];
-        let snippet_sources = base.iter().chain(&settings.snippets);
-        for add in snippet_sources {
-            let Snippet(snippet) = match add {
-                AddSnippet::Inline(snippet) => Snippet(snippet.clone()),
-                AddSnippet::File(path) => {
-                    load_context.loader().immediate().load(path).await?.take()
-                }
-            };
-            snippets.push_str(&snippet);
-        }
-
-        let shader = gen_shader(&settings.infos, &settings.calculations, snippets);
-        let shader = Shader::from_wgsl(shader, format!("Generated at {} | {}", file!(), line!()));
-
-        Ok(shader)
-    }
-
-    fn extensions(&self) -> &[&str] {
-        &["dummy"]
-    }
+#[derive(Serialize, Deserialize, Clone)]
+pub enum AddSnippet {
+    Inline(String),
+    File(String),
 }

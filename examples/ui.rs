@@ -28,21 +28,39 @@ fn spawn(mut cmds: Commands) {
     .with_children(|c| {
         c.spawn((
             UiSdf,
+            Node {
+                width: Val::Percent(10.0),
+                height: Val::Percent(10.0),
+                ..default()
+            },
             builtins::Circle { radius: 15. },
-            Fill(tailwind::EMERALD_400),
+            BackgroundColor(Color::srgba(1.0, 0.0, 0.0, 0.1)),
+            Fill(Srgba::new (1.0, 0.0, 0.0, 1.0)),
         ));
 
         c.spawn((
             UiSdf,
+            Node {
+                width: Val::Percent(10.0),
+                height: Val::Percent(10.0),
+                ..default()
+            },
             builtins::Circle { radius: 10. },
             Annular { annular: 5. },
-            Fill(tailwind::EMERALD_400),
+            BackgroundColor(Color::srgba(0.0, 1.0, 0.0, 0.1)),
+            Fill(Srgba::new (0.0, 1.0, 0.0, 1.0)),
         ));
 
         c.spawn((
             UiSdf,
-            builtins::Circle { radius: 15. },
-            Fill(tailwind::EMERALD_400),
+            Node {
+                width: Val::Percent(10.0),
+                height: Val::Percent(10.0),
+                ..default()
+            },
+            builtins::Circle { radius: 20. },
+            BackgroundColor(Color::srgba(0.0, 0.0, 1.0, 0.1)),
+            Fill(Srgba::new (0.0, 0.0, 1.0, 1.0)),
         ));
     });
 }

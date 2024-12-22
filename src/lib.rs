@@ -23,7 +23,7 @@ pub mod shader;
 pub mod prelude {
     pub use crate::bounding::Bounding;
     #[cfg(feature = "builtins")]
-    pub use crate::builtins::{self, sdf::*, ui_sdf::*, *};
+    pub use crate::builtins::{self, sdf::*, *};
     pub use crate::extensions::Extension;
     pub use crate::extensions::Extensions;
     pub use crate::CuttlePlugin;
@@ -33,10 +33,10 @@ pub struct CuttlePlugin;
 impl Plugin for CuttlePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
+            ShaderPlugin,
             CompPlugin, //Needs to be first to ensure SdfCompInfos is sorted
             #[cfg(feature = "builtins")]
             BuiltinsPlugin,
-            ShaderPlugin,
             PipelinePlugin,
             extensions::plugin,
             bounding::plugin,

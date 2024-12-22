@@ -27,10 +27,3 @@ pub(super) fn plugin(app: &mut App) {
         .component::<Rounded>();
 }
 
-#[derive(Component, Debug, Default, Clone)]
-#[require(Node)]
-pub struct UiSdf;
-
-impl CuttleGroup for UiSdf {
-    type Phase = TransparentUi;
-}

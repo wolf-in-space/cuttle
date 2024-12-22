@@ -7,8 +7,8 @@ use crate::components::initialization::{
 use crate::extensions::register_extension_hooks;
 use crate::pipeline::extract::extract_group_marker;
 use crate::pipeline::{render_group_plugin, SortedCuttlePhaseItem};
-use crate::shader::{load_shader_to_pipeline, ShaderSettings};
-use crate::{calculations::Calculation, shader::snippets::AddSnippet, CuttleFlags};
+use crate::shader::{load_shader_to_pipeline, AddSnippet, ShaderSettings};
+use crate::{calculations::Calculation, CuttleFlags};
 use bevy::prelude::*;
 use bevy::render::sync_world::RenderEntity;
 use bevy::render::RenderApp;
