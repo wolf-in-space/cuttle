@@ -1,9 +1,6 @@
-use crate::extensions::Extension;
-use crate::groups::CuttleGroup;
-use crate::CuttleFlags;
-use arena::IndexArena;
 use bevy::prelude::*;
 use buffer::BufferPlugin;
+use crate::groups::GlobalGroupInfos;
 
 pub mod arena;
 pub mod buffer;
@@ -14,23 +11,22 @@ impl Plugin for CompPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(BufferPlugin);
     }
-}
 
-pub(crate) const fn build_set_flag_bit<C: Component, G: CuttleGroup, T, const SET: bool>(
-    pos: u8,
-) -> impl FnMut(
-    Trigger<T, C>,
-    ResMut<IndexArena<C>>,
-    Query<&mut CuttleFlags, Or<(With<G>, With<Extension<G>>)>>,
-) {
-    move |trigger, mut arena, mut flags| {
-        if let Ok(mut flag) = flags.get_mut(trigger.entity()) {
-            if SET {
-                flag.indices.insert(pos, arena.get());
-            } else {
-                let id = flag.indices.remove(&pos).unwrap();
-                arena.release(id);
+    fn cleanup(&self, app: &mut App) {
+        let globals = app.world_mut().remove_resource::<GlobalGroupInfos>().unwrap();
+        for (id, func) in &globals.component_observer_inits {
+            let positions: Vec<_> = (0..globals.group_count)
+                .into_iter()
+                .map(|i| globals.component_positions[i].get(id).copied())
+                .collect();
+            
+            if let Some(init_extract) = globals.component_extract_inits.get(id) {
+                println!("EXTRACT");
+                init_extract(app, positions.clone())
             }
+
+            println!("INIT");
+            func(app, positions);
         }
     }
 }

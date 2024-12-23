@@ -1,9 +1,7 @@
 use crate::bounding::{Bounding, InitBoundingFn};
 use crate::components::arena::IndexArena;
 use crate::components::buffer::{BufferFns, CompBuffer};
-use crate::components::build_set_flag_bit;
 use crate::groups::{CuttleGroup, GlobalGroupInfos};
-use crate::pipeline::extract::build_extract_cuttle_comp;
 use crate::shader::wgsl_struct::WgslTypeInfos;
 use crate::shader::{ComponentShaderInfo, RenderDataShaderInfo};
 use bevy::prelude::*;
@@ -14,7 +12,7 @@ use bevy::render::RenderApp;
 use std::any::{type_name, TypeId};
 use std::marker::PhantomData;
 
-pub type InitComponentFn = fn(&mut App, u8) -> ComponentShaderInfo;
+pub type InitComponentFn = fn(&mut App, u8, usize) -> ComponentShaderInfo;
 
 pub struct InitComponentInfo {
     pub(crate) sort: u32,
@@ -22,9 +20,10 @@ pub struct InitComponentInfo {
     pub(crate) init_bounding: Option<InitBoundingFn>,
 }
 
-pub(crate) fn init_components(
+pub(crate) fn init_components_for_group(
     app: &mut App,
     mut init_infos: Vec<InitComponentInfo>,
+    group_id: usize,
 ) -> Vec<ComponentShaderInfo> {
     init_infos.sort_by_key(|info| info.sort);
     init_infos
@@ -34,23 +33,22 @@ pub(crate) fn init_components(
             if let Some(mut bounding_fn) = init.init_bounding {
                 bounding_fn(app);
             }
-            (init.init_fn)(app, i as u8)
+            (init.init_fn)(app, i as u8, group_id)
         })
         .collect()
 }
 
-pub(crate) fn common_component_init<C: Component, G: CuttleGroup>(app: &mut App, pos: u8) {
+fn global_init_component<C: Component>(app: &mut App, pos: u8, group_id: usize) {
     app.init_resource::<IndexArena<C>>();
-    app.add_observer(build_set_flag_bit::<C, G, OnAdd, true>(pos));
-    app.add_observer(build_set_flag_bit::<C, G, OnRemove, false>(pos));
+    app.world_mut().resource_mut::<GlobalGroupInfos>().register_component::<C>(group_id, pos);
 }
 
-pub(crate) fn init_zst_component<C, G>(app: &mut App, pos: u8) -> ComponentShaderInfo
+pub(crate) fn init_zst_component<C, G>(app: &mut App, pos: u8, group_id: usize) -> ComponentShaderInfo
 where
     C: Component + Typed,
     G: CuttleGroup,
 {
-    common_component_init::<C, G>(app, pos);
+    global_init_component::<C>(app, pos, group_id);
 
     let Some(name) = C::type_ident() else {
         panic!("Component {} is not a named struct!", type_name::<C>())
@@ -62,17 +60,15 @@ where
     }
 }
 
-pub(crate) fn init_component<C, R, G>(app: &mut App, pos: u8) -> ComponentShaderInfo
+pub(crate) fn init_component<C, R, G>(app: &mut App, pos: u8, group_id: usize) -> ComponentShaderInfo
 where
     C: Component,
     R: CuttleRenderDataFrom<C>,
     G: CuttleGroup,
 {
-    common_component_init::<C, G>(app, pos);
-    let binding = global_init_component::<C, R>(app);
+    global_init_component::<C>(app, pos, group_id);
+    let binding = global_init_component_with_render_data::<C, R>(app);
 
-    app.sub_app_mut(RenderApp)
-        .add_systems(ExtractSchedule, build_extract_cuttle_comp::<G, C, R>(pos));
 
     let (TypeInfo::Struct(structure), Some(name)) = (R::type_info(), R::type_ident()) else {
         panic!(
@@ -98,7 +94,7 @@ where
 
 /// Returns the registered binding for the component or if it does not exist yet, do the setup needed
 /// once per component and return the newly registered binding.
-pub(crate) fn global_init_component<C: Component, R: CuttleRenderDataFrom<C>>(
+pub(crate) fn global_init_component_with_render_data<C: Component, R: CuttleRenderDataFrom<C>>(
     app: &mut App,
 ) -> u32 {
     let id = TypeId::of::<C>();
@@ -109,6 +105,7 @@ pub(crate) fn global_init_component<C: Component, R: CuttleRenderDataFrom<C>>(
 
     let binding = globals.component_bindings.len() as u32;
     globals.component_bindings.insert(id, binding);
+    globals.register_component_with_render_data::<C, R>();
 
     let buffer_entity = globals.buffer_entity.id();
     let render_world = app.sub_app_mut(RenderApp).world_mut();
@@ -120,6 +117,7 @@ pub(crate) fn global_init_component<C: Component, R: CuttleRenderDataFrom<C>>(
     let mut buffer_fns = render_world.resource_mut::<BufferFns>();
     buffer_fns.write.push(CompBuffer::<R>::write);
     buffer_fns.bindings.push(CompBuffer::<R>::get_binding_res);
+
 
     binding
 }

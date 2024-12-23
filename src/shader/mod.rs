@@ -13,7 +13,6 @@ use std::any::{TypeId};
 use std::string::FromUtf8Error;
 use bevy::asset::AssetPath;
 use bevy::asset::io::{AssetReaderError, MissingAssetSourceError};
-use bevy::render::render_resource::ShaderLoader;
 
 pub mod gen;
 pub mod wgsl_struct;
@@ -22,7 +21,6 @@ pub struct ShaderPlugin;
 impl Plugin for ShaderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(wgsl_struct::plugin);
-        app.init_asset_loader::<ShaderLoader>();
         app.init_asset::<Snippet>()
             .init_resource::<AddSnippets>();
 
@@ -97,7 +95,7 @@ async fn load_shader(assets: AssetServer, settings: ShaderSettings, group_id: Ty
     }
 
     let shader = gen_shader(&settings.infos, &settings.calculations, snippets);
-    println!("{}", shader);
+    // println!("{}", shader);
     let shader = Shader::from_wgsl(shader, format!("Generated at {} | {}: {:?}", file!(), line!(), group_id));
     Ok(shader)
 }

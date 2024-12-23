@@ -2,14 +2,10 @@
 #![allow(clippy::too_many_arguments)]
 
 use bevy::prelude::*;
-use bounding::CuttleBounding;
 use builtins::BuiltinsPlugin;
 use components::CompPlugin;
-use extensions::Extensions;
 use pipeline::PipelinePlugin;
 use shader::ShaderPlugin;
-use std::collections::BTreeMap;
-
 mod bounding;
 #[cfg(feature = "builtins")]
 pub mod builtins;
@@ -19,6 +15,7 @@ pub mod extensions;
 pub mod groups;
 pub mod pipeline;
 pub mod shader;
+mod indices;
 
 pub mod prelude {
     pub use crate::bounding::Bounding;
@@ -40,12 +37,8 @@ impl Plugin for CuttlePlugin {
             PipelinePlugin,
             extensions::plugin,
             bounding::plugin,
+            indices::plugin,
         ));
     }
 }
 
-#[derive(Component, Debug, Default, Clone)]
-#[require(Transform, Visibility, Extensions, CuttleBounding)]
-pub struct CuttleFlags {
-    indices: BTreeMap<u8, u32>,
-}

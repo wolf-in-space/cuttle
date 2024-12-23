@@ -3,13 +3,11 @@ use crate::pipeline::extract::{ExtractedCuttleFlags, RenderIndexRange};
 use crate::pipeline::{
     specialization::CuttlePipeline, CuttleRenderSet,
 };
-use crate::CuttleFlags;
 use bevy::{
     prelude::*,
     render::{
         render_resource::{BindGroup, BindGroupEntries, StorageBuffer},
         renderer::{RenderDevice, RenderQueue},
-        sync_world::SyncToRenderWorld,
         Render, RenderApp,
     },
 };
@@ -31,7 +29,6 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Debug, Component, Clone, Copy)]
-#[require(CuttleFlags, SyncToRenderWorld)]
 pub struct Extension<G> {
     target: Entity,
     _phantom: PhantomData<G>,

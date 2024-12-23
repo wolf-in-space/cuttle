@@ -1,11 +1,9 @@
 use crate::components::initialization::CuttleRenderDataFrom;
 use crate::groups::CuttleGroup;
-use crate::prelude::Extension;
 use crate::{
     bounding::CuttleBounding,
     components::{arena::IndexArena, buffer::CompBuffer},
     extensions::Extensions,
-    CuttleFlags,
 };
 use bevy::render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy::{
@@ -16,11 +14,12 @@ use bevy::{
 use std::any::type_name;
 use std::fmt::Debug;
 use std::ops::Range;
+use crate::indices::CuttleIndices;
 
 pub fn plugin(app: &mut App) {
     app.add_plugins((
         SyncComponentPlugin::<Extensions>::default(),
-        SyncComponentPlugin::<CuttleFlags>::default(),
+        SyncComponentPlugin::<CuttleIndices>::default(),
         ExtractComponentPlugin::<CuttleBounding>::default(),
         ExtractComponentPlugin::<ExtractedZ>::default(),
         ExtractComponentPlugin::<ExtractedVisibility>::default(),
@@ -30,21 +29,28 @@ pub fn plugin(app: &mut App) {
 }
 
 pub(crate) const fn build_extract_cuttle_comp<
-    G: CuttleGroup,
     C: Component,
     R: CuttleRenderDataFrom<C>,
 >(
-    pos: u8,
+    positions: Vec<Option<u8>>,
 ) -> impl FnMut(
     Single<&mut CompBuffer<R>>,
     Extract<Res<IndexArena<C>>>,
-    Extract<Query<(&CuttleFlags, &C), (Or<(With<G>, With<Extension<G>>)>, Changed<C>)>>,
+    Extract<Query<(&CuttleIndices, &C), Changed<C>>>,
 ) {
     move |mut buffer, arena, comps| {
         let buffer = buffer.get_mut();
         buffer.resize_with(arena.max as usize, || R::default());
 
         for (flags, comp) in &comps {
+            let Some(pos) = positions[flags.group_id] else {
+                error!(
+                    "Combination of group_id={} and Component={} not in positions",
+                    flags.group_id,
+                    type_name::<C>()
+                );
+                continue;
+            };
             let Some(&index) = flags.indices.get(&pos) else {
                 error!(
                     "Index for '{}' not set despite the component being present",
@@ -150,7 +156,7 @@ impl ExtractComponent for CuttleBounding {
 #[derive(Component, Deref, DerefMut, Debug)]
 pub(crate) struct ExtractedCuttleFlags(Vec<u32>);
 
-fn extract_flags(mut cmds: Commands, query: Extract<Query<(RenderEntity, &CuttleFlags)>>) {
+fn extract_flags(mut cmds: Commands, query: Extract<Query<(RenderEntity, &CuttleIndices)>>) {
     let extracted: Vec<_> = query.iter().map(|(ent, flags)| {
         let compressed: Vec<u32> = flags.indices.iter().map(pos_and_index_to_u32).collect();
         (ent, ExtractedCuttleFlags(compressed))
