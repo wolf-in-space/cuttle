@@ -21,7 +21,6 @@ pub mod wgsl_struct;
 pub struct ShaderPlugin;
 impl Plugin for ShaderPlugin {
     fn build(&self, app: &mut App) {
-        // app.world_mut().resource_mut::<Assets<Shader>>().insert();
         app.add_plugins(wgsl_struct::plugin);
         app.init_asset_loader::<ShaderLoader>();
         app.init_asset::<Snippet>()

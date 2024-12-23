@@ -19,11 +19,7 @@ pub trait RegisterWgslTypeExt {
 
 impl RegisterWgslTypeExt for App {
     fn register_wgsl_type<T: 'static>(&mut self, name: &'static str) -> &mut Self {
-        let world = self.world_mut();
-        if !world.contains_resource::<WgslTypeInfos>() {
-            world.init_resource::<WgslTypeInfos>();
-        };
-        world.resource_mut::<WgslTypeInfos>().register::<T>(name);
+        self.world_mut().get_resource_or_init::<WgslTypeInfos>().register::<T>(name);
         self
     }
 }
