@@ -21,11 +21,9 @@ impl Plugin for CompPlugin {
                 .collect();
             
             if let Some(init_extract) = globals.component_extract_inits.get(id) {
-                println!("EXTRACT");
                 init_extract(app, positions.clone())
             }
 
-            println!("INIT");
             func(app, positions);
         }
     }
