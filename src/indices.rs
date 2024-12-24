@@ -1,26 +1,25 @@
 use bevy::prelude::*;
 use std::collections::BTreeMap;
+use bevy::ecs::component::ComponentId;
 use bevy::ecs::world::DeferredWorld;
 use crate::extensions::Extensions;
 use crate::bounding::CuttleBounding;
 use crate::components::arena::IndexArena;
 use crate::groups::{CuttleGroup, GroupId};
 
-pub(super) fn plugin(app: &mut App) {
-    app.world_mut().register_component_hooks::<CuttleIndices>()
-        .on_add(|mut world, entity, _| {
-            let indices = world.get::<CuttleIndices>(entity).unwrap();
-            let id = (indices.retrieve_group_id)(&world);
-            world.get_mut::<CuttleIndices>(entity).unwrap().group_id = id;
-        });
-}
-
-#[derive(Component, Debug, Clone)]
+#[derive(Component, Debug)]
+#[component(on_add=on_add_indices)]
 #[require(Transform, Visibility, Extensions, CuttleBounding)]
 pub struct CuttleIndices {
     pub(crate) indices: BTreeMap<u8, u32>,
     pub(crate) retrieve_group_id: fn(&DeferredWorld) -> usize,
     pub(crate) group_id: usize,
+}
+
+fn on_add_indices(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    let indices = world.get::<CuttleIndices>(entity).unwrap();
+    let id = (indices.retrieve_group_id)(&world);
+    world.get_mut::<CuttleIndices>(entity).unwrap().group_id = id;
 }
 
 impl CuttleIndices {

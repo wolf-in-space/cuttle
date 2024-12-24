@@ -37,7 +37,6 @@ impl Plugin for CuttlePlugin {
             PipelinePlugin,
             extensions::plugin,
             bounding::plugin,
-            indices::plugin,
         ));
     }
 }
