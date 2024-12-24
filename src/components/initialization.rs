@@ -69,7 +69,6 @@ where
     global_init_component::<C>(app, pos, group_id);
     let binding = global_init_component_with_render_data::<C, R>(app);
 
-
     let (TypeInfo::Struct(structure), Some(name)) = (R::type_info(), R::type_ident()) else {
         panic!(
             "Render data {} for component {} is not a named struct",

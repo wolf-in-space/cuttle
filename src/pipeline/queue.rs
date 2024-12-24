@@ -97,25 +97,27 @@ pub(crate) fn cuttle_prepare_sorted_for_group<G: CuttleGroup>(
     mut cmds: Commands,
     mut phases: ResMut<ViewSortedRenderPhases<G::Phase>>,
     mut buffers: ResMut<GroupInstanceBuffer<G>>,
-    entities: Query<(&CombinedBounding, &RenderIndexRange), With<G>>,
+    entities: Query<(&CombinedBounding, &RenderIndexRange, &ExtractedZ), With<G>>,
 ) {
     let mut batches = Vec::new();
     buffers.vertex.clear();
 
     for transparent_phase in phases.values_mut() {
         let mut batch_index = 0;
+        let mut batch_z = f32::NAN;
         let mut batch = false;
 
         for index in 0..transparent_phase.items.len() {
             let item = &transparent_phase.items[index];
-            let Ok((bounds, range)) = entities.get(item.entity()) else {
+            let Ok((bounds, range, &ExtractedZ(z))) = entities.get(item.entity()) else {
                 batch = false;
                 continue;
             };
 
-            if !batch {
+            if !batch || batch_z != z {
                 batch = true;
                 batch_index = index;
+                batch_z = z;
                 let index = index as u32;
                 batches.push((
                     item.entity(),
