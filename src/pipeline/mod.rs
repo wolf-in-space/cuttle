@@ -79,7 +79,7 @@ impl SortedCuttlePhaseItem for TransparentUi {
         draw_function: DrawFunctionId,
     ) -> Self {
         TransparentUi {
-            sort_key: (FloatOrd(sort), 0),
+            sort_key: (FloatOrd(sort + 0.268473), entity.0.index()),
             entity,
             pipeline,
             draw_function,

@@ -122,19 +122,22 @@ pub(crate) fn extract_group_marker<G: CuttleGroup>(
     cmds.insert_or_spawn_batch(extracted)
 }
 
-
 #[derive(Component)]
 pub(crate) struct ExtractedZ(pub f32);
 
+
 impl ExtractComponent for ExtractedZ {
-    type QueryData = &'static GlobalTransform;
+    type QueryData = (&'static GlobalTransform, Option<&'static ComputedNode>);
     type QueryFilter = ();
     type Out = ExtractedZ;
 
     fn extract_component(
-        transform: &GlobalTransform,
+        (transform, z_index): (&GlobalTransform, Option<&ComputedNode>)
     ) -> Option<Self::Out> {
-        Some(ExtractedZ(transform.translation().z))
+        Some(ExtractedZ(match z_index { 
+            None => transform.translation().z,
+            Some(computed) => computed.stack_index() as f32,
+        }))
     }
 }
 

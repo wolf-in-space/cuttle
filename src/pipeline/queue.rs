@@ -16,6 +16,7 @@ use bevy::{
 };
 use bytemuck::NoUninit;
 use std::any::TypeId;
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Range;
 

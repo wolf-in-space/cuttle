@@ -87,7 +87,7 @@ fn spawn(mut cmds: Commands) {
 
     cmds.spawn((
         Sdf,
-        Transform::from_xyz(500., -250., -100.),
+        Transform::from_xyz(500., -250., 100.),
         builtins::Circle { radius: 10. },
         Fill(css::RED),
         Repetition {
