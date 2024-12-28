@@ -20,6 +20,10 @@ pub trait CuttleGroup: Component + Default {
     type Phase: SortedCuttlePhaseItem;
 }
 
+pub type InitGroupFn = fn(&mut App);
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct InitGroupFns(Vec<InitGroupFn>);
+
 pub type InitObserversFn = fn(&mut App, positions: Vec<Option<u8>>);
 pub type InitExtractFn = fn(&mut App, positions: Vec<Option<u8>>);
 
@@ -291,6 +295,7 @@ impl<G> GroupPlugin<G> {
 impl<G: CuttleGroup> Plugin for GroupPlugin<G> {
     fn build(&self, app: &mut App) {
         if !app.world().contains_resource::<GlobalGroupInfos>() {
+            app.init_resource::<InitGroupFns>();
             let infos = GlobalGroupInfos::new(app);
             app.insert_resource(infos);
         }
@@ -306,23 +311,25 @@ impl<G: CuttleGroup> Plugin for GroupPlugin<G> {
         app.sub_app_mut(RenderApp)
             .add_plugins(render_group_plugin::<G>)
             .add_systems(ExtractSchedule, extract_group_marker::<G>);
-    }
 
-    fn finish(&self, app: &mut App) {
-        let world = app.world_mut();
-        let group_id = world.resource::<GroupId<G>>().id;
-        let GroupData {
-            init_comp_fns,
-            snippets,
-            calculations,
-            ..
-        } = world.remove_resource::<GroupData<G>>().unwrap();
-        let infos = init_components_for_group(app, init_comp_fns, group_id);
-        let shader_settings = ShaderSettings {
-            infos,
-            calculations,
-            snippets,
-        };
-        load_shader_to_pipeline(app, shader_settings, TypeId::of::<G>());
+        app.world_mut().resource_mut::<InitGroupFns>().push(init_group::<G>);
     }
+}
+
+fn init_group<G: CuttleGroup>(app: &mut App) {
+    let world = app.world_mut();
+    let group_id = world.resource::<GroupId<G>>().id;
+    let GroupData {
+        init_comp_fns,
+        snippets,
+        calculations,
+        ..
+    } = world.remove_resource::<GroupData<G>>().unwrap();
+    let infos = init_components_for_group(app, init_comp_fns, group_id);
+    let shader_settings = ShaderSettings {
+        infos,
+        calculations,
+        snippets,
+    };
+    load_shader_to_pipeline(app, shader_settings, TypeId::of::<G>());
 }

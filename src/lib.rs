@@ -6,6 +6,8 @@ use builtins::BuiltinsPlugin;
 use components::CompPlugin;
 use pipeline::PipelinePlugin;
 use shader::ShaderPlugin;
+use crate::groups::{GlobalGroupInfos, InitGroupFns};
+
 mod bounding;
 #[cfg(feature = "builtins")]
 pub mod builtins;
@@ -38,6 +40,29 @@ impl Plugin for CuttlePlugin {
             extensions::plugin,
             bounding::plugin,
         ));
+    }
+
+    fn finish(&self, app: &mut App) {
+        let init_groups = app.world_mut().remove_resource::<InitGroupFns>().unwrap();
+
+        for init_group in init_groups.iter() {
+            init_group(app);
+        }
+
+        let globals = app.world_mut().remove_resource::<GlobalGroupInfos>().unwrap();
+
+        for (id, func) in &globals.component_observer_inits {
+            let positions: Vec<_> = (0..globals.group_count)
+                .into_iter()
+                .map(|i| globals.component_positions[i].get(id).copied())
+                .collect();
+
+            if let Some(init_extract) = globals.component_extract_inits.get(id) {
+                init_extract(app, positions.clone())
+            }
+
+            func(app, positions);
+        }
     }
 }
 

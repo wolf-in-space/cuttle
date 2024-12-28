@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use buffer::BufferPlugin;
-use crate::groups::GlobalGroupInfos;
 
 pub mod arena;
 pub mod buffer;
@@ -10,22 +9,6 @@ pub struct CompPlugin;
 impl Plugin for CompPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(BufferPlugin);
-    }
-
-    fn cleanup(&self, app: &mut App) {
-        let globals = app.world_mut().remove_resource::<GlobalGroupInfos>().unwrap();
-        for (id, func) in &globals.component_observer_inits {
-            let positions: Vec<_> = (0..globals.group_count)
-                .into_iter()
-                .map(|i| globals.component_positions[i].get(id).copied())
-                .collect();
-            
-            if let Some(init_extract) = globals.component_extract_inits.get(id) {
-                init_extract(app, positions.clone())
-            }
-
-            func(app, positions);
-        }
     }
 }
 
