@@ -53,8 +53,8 @@ pub(crate) fn load_shader_to_pipeline(
         .component_bindings
         .len() as u32;
 
-    let assets = app.world().resource::<AssetServer>().clone();
-    let shader = assets.clone().add_async(load_shader(assets, settings, group_id));
+    let assets = app.world().resource::<AssetServer>();
+    let shader = assets.add_async(load_shader(assets.clone(), settings, group_id));
 
     let render_world = app.sub_app_mut(RenderApp).world_mut();
     match render_world.get_resource_mut::<CuttlePipeline>() {
@@ -87,7 +87,7 @@ async fn load_shader(assets: AssetServer, settings: ShaderSettings, group_id: Ty
         let Snippet(snippet) = match add {
             AddSnippet::Inline(snippet) => Snippet(snippet.clone()),
             AddSnippet::File(path) => {
-                let bytes = manual_load_asset_bytes(&assets, path).await?;
+                let bytes = load_asset_bytes_manually(&assets, path).await?;
                 Snippet(String::from_utf8(bytes)?)
             }
         };
@@ -100,7 +100,7 @@ async fn load_shader(assets: AssetServer, settings: ShaderSettings, group_id: Ty
     Ok(shader)
 }
 
-async fn manual_load_asset_bytes(assets: &AssetServer, path: String) -> Result<Vec<u8>, LoadShaderError> {
+async fn load_asset_bytes_manually(assets: &AssetServer, path: String) -> Result<Vec<u8>, LoadShaderError> {
     let path = AssetPath::from(path);
     let mut reader = assets.get_source(path.source())?.reader().read(path.path()).await?;
     let mut bytes = Vec::new();
