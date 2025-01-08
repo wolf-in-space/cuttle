@@ -2,6 +2,8 @@ use crate::bounding::{Bounding, InitBoundingFn};
 use crate::components::arena::IndexArena;
 use crate::components::buffer::{BufferFns, CompBuffer};
 use crate::groups::{CuttleGroup, GlobalGroupInfos};
+use crate::indices::ComponentIndex;
+use crate::pipeline::extract::extract_cuttle_comp;
 use crate::shader::wgsl_struct::WgslTypeInfos;
 use crate::shader::{ComponentShaderInfo, RenderDataShaderInfo};
 use bevy::prelude::*;
@@ -40,10 +42,16 @@ pub(crate) fn init_components_for_group(
 
 fn global_init_component<C: Component>(app: &mut App, pos: u8, group_id: usize) {
     app.init_resource::<IndexArena<C>>();
-    app.world_mut().resource_mut::<GlobalGroupInfos>().register_component::<C>(group_id, pos);
+    app.world_mut()
+        .resource_mut::<GlobalGroupInfos>()
+        .register_component::<C>(group_id, pos);
 }
 
-pub(crate) fn init_zst_component<C, G>(app: &mut App, pos: u8, group_id: usize) -> ComponentShaderInfo
+pub(crate) fn init_zst_component<C, G>(
+    app: &mut App,
+    pos: u8,
+    group_id: usize,
+) -> ComponentShaderInfo
 where
     C: Component + Typed,
     G: CuttleGroup,
@@ -60,7 +68,11 @@ where
     }
 }
 
-pub(crate) fn init_component<C, R, G>(app: &mut App, pos: u8, group_id: usize) -> ComponentShaderInfo
+pub(crate) fn init_component<C, R, G>(
+    app: &mut App,
+    pos: u8,
+    group_id: usize,
+) -> ComponentShaderInfo
 where
     C: Component,
     R: CuttleRenderDataFrom<C>,
@@ -104,7 +116,6 @@ pub(crate) fn global_init_component_with_render_data<C: Component, R: CuttleRend
 
     let binding = globals.component_bindings.len() as u32;
     globals.component_bindings.insert(id, binding);
-    globals.register_component_with_render_data::<C, R>();
 
     let buffer_entity = globals.buffer_entity.id();
     let render_world = app.sub_app_mut(RenderApp).world_mut();
@@ -117,6 +128,9 @@ pub(crate) fn global_init_component_with_render_data<C: Component, R: CuttleRend
     buffer_fns.write.push(CompBuffer::<R>::write);
     buffer_fns.bindings.push(CompBuffer::<R>::get_binding_res);
 
+    app.register_required_components::<C, ComponentIndex<C>>();
+    app.sub_app_mut(RenderApp)
+        .add_systems(ExtractSchedule, extract_cuttle_comp::<C, R>);
 
     binding
 }

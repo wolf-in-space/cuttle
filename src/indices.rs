@@ -1,41 +1,78 @@
-use bevy::prelude::*;
-use std::collections::BTreeMap;
-use bevy::ecs::component::ComponentId;
-use bevy::ecs::world::DeferredWorld;
-use crate::extensions::Extensions;
 use crate::bounding::CuttleBounding;
 use crate::components::arena::IndexArena;
-use crate::groups::{CuttleGroup, GroupId};
+use crate::extensions::Extensions;
+use crate::groups::{CuttleGroup, GroupIdStore};
+use crate::prelude::Extension;
+use bevy::ecs::component::{ComponentHooks, ComponentId, StorageType};
+use bevy::ecs::world::DeferredWorld;
+use bevy::prelude::*;
+use std::collections::BTreeMap;
+use std::marker::PhantomData;
 
-#[derive(Component, Debug)]
-#[component(on_add=on_add_indices)]
-#[require(Transform, Visibility, Extensions, CuttleBounding)]
-pub struct CuttleIndices {
-    pub(crate) indices: BTreeMap<u8, u32>,
-    pub(crate) retrieve_group_id: fn(&DeferredWorld) -> usize,
-    pub(crate) group_id: usize,
+pub(super) fn plugin(app: &mut App) {
+    app.register_type::<CuttleIndices>();
 }
 
-fn on_add_indices(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
-    let indices = world.get::<CuttleIndices>(entity).unwrap();
-    let id = (indices.retrieve_group_id)(&world);
+#[derive(Component, Reflect, Debug, Default)]
+#[require(Transform, Visibility, Extensions, CuttleBounding)]
+#[reflect(Component)]
+pub struct CuttleIndices {
+    pub(crate) indices: BTreeMap<CuttleIndex, u32>,
+    group_id: usize,
+}
+
+pub fn on_add_group_marker_initialize_indices_group_id<G: CuttleGroup>(
+    mut world: DeferredWorld,
+    entity: Entity,
+    _: ComponentId,
+) {
+    let id = world.resource::<GroupIdStore<G>>().id;
     world.get_mut::<CuttleIndices>(entity).unwrap().group_id = id;
 }
 
-impl CuttleIndices {
-    pub(crate) const fn new<G: CuttleGroup>() -> Self {
+#[derive(Debug, Reflect, Deref, DerefMut, Copy, Clone)]
+#[reflect(Component)]
+pub(crate) struct ComponentIndex<C: Component> {
+    #[deref]
+    index: u32,
+    #[reflect(ignore)]
+    phantom: PhantomData<C>,
+}
+
+impl<C: Component> Default for ComponentIndex<C> {
+    fn default() -> Self {
         Self {
-            retrieve_group_id: |world| {
-                world.resource::<GroupId<G>>().id
-            },
-            indices: BTreeMap::new(),
-            group_id: usize::MAX,
+            index: 0,
+            phantom: PhantomData,
         }
     }
 }
 
-pub(crate) const fn build_set_flag_index<const SET: bool, T, C: Component>(positions: Vec<Option<u8>>)
-   -> impl FnMut(Trigger<T, C>, DeferredWorld) {
+impl<C: Component> Component for ComponentIndex<C> {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        let on_add = |mut world: DeferredWorld, entity, _| {
+            let index = world.resource_mut::<IndexArena<C>>().get();
+            **world.get_mut::<ComponentIndex<C>>(entity).unwrap() = index;
+        };
+        let on_remove = |mut world: DeferredWorld, entity, _| {
+            let index = **world.get::<ComponentIndex<C>>(entity).unwrap();
+            world.resource_mut::<IndexArena<C>>().release(index);
+        };
+        hooks.on_add(on_add).on_remove(on_remove);
+    }
+}
+
+#[derive(Reflect, Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub(crate) struct CuttleIndex {
+    pub(crate) extension_index: u8,
+    pub(crate) component_id: u8,
+}
+
+pub(crate) const fn build_set_flag_index<const SET: bool, T, C: Component>(
+    positions: Vec<Option<u8>>,
+) -> impl FnMut(Trigger<T, C>, DeferredWorld) {
     move |trigger, world| {
         if SET {
             set_index::<C>(&positions, world, trigger.entity())
@@ -46,7 +83,7 @@ pub(crate) const fn build_set_flag_index<const SET: bool, T, C: Component>(posit
 }
 
 fn set_index<C: Component>(positions: &[Option<u8>], mut world: DeferredWorld, entity: Entity) {
-    let index = world.resource_mut::<IndexArena<C>>().get();
+    let index = **world.get::<ComponentIndex<C>>(entity).unwrap();
 
     let Some((flags, pos)) = get_indices_and_pos(&mut world, positions, entity) else {
         return;
@@ -56,24 +93,32 @@ fn set_index<C: Component>(positions: &[Option<u8>], mut world: DeferredWorld, e
 }
 
 fn remove_index<C: Component>(positions: &[Option<u8>], mut world: DeferredWorld, entity: Entity) {
-    let Some((flags, pos)) = get_indices_and_pos(&mut world, positions, entity) else {
+    let Some((flags, index)) = get_indices_and_pos(&mut world, positions, entity) else {
         return;
     };
-    
-    if let Some(index) = flags.indices.remove(&pos) {
-        world.resource_mut::<IndexArena<C>>().release(index);
-    } else {
+
+    if let None = flags.indices.remove(&index) {
         error!("Tried to remove an index that no longer exists")
     }
 }
 
-fn get_indices_and_pos<'a>(world: &'a mut DeferredWorld, positions: &[Option<u8>], entity: Entity) -> Option<(&'a mut CuttleIndices, u8)> {
-    let Some(flags) = world.get_mut::<CuttleIndices>(entity) else {
-        return None;
+fn get_indices_and_pos<'a>(
+    world: &'a mut DeferredWorld,
+    positions: &[Option<u8>],
+    entity: Entity,
+) -> Option<(&'a mut CuttleIndices, CuttleIndex)> {
+    let (entity, extension_index) = match world.get::<Extension>(entity) {
+        Some(&Extension { target, index, .. }) => (target, index),
+        None => (entity, 0),
     };
-    let Some(pos) = positions.get(flags.group_id).copied().flatten() else {
-        return None;
-    };
-    
-    Some((flags.into_inner(), pos))
+    let flags = world.get_mut::<CuttleIndices>(entity)?;
+    let pos = positions.get(flags.group_id).copied()??;
+
+    Some((
+        flags.into_inner(),
+        CuttleIndex {
+            component_id: pos,
+            extension_index,
+        },
+    ))
 }

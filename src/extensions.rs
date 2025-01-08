@@ -1,8 +1,6 @@
-use crate::groups::CuttleGroup;
 use crate::pipeline::extract::{ExtractedCuttleFlags, RenderIndexRange};
-use crate::pipeline::{
-    specialization::CuttlePipeline, CuttleRenderSet,
-};
+use crate::pipeline::{specialization::CuttlePipeline, CuttleRenderSet};
+use bevy::ecs::component::{ComponentHooks, StorageType};
 use bevy::{
     prelude::*,
     render::{
@@ -12,7 +10,6 @@ use bevy::{
     },
 };
 use std::fmt::Debug;
-use std::marker::PhantomData;
 
 pub fn plugin(app: &mut App) {
     app.sub_app_mut(RenderApp)
@@ -28,32 +25,35 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Debug, Component, Clone, Copy)]
-pub struct Extension<G> {
-    target: Entity,
-    _phantom: PhantomData<G>,
+#[derive(Debug, Clone, Copy)]
+pub struct Extension {
+    pub target: Entity,
+    pub index: u8,
 }
 
-impl<G: CuttleGroup> Extension<G> {
+impl Extension {
     pub fn new(target: Entity) -> Self {
-        Self {
-            target,
-            _phantom: PhantomData,
-        }
+        Self { target, index: 0 }
     }
 }
 
-pub(crate) fn register_extension_hooks<G: CuttleGroup>(world: &mut World) {
-    world
-        .register_component_hooks::<Extension<G>>()
-        .on_add(|mut world, entity, _| {
-            let target = world.get::<Extension<G>>(entity).unwrap().target;
+impl Component for Extension {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
+
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        hooks.on_add(|mut world, entity, _| {
+            let target = world.get::<Extension>(entity).unwrap().target;
             let mut target = world.entity_mut(target);
             match target.get_mut::<Extensions>() {
-                Some(mut extensions) => extensions.push(entity),
+                Some(mut extensions) => {
+                    let index = extensions.len();
+                    extensions.push(entity);
+                    world.get_mut::<Extension>(entity).unwrap().index = index as u8;
+                }
                 None => panic!("HI"),
             }
         });
+    }
 }
 
 #[derive(Debug, Component, Clone, Deref, DerefMut, Default)]
@@ -66,11 +66,7 @@ pub struct CompIndicesBuffer(StorageBuffer<Vec<u32>>);
 pub struct CompIndicesBindgroup(pub Option<BindGroup>);
 
 fn prepare_component_indices(
-    mut roots: Query<(
-        &ExtractedCuttleFlags,
-        &Extensions,
-        &mut RenderIndexRange,
-    )>,
+    mut roots: Query<(&ExtractedCuttleFlags, &Extensions, &mut RenderIndexRange)>,
     extension_flags: Query<&ExtractedCuttleFlags>,
     mut indices_buffer: ResMut<CompIndicesBuffer>,
 ) {
@@ -100,9 +96,7 @@ fn build_component_indices_bind_group(
 ) {
     indices_buffer.write_buffer(&device, &queue);
 
-    let entries = BindGroupEntries::sequential((
-        indices_buffer.binding().unwrap(),
-    ));
+    let entries = BindGroupEntries::sequential((indices_buffer.binding().unwrap(),));
 
     let bindgroup = device.create_bind_group("cuttle indices", &pipeline.op_layout, &entries);
     op_bindgroup.0 = Some(bindgroup);
