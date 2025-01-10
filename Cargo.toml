@@ -23,7 +23,6 @@ features = [
 
 [dependencies]
 bytemuck = "1"
-itertools = "0.13"
 convert_case = "0.6"
 serde = "1"
 derive_more = "1"
