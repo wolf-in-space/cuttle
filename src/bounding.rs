@@ -10,15 +10,18 @@ use bevy::utils::Parallel;
 
 pub fn plugin(app: &mut App) {
     app.configure_sets(PostUpdate, (Bounding::Add, Bounding::Multiply).chain())
+        .configure_sets(PostUpdate, ComputeGlobalBounding.before(check_visibility))
         .add_systems(
             PostUpdate,
             (
-                compute_global_bounding_circles,
+                compute_global_bounding_circles.in_set(ComputeGlobalBounding),
                 check_visibility.in_set(VisibilitySystems::CheckVisibility),
-            )
-                .chain(),
+            ),
         );
 }
+
+#[derive(Debug, SystemSet, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone)]
+pub struct ComputeGlobalBounding;
 
 pub type InitBoundingFn = Box<dyn FnMut(&mut App) + Send + Sync>;
 

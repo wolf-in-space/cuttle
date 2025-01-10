@@ -41,10 +41,10 @@ pub(crate) fn extract_cuttle_comp<C: Component, R: CuttleRenderDataFrom<C>>(
 }
 
 #[derive(Debug, Resource, Default, Deref, DerefMut)]
-pub(crate) struct ExtractedCuttles(EntityHashMap<ExtractedCuttle>);
+pub struct ExtractedCuttles(EntityHashMap<ExtractedCuttle>);
 
 #[derive(Debug)]
-pub(crate) struct ExtractedCuttle {
+pub struct ExtractedCuttle {
     pub group_id: usize,
     pub visible: bool,
     pub bounding: BoundingCircle,
@@ -74,7 +74,7 @@ fn extract_cuttles(
         .map(|(entity, transform, bounding, indices, vis)| {
             let indices_start = buffer.len() as u32;
             let indices_end = (buffer.len() + indices.indices.len()) as u32;
-            buffer.extend(indices.indices.iter().map(id_and_index_to_u32));
+            buffer.extend(indices.iter_as_packed_u32s());
 
             (
                 entity,
@@ -92,10 +92,6 @@ fn extract_cuttles(
             dbg!(e);
         })
         .collect();
-}
-
-fn id_and_index_to_u32((&CuttleIndex { component_id, .. }, &index): (&CuttleIndex, &u32)) -> u32 {
-    (index << 8) | component_id as u32
 }
 
 #[cfg(test)]

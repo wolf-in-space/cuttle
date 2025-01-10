@@ -14,7 +14,6 @@ use std::fmt::Debug;
 pub fn plugin(app: &mut App) {
     let world = app.world_mut();
     world.register_required_components::<Extension, BoundingRadius>();
-    world.register_required_components::<Extension, Transform>();
     app.sub_app_mut(RenderApp)
         .init_resource::<CompIndicesBuffer>()
         .init_resource::<CompIndicesBindgroup>()

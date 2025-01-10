@@ -8,14 +8,14 @@ use components::CompPlugin;
 use pipeline::PipelinePlugin;
 use shader::ShaderPlugin;
 
-mod bounding;
+pub mod bounding;
 #[cfg(feature = "builtins")]
 pub mod builtins;
 mod calculations;
 pub mod components;
 pub mod extensions;
 pub mod groups;
-mod indices;
+pub mod indices;
 pub mod pipeline;
 pub mod shader;
 

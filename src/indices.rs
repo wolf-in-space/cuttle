@@ -14,18 +14,29 @@ pub(super) fn plugin(app: &mut App) {
     app.register_type::<CuttleIndices>();
 }
 
-#[derive(Component, Reflect, Debug, Default)]
-#[require(
-    Transform,
-    Visibility,
-    Extensions,
-    BoundingRadius,
-    GlobalBoundingCircle
-)]
+#[derive(Component, Reflect, Debug, Default, Deref)]
+#[require(Visibility, Extensions, BoundingRadius, GlobalBoundingCircle)]
 #[reflect(Component)]
 pub struct CuttleIndices {
+    #[deref]
     pub(crate) indices: BTreeMap<CuttleIndex, u32>,
     pub(crate) group_id: usize,
+}
+
+impl CuttleIndices {
+    pub fn iter_as_packed_u32s(&self) -> impl Iterator<Item = u32> + '_ {
+        self.indices.iter().map(Self::id_and_index_to_u32)
+    }
+
+    fn id_and_index_to_u32(
+        (&CuttleIndex { component_id, .. }, &index): (&CuttleIndex, &u32),
+    ) -> u32 {
+        (index << 8) | component_id as u32
+    }
+
+    pub fn group_id(&self) -> usize {
+        self.group_id
+    }
 }
 
 pub fn on_add_group_marker_initialize_indices_group_id<G: CuttleGroup>(
@@ -72,7 +83,7 @@ impl<C: Component> Component for ComponentIndex<C> {
 }
 
 #[derive(Reflect, Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub(crate) struct CuttleIndex {
+pub struct CuttleIndex {
     pub(crate) extension_index: u8,
     pub(crate) component_id: u8,
 }
