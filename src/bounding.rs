@@ -77,9 +77,11 @@ fn compute_global_bounding_circles(
         **radius = default();
 
         for extension_entity in extensions.iter() {
-            let (transform, mut radius) = extension_bounds.get_mut(*extension_entity).unwrap();
-            **bounding = bounding.merge(&BoundingCircle::new(transform.translation.xy(), **radius));
-            **radius = default();
+            if let Ok((transform, mut radius)) = extension_bounds.get_mut(*extension_entity) {
+                **bounding =
+                    bounding.merge(&BoundingCircle::new(transform.translation.xy(), **radius));
+                **radius = default();
+            }
         }
     }
 }

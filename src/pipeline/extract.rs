@@ -2,7 +2,7 @@ use crate::bounding::GlobalBoundingCircle;
 use crate::components::initialization::CuttleRenderDataFrom;
 use crate::components::{arena::IndexArena, buffer::CompBuffer};
 use crate::extensions::CompIndicesBuffer;
-use crate::indices::{ComponentIndex, CuttleIndex, CuttleIndices};
+use crate::indices::{ComponentIndex, CuttleIndices};
 use bevy::ecs::entity::EntityHashMap;
 use bevy::{
     math::bounding::BoundingCircle,
@@ -88,52 +88,5 @@ fn extract_cuttles(
                 },
             )
         })
-        .inspect(|e| {
-            dbg!(e);
-        })
         .collect();
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::indices::CuttleIndex;
-    use crate::pipeline::extract::id_and_index_to_u32;
-
-    #[test]
-    fn test_pos_and_index_to_u32() {
-        assert_eq!(
-            0b100000001,
-            id_and_index_to_u32((
-                &CuttleIndex {
-                    component_id: 1,
-                    extension_index: 0
-                },
-                &1
-            ))
-        );
-        assert_eq!(
-            0b10100000101,
-            id_and_index_to_u32((
-                &CuttleIndex {
-                    component_id: 5,
-                    extension_index: 0
-                },
-                &5
-            ))
-        );
-        assert_eq!(
-            0b11111111,
-            id_and_index_to_u32((
-                &CuttleIndex {
-                    component_id: 255,
-                    extension_index: 0
-                },
-                &0
-            ))
-        );
-
-        let test = 0b10100000101;
-        assert_eq!(5, test & 255); // Retrieve pos
-        assert_eq!(5, test >> 8); // Retrieve index
-    }
 }

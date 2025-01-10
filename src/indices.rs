@@ -140,3 +140,46 @@ fn get_indices_and_pos<'a>(
         },
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::indices::{CuttleIndex, CuttleIndices};
+
+    #[test]
+    fn test_pos_and_index_to_u32() {
+        assert_eq!(
+            0b100000001,
+            CuttleIndices::id_and_index_to_u32((
+                &CuttleIndex {
+                    component_id: 1,
+                    extension_index: 0
+                },
+                &1
+            ))
+        );
+        assert_eq!(
+            0b10100000101,
+            CuttleIndices::id_and_index_to_u32((
+                &CuttleIndex {
+                    component_id: 5,
+                    extension_index: 0
+                },
+                &5
+            ))
+        );
+        assert_eq!(
+            0b11111111,
+            CuttleIndices::id_and_index_to_u32((
+                &CuttleIndex {
+                    component_id: 255,
+                    extension_index: 0
+                },
+                &0
+            ))
+        );
+
+        let test = 0b10100000101;
+        assert_eq!(5, test & 255); // Retrieve pos
+        assert_eq!(5, test >> 8); // Retrieve index
+    }
+}
