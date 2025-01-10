@@ -132,7 +132,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         .id();
 
     cmds.spawn((
-        Extension::<Sdf>::new(quad),
+        Extension::new(quad),
         builtins::Circle { radius: 15. },
         Transform::from_translation(pos),
         Fill(tailwind::TEAL_400),
@@ -140,7 +140,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         AnimateMorph { speed: 1., scale },
     ));
 
-    cmds.spawn((Extension::<Sdf>::new(quad), ForceFieldAlpha));
+    cmds.spawn((Extension::new(quad), ForceFieldAlpha));
 }
 
 fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
@@ -156,7 +156,7 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         .id();
 
     cmds.spawn((
-        Extension::<Sdf>::new(quad),
+        Extension::new(quad),
         Quad {
             half_size: Vec2::splat(20.),
         },
@@ -166,7 +166,7 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         AnimateMorph { speed: 1., scale },
     ));
 
-    cmds.spawn((Extension::<Sdf>::new(quad), ForceFieldAlpha));
+    cmds.spawn((Extension::new(quad), ForceFieldAlpha));
 }
 
 #[derive(Component)]
@@ -191,7 +191,7 @@ fn spin<OP: Default + Component>(
 
     let make_ball = |pos: f32, color: Srgba, offset: f32| {
         (
-            Extension::<Sdf>::new(sdf),
+            Extension::new(sdf),
             Transform::from_xyz(x, pos, 0.),
             builtins::Circle { radius: 10. },
             Fill(color),
@@ -214,7 +214,7 @@ fn spin<OP: Default + Component>(
     });
 
     cmds.spawn((
-        Extension::<Sdf>::new(sdf),
+        Extension::new(sdf),
         Transform::from_xyz(x, y - 40. * 7., 0.),
         Quad {
             half_size: Vec2::splat(10.),
@@ -228,7 +228,7 @@ fn spin<OP: Default + Component>(
     ));
 
     cmds.spawn((
-        Extension::<Sdf>::new(sdf),
+        Extension::new(sdf),
         Quad {
             half_size: Vec2::splat(10.),
         },
@@ -243,7 +243,7 @@ fn spin<OP: Default + Component>(
     ));
 
     cmds.spawn((
-        Extension::<Sdf>::new(sdf),
+        Extension::new(sdf),
         Transform::from_xyz(x, y - 40. * 9., 0.),
         builtins::Circle { radius: 7. },
         Fill(tailwind::GREEN_400),
@@ -256,7 +256,7 @@ fn spin<OP: Default + Component>(
     ));
 
     cmds.spawn((
-        Extension::<Sdf>::new(sdf),
+        Extension::new(sdf),
         Transform::from_xyz(x, y - 40. * 10., 0.),
         Quad {
             half_size: Vec2::splat(7.),
@@ -287,7 +287,7 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
         ))
         .id();
     cmds.spawn((
-        Extension::<Sdf>::new(sdf),
+        Extension::new(sdf),
         Transform::from_xyz(pos.x, pos.y, 0.),
         Quad {
             half_size: Vec2::splat(25.),

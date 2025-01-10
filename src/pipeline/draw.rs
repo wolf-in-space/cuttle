@@ -4,7 +4,6 @@ use super::SortedCuttlePhaseItem;
 use super::{queue::CuttleBatch, specialization::CuttlePipeline};
 use crate::components::buffer::CompBufferBindgroup;
 use crate::extensions::CompIndicesBindgroup;
-use crate::groups::CuttleGroup;
 use bevy::{
     ecs::system::{
         lifetimeless::{Read, SRes},
@@ -40,10 +39,10 @@ impl<P: SortedCuttlePhaseItem> RenderCommand<P> for SetSdfViewBindGroup {
 }
 
 pub struct DrawSdfDispatch<G>(PhantomData<G>);
-impl<G: CuttleGroup> RenderCommand<G::Phase> for DrawSdfDispatch<G> {
+impl<P: SortedCuttlePhaseItem> RenderCommand<P> for DrawSdfDispatch<P> {
     type Param = (
         SRes<CuttlePipeline>,
-        SRes<GroupInstanceBuffer<G>>,
+        SRes<GroupInstanceBuffer<P>>,
         SRes<CompBufferBindgroup>,
         SRes<CompIndicesBindgroup>,
     );
@@ -52,7 +51,7 @@ impl<G: CuttleGroup> RenderCommand<G::Phase> for DrawSdfDispatch<G> {
 
     #[inline]
     fn render<'w>(
-        _item: &G::Phase,
+        _item: &P,
         _view: (),
         sdf_instance: Option<&'w CuttleBatch>,
         (pipeline, vertices, comp_buffers, op_buffers): SystemParamItem<'w, '_, Self::Param>,

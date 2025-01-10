@@ -1,6 +1,5 @@
-use super::{queue::GroupInstanceBuffer, CuttlePipelineKey};
+use super::{queue::GroupInstanceBuffer, CuttlePipelineKey, SortedCuttlePhaseItem};
 use crate::components::buffer::build_buffer_layout;
-use crate::groups::CuttleGroup;
 use bevy::image::BevyDefault;
 use bevy::utils::HashMap;
 use bevy::{
@@ -20,13 +19,12 @@ use bevy::{
         view::{ExtractedView, ViewUniform, ViewUniforms},
     },
 };
-use std::any::TypeId;
 
 #[derive(Resource)]
 pub struct CuttlePipeline {
     pub _common_shader: Handle<Shader>,
     pub vertex_shader: Handle<Shader>,
-    pub fragment_shaders: HashMap<TypeId, Handle<Shader>>,
+    pub fragment_shaders: HashMap<usize, Handle<Shader>>,
     pub global_layout: BindGroupLayout,
     pub op_layout: BindGroupLayout,
     pub comp_layout: BindGroupLayout,
@@ -179,10 +177,10 @@ pub fn prepare_view_bind_groups(
     }
 }
 
-pub fn write_group_buffer<G: CuttleGroup>(
+pub fn write_group_buffer<P: SortedCuttlePhaseItem>(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    mut buffers: ResMut<GroupInstanceBuffer<G>>,
+    mut buffers: ResMut<GroupInstanceBuffer<P>>,
 ) {
     buffers.vertex.write_buffer(&device, &queue);
 }

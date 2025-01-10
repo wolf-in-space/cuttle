@@ -1,12 +1,12 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 
+use crate::groups::{GlobalGroupInfos, InitGroupFns};
 use bevy::prelude::*;
 use builtins::BuiltinsPlugin;
 use components::CompPlugin;
 use pipeline::PipelinePlugin;
 use shader::ShaderPlugin;
-use crate::groups::{GlobalGroupInfos, InitGroupFns};
 
 mod bounding;
 #[cfg(feature = "builtins")]
@@ -15,9 +15,9 @@ mod calculations;
 pub mod components;
 pub mod extensions;
 pub mod groups;
+mod indices;
 pub mod pipeline;
 pub mod shader;
-mod indices;
 
 pub mod prelude {
     pub use crate::bounding::Bounding;
@@ -33,12 +33,13 @@ impl Plugin for CuttlePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((
             ShaderPlugin,
-            CompPlugin, //Needs to be first to ensure SdfCompInfos is sorted
+            CompPlugin,
             #[cfg(feature = "builtins")]
             BuiltinsPlugin,
             PipelinePlugin,
             extensions::plugin,
             bounding::plugin,
+            indices::plugin,
         ));
     }
 
@@ -49,7 +50,10 @@ impl Plugin for CuttlePlugin {
             init_group(app);
         }
 
-        let globals = app.world_mut().remove_resource::<GlobalGroupInfos>().unwrap();
+        let globals = app
+            .world_mut()
+            .remove_resource::<GlobalGroupInfos>()
+            .unwrap();
 
         for (id, func) in &globals.component_observer_inits {
             let positions: Vec<_> = (0..globals.group_count)
@@ -57,12 +61,7 @@ impl Plugin for CuttlePlugin {
                 .map(|i| globals.component_positions[i].get(id).copied())
                 .collect();
 
-            if let Some(init_extract) = globals.component_extract_inits.get(id) {
-                init_extract(app, positions.clone())
-            }
-
             func(app, positions);
         }
     }
 }
-

@@ -1,20 +1,20 @@
 use crate::bounding::{make_compute_aabb_system, InitBoundingFn};
+use crate::calculations::Calculation;
 use crate::components::buffer::BufferEntity;
 use crate::components::initialization::{
-    init_component, init_components_for_group, init_zst_component, CuttleComponent, CuttleRenderDataFrom,
-    CuttleZstComponent, InitComponentInfo, RegisterCuttleComponent,
+    init_component, init_components_for_group, init_zst_component, CuttleComponent,
+    CuttleRenderDataFrom, CuttleZstComponent, InitComponentInfo, RegisterCuttleComponent,
 };
-use crate::extensions::{register_extension_hooks, Extension};
-use crate::pipeline::extract::{build_extract_cuttle_comp, extract_group_marker};
-use crate::pipeline::{render_group_plugin, SortedCuttlePhaseItem};
+use crate::indices::{
+    build_set_flag_index, on_add_group_marker_initialize_indices_group_id, CuttleIndices,
+};
+use crate::pipeline::SortedCuttlePhaseItem;
 use crate::shader::{load_shader_to_pipeline, AddSnippet, ShaderSettings};
-use crate::calculations::Calculation;
 use bevy::prelude::*;
 use bevy::render::sync_world::RenderEntity;
 use bevy::render::RenderApp;
-use bevy::utils::{TypeIdMap};
+use bevy::utils::TypeIdMap;
 use std::{any::TypeId, marker::PhantomData};
-use crate::indices::{build_set_flag_index, CuttleIndices};
 
 pub trait CuttleGroup: Component + Default {
     type Phase: SortedCuttlePhaseItem;
@@ -32,7 +32,6 @@ pub struct GlobalGroupInfos {
     pub group_count: usize,
     pub component_bindings: TypeIdMap<u32>,
     pub component_observer_inits: TypeIdMap<InitObserversFn>,
-    pub component_extract_inits: TypeIdMap<InitExtractFn>,
     pub component_positions: Vec<TypeIdMap<u8>>,
     pub buffer_entity: RenderEntity,
 }
@@ -49,24 +48,21 @@ impl GlobalGroupInfos {
             component_bindings: default(),
             component_positions: default(),
             component_observer_inits: default(),
-            component_extract_inits: default(),
             buffer_entity: RenderEntity::from(id),
         }
     }
-    
-    pub fn register_component<C:Component>(&mut self, group_id: usize, pos: u8) {
+
+    pub fn is_registered<C: Component>(&self) -> bool {
+        self.component_observer_inits
+            .contains_key(&TypeId::of::<C>())
+    }
+
+    pub fn register_component<C: Component>(&mut self, group_id: usize, pos: u8) {
         let id = TypeId::of::<C>();
         self.component_positions[group_id].insert(id, pos);
         self.component_observer_inits.insert(id, |app, positions| {
             app.add_observer(build_set_flag_index::<true, OnAdd, C>(positions.clone()));
             app.add_observer(build_set_flag_index::<false, OnRemove, C>(positions));
-        });
-    }
-    
-    pub fn register_component_with_render_data<C: Component, R: CuttleRenderDataFrom<C>>(&mut self) {
-        self.component_extract_inits.insert(TypeId::of::<C>(), |app, positions| {
-            app.sub_app_mut(RenderApp)
-                .add_systems(ExtractSchedule, build_extract_cuttle_comp::<C, R>(positions));
         });
     }
 }
@@ -269,18 +265,21 @@ impl CuttleGroupBuilderAppExt for App {
 }
 
 #[derive(Resource)]
-pub(crate) struct GroupId<G> {
+pub(crate) struct GroupIdStore<G> {
     pub id: usize,
-    phantom_data: PhantomData<G>
+    phantom_data: PhantomData<G>,
 }
 
-impl<G> FromWorld for GroupId<G> {
+impl<G> FromWorld for GroupIdStore<G> {
     fn from_world(world: &mut World) -> Self {
         let mut global = world.resource_mut::<GlobalGroupInfos>();
         let id = global.group_count;
         global.group_count += 1;
         global.component_positions.push(default());
-        Self { id, phantom_data: PhantomData }
+        Self {
+            id,
+            phantom_data: PhantomData,
+        }
     }
 }
 
@@ -299,26 +298,27 @@ impl<G: CuttleGroup> Plugin for GroupPlugin<G> {
             let infos = GlobalGroupInfos::new(app);
             app.insert_resource(infos);
         }
-        
-        app.init_resource::<GroupData<G>>();
-        app.init_resource::<GroupId<G>>();
-        
-        app.register_required_components_with::<G, CuttleIndices>(|| CuttleIndices::new::<G>());
-        app.register_required_components_with::<Extension<G>, CuttleIndices>(|| CuttleIndices::new::<G>());
-        
-        register_extension_hooks::<G>(app.world_mut());
-        
-        app.sub_app_mut(RenderApp)
-            .add_plugins(render_group_plugin::<G>)
-            .add_systems(ExtractSchedule, extract_group_marker::<G>);
 
-        app.world_mut().resource_mut::<InitGroupFns>().push(init_group::<G>);
+        app.init_resource::<GroupData<G>>();
+        app.init_resource::<GroupIdStore<G>>();
+
+        app.register_required_components::<G, CuttleIndices>();
+        app.world_mut()
+            .register_component_hooks::<G>()
+            .on_add(on_add_group_marker_initialize_indices_group_id::<G>);
+
+        // app.sub_app_mut(RenderApp)
+        //    .add_plugins(render_group_plugin::<G>);
+
+        app.world_mut()
+            .resource_mut::<InitGroupFns>()
+            .push(init_group::<G>);
     }
 }
 
 fn init_group<G: CuttleGroup>(app: &mut App) {
     let world = app.world_mut();
-    let group_id = world.resource::<GroupId<G>>().id;
+    let group_id = world.resource::<GroupIdStore<G>>().id;
     let GroupData {
         init_comp_fns,
         snippets,
@@ -331,5 +331,5 @@ fn init_group<G: CuttleGroup>(app: &mut App) {
         calculations,
         snippets,
     };
-    load_shader_to_pipeline(app, shader_settings, TypeId::of::<G>());
+    load_shader_to_pipeline(app, shader_settings, group_id);
 }
