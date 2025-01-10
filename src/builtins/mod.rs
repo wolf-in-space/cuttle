@@ -11,8 +11,7 @@ impl Plugin for BuiltinsPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "builtins.wgsl");
         app.add_plugins(sdf::plugin);
-        app
-            .register_type::<Rounded>()
+        app.register_type::<Rounded>()
             .register_type::<Annular>()
             .register_type::<PrepareBase>()
             .register_type::<Circle>()
@@ -340,4 +339,15 @@ pub struct Morph {
 impl CuttleComponent for Morph {
     type RenderData = Self;
     const SORT: u32 = OPERATION_POS + 900;
+}
+
+#[derive(Debug, Clone, Copy, Default, Component, Reflect, ShaderType)]
+#[reflect(Component)]
+pub struct Stretch {
+    pub stretch: Vec2,
+}
+
+impl CuttleComponent for Stretch {
+    type RenderData = Self;
+    const SORT: u32 = 1200;
 }

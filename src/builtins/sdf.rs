@@ -1,7 +1,7 @@
 use crate::builtins::*;
 use crate::components::initialization::RegisterCuttleComponent;
 use crate::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
-use crate::prelude::{Annular};
+use crate::prelude::Annular;
 use bevy::core_pipeline::core_2d::Transparent2d;
 use bevy::prelude::{App, Component};
 use bevy::ui::TransparentUi;
@@ -24,6 +24,7 @@ fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
         .component::<DistanceGradient>()
         .zst_component::<ForceFieldAlpha>()
         .zst_component::<PrepareBase>()
+        .component::<Stretch>()
         .component::<Circle>()
         .component::<Line>()
         .component::<Quad>()

@@ -118,3 +118,7 @@ fn morph(input: Morph) {
     distance = mix(prev_distance, distance, input.morph);
     color = mix(prev_color, color, input.morph);
 }
+
+fn stretch(input: Stretch) {
+    position *= input.stretch;
+}
