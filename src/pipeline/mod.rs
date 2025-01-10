@@ -14,13 +14,8 @@ use bevy::{
     ui::TransparentUi,
 };
 use draw::DrawSdf;
-use queue::{
-    cleanup_batches, cuttle_prepare_sorted_for_group, cuttle_queue_sorted_for_group, GroupInstanceBuffer,
-};
-use specialization::{
-    prepare_view_bind_groups, write_group_buffer, CuttlePipeline,
-};
-use std::any::TypeId;
+use queue::{cuttle_prepare_sorted_for_group, cuttle_queue_sorted_for_group, GroupInstanceBuffer};
+use specialization::{prepare_view_bind_groups, write_group_buffer, CuttlePipeline};
 
 mod draw;
 pub mod extract;
@@ -29,7 +24,7 @@ pub mod specialization;
 
 #[derive(Debug, Component, PartialEq, Eq, Clone, Hash)]
 pub struct CuttlePipelineKey {
-    group_id: TypeId,
+    group_id: usize,
     multisample_count: u32,
     has_depth: bool,
 }
@@ -103,6 +98,7 @@ impl Plugin for PipelinePlugin {
         app.add_plugins(extract::plugin);
 
         app.sub_app_mut(RenderApp)
+            .add_plugins(render_item_plugin::<Transparent2d>)
             .configure_sets(
                 Render,
                 (
@@ -116,14 +112,7 @@ impl Plugin for PipelinePlugin {
                     .before(RenderSet::Render),
             )
             .init_resource::<SpecializedRenderPipelines<CuttlePipeline>>()
-            .add_systems(
-                Render,
-                (
-                    cleanup_batches.in_set(RenderSet::Cleanup),
-                    prepare_view_bind_groups
-                        .in_set(PrepareBindGroups),
-                ),
-            );
+            .add_systems(Render, prepare_view_bind_groups.in_set(PrepareBindGroups));
     }
 }
 
@@ -137,9 +126,22 @@ pub enum CuttleRenderSet {
     WriteBuffers,
     PrepareBindGroups,
 }
-use crate::groups::CuttleGroup;
 use CuttleRenderSet::*;
 
+pub(crate) fn render_item_plugin<P: SortedCuttlePhaseItem>(app: &mut App) {
+    app.init_resource::<GroupInstanceBuffer<P>>()
+        .add_render_command::<P, DrawSdf<P>>()
+        .add_systems(
+            Render,
+            (
+                cuttle_queue_sorted_for_group::<P>.in_set(Queue),
+                cuttle_prepare_sorted_for_group::<P>.in_set(ItemPreparation),
+                write_group_buffer::<P>.in_set(WriteBuffers),
+            ),
+        );
+}
+
+/*
 pub(crate) fn render_group_plugin<G: CuttleGroup>(app: &mut App) {
     app.init_resource::<GroupInstanceBuffer<G>>()
         .add_render_command::<G::Phase, DrawSdf<G>>()
@@ -152,3 +154,4 @@ pub(crate) fn render_group_plugin<G: CuttleGroup>(app: &mut App) {
             ),
         );
 }
+*/

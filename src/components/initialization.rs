@@ -41,10 +41,12 @@ pub(crate) fn init_components_for_group(
 }
 
 fn global_init_component<C: Component>(app: &mut App, pos: u8, group_id: usize) {
-    app.init_resource::<IndexArena<C>>();
-    app.world_mut()
-        .resource_mut::<GlobalGroupInfos>()
-        .register_component::<C>(group_id, pos);
+    let mut global = app.world_mut().resource_mut::<GlobalGroupInfos>();
+    if !global.is_registered::<C>() {
+        global.register_component::<C>(group_id, pos);
+        app.register_required_components::<C, ComponentIndex<C>>();
+        app.init_resource::<IndexArena<C>>();
+    }
 }
 
 pub(crate) fn init_zst_component<C, G>(
@@ -128,7 +130,6 @@ pub(crate) fn global_init_component_with_render_data<C: Component, R: CuttleRend
     buffer_fns.write.push(CompBuffer::<R>::write);
     buffer_fns.bindings.push(CompBuffer::<R>::get_binding_res);
 
-    app.register_required_components::<C, ComponentIndex<C>>();
     app.sub_app_mut(RenderApp)
         .add_systems(ExtractSchedule, extract_cuttle_comp::<C, R>);
 
@@ -168,7 +169,7 @@ pub trait CuttleComponent: Component + Sized {
         RegisterCuttleComponent {
             affect_bounds: Self::AFFECT_BOUNDS,
             affect_bounds_fn: match Self::AFFECT_BOUNDS {
-                Bounding::None | Bounding::Apply => None,
+                Bounding::None => None,
                 Bounding::Add | Bounding::Multiply => Some(Self::affect_bounds),
             },
             sort: Self::SORT,

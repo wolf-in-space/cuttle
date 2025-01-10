@@ -1,4 +1,5 @@
-use crate::bounding::CuttleBounding;
+use crate::bounding::BoundingRadius;
+use crate::bounding::GlobalBoundingCircle;
 use crate::components::arena::IndexArena;
 use crate::extensions::Extensions;
 use crate::groups::{CuttleGroup, GroupIdStore};
@@ -14,11 +15,17 @@ pub(super) fn plugin(app: &mut App) {
 }
 
 #[derive(Component, Reflect, Debug, Default)]
-#[require(Transform, Visibility, Extensions, CuttleBounding)]
+#[require(
+    Transform,
+    Visibility,
+    Extensions,
+    BoundingRadius,
+    GlobalBoundingCircle
+)]
 #[reflect(Component)]
 pub struct CuttleIndices {
     pub(crate) indices: BTreeMap<CuttleIndex, u32>,
-    group_id: usize,
+    pub(crate) group_id: usize,
 }
 
 pub fn on_add_group_marker_initialize_indices_group_id<G: CuttleGroup>(

@@ -24,7 +24,7 @@ fn spawn(mut cmds: Commands) {
         .id();
 
     cmds.spawn((
-        Extension::<Sdf>::new(subtract),
+        Extension::new(subtract),
         builtins::Circle { radius: 100. },
         Fill(css::SKY_BLUE),
     ));

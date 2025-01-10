@@ -8,8 +8,7 @@ use crate::components::initialization::{
 use crate::indices::{
     build_set_flag_index, on_add_group_marker_initialize_indices_group_id, CuttleIndices,
 };
-use crate::pipeline::extract::extract_group_marker;
-use crate::pipeline::{render_group_plugin, SortedCuttlePhaseItem};
+use crate::pipeline::SortedCuttlePhaseItem;
 use crate::shader::{load_shader_to_pipeline, AddSnippet, ShaderSettings};
 use bevy::prelude::*;
 use bevy::render::sync_world::RenderEntity;
@@ -51,6 +50,11 @@ impl GlobalGroupInfos {
             component_observer_inits: default(),
             buffer_entity: RenderEntity::from(id),
         }
+    }
+
+    pub fn is_registered<C: Component>(&self) -> bool {
+        self.component_observer_inits
+            .contains_key(&TypeId::of::<C>())
     }
 
     pub fn register_component<C: Component>(&mut self, group_id: usize, pos: u8) {
@@ -260,10 +264,6 @@ impl CuttleGroupBuilderAppExt for App {
     }
 }
 
-#[derive(Component, Reflect, Debug, Copy, Clone, Deref, DerefMut)]
-#[reflect(Component)]
-pub(crate) struct GroupId(usize);
-
 #[derive(Resource)]
 pub(crate) struct GroupIdStore<G> {
     pub id: usize,
@@ -307,9 +307,8 @@ impl<G: CuttleGroup> Plugin for GroupPlugin<G> {
             .register_component_hooks::<G>()
             .on_add(on_add_group_marker_initialize_indices_group_id::<G>);
 
-        app.sub_app_mut(RenderApp)
-            .add_plugins(render_group_plugin::<G>)
-            .add_systems(ExtractSchedule, extract_group_marker::<G>);
+        // app.sub_app_mut(RenderApp)
+        //    .add_plugins(render_group_plugin::<G>);
 
         app.world_mut()
             .resource_mut::<InitGroupFns>()
@@ -332,5 +331,5 @@ fn init_group<G: CuttleGroup>(app: &mut App) {
         calculations,
         snippets,
     };
-    load_shader_to_pipeline(app, shader_settings, TypeId::of::<G>());
+    load_shader_to_pipeline(app, shader_settings, group_id);
 }

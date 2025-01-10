@@ -1,4 +1,4 @@
-use crate::pipeline::extract::{ExtractedCuttleFlags, RenderIndexRange};
+use crate::bounding::BoundingRadius;
 use crate::pipeline::{specialization::CuttlePipeline, CuttleRenderSet};
 use bevy::ecs::component::{ComponentHooks, StorageType};
 use bevy::{
@@ -12,15 +12,15 @@ use bevy::{
 use std::fmt::Debug;
 
 pub fn plugin(app: &mut App) {
+    let world = app.world_mut();
+    world.register_required_components::<Extension, BoundingRadius>();
+    world.register_required_components::<Extension, Transform>();
     app.sub_app_mut(RenderApp)
         .init_resource::<CompIndicesBuffer>()
         .init_resource::<CompIndicesBindgroup>()
         .add_systems(
             Render,
-            (
-                prepare_component_indices.in_set(CuttleRenderSet::PrepareIndices),
-                build_component_indices_bind_group.in_set(CuttleRenderSet::PrepareBindGroups),
-            )
+            (build_component_indices_bind_group.in_set(CuttleRenderSet::PrepareBindGroups),)
                 .chain(),
         );
 }
@@ -46,8 +46,8 @@ impl Component for Extension {
             let mut target = world.entity_mut(target);
             match target.get_mut::<Extensions>() {
                 Some(mut extensions) => {
-                    let index = extensions.len();
                     extensions.push(entity);
+                    let index = extensions.len();
                     world.get_mut::<Extension>(entity).unwrap().index = index as u8;
                 }
                 None => panic!("HI"),
@@ -64,28 +64,6 @@ pub struct CompIndicesBuffer(StorageBuffer<Vec<u32>>);
 
 #[derive(Resource, Default)]
 pub struct CompIndicesBindgroup(pub Option<BindGroup>);
-
-fn prepare_component_indices(
-    mut roots: Query<(&ExtractedCuttleFlags, &Extensions, &mut RenderIndexRange)>,
-    extension_flags: Query<&ExtractedCuttleFlags>,
-    mut indices_buffer: ResMut<CompIndicesBuffer>,
-) {
-    let indices = indices_buffer.get_mut();
-    indices.clear();
-
-    for (flags, extensions, mut range) in &mut roots {
-        range.end = indices.len() as u32;
-        range.start = indices.len() as u32;
-        range.end += flags.len() as u32;
-        indices.extend(flags.iter());
-
-        for extension_entity in extensions.iter() {
-            let flags = extension_flags.get(*extension_entity).unwrap();
-            range.end += flags.len() as u32;
-            indices.extend(flags.iter());
-        }
-    }
-}
 
 fn build_component_indices_bind_group(
     mut indices_buffer: ResMut<CompIndicesBuffer>,

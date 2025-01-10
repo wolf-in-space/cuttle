@@ -1,6 +1,8 @@
 use crate::calculations::Calculation;
-use crate::groups::{GlobalGroupInfos};
+use crate::groups::GlobalGroupInfos;
 use crate::pipeline::specialization::CuttlePipeline;
+use bevy::asset::io::{AssetReaderError, MissingAssetSourceError};
+use bevy::asset::AssetPath;
 use bevy::render::RenderApp;
 use bevy::{
     asset::{embedded_asset, io::Reader},
@@ -9,10 +11,7 @@ use bevy::{
 use derive_more::derive::{Display, Error, From};
 use gen::gen_shader;
 use serde::{Deserialize, Serialize};
-use std::any::{TypeId};
 use std::string::FromUtf8Error;
-use bevy::asset::AssetPath;
-use bevy::asset::io::{AssetReaderError, MissingAssetSourceError};
 
 pub mod gen;
 pub mod wgsl_struct;
@@ -21,8 +20,7 @@ pub struct ShaderPlugin;
 impl Plugin for ShaderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(wgsl_struct::plugin);
-        app.init_asset::<Snippet>()
-            .init_resource::<AddSnippets>();
+        app.init_asset::<Snippet>().init_resource::<AddSnippets>();
 
         embedded_asset!(app, "common.wgsl");
         embedded_asset!(app, "vertex.wgsl");
@@ -42,11 +40,7 @@ pub struct RenderDataShaderInfo {
     pub struct_wgsl: String,
 }
 
-pub(crate) fn load_shader_to_pipeline(
-    app: &mut App,
-    settings: ShaderSettings,
-    group_id: TypeId,
-) {
+pub(crate) fn load_shader_to_pipeline(app: &mut App, settings: ShaderSettings, group_id: usize) {
     let comp_count = app
         .world()
         .resource::<GlobalGroupInfos>()
@@ -74,10 +68,14 @@ enum LoadShaderError {
     AssetSource(MissingAssetSourceError),
     Read(AssetReaderError),
     IO(std::io::Error),
-    Utf8(FromUtf8Error)
+    Utf8(FromUtf8Error),
 }
 
-async fn load_shader(assets: AssetServer, settings: ShaderSettings, group_id: TypeId) -> Result<Shader, LoadShaderError> {
+async fn load_shader(
+    assets: AssetServer,
+    settings: ShaderSettings,
+    group_id: usize,
+) -> Result<Shader, LoadShaderError> {
     let mut snippets = String::new();
     let base = [AddSnippet::File(
         "embedded://cuttle/shader/fragment.wgsl".to_string(),
@@ -96,13 +94,23 @@ async fn load_shader(assets: AssetServer, settings: ShaderSettings, group_id: Ty
 
     let shader = gen_shader(&settings.infos, &settings.calculations, snippets);
     // println!("{}", shader);
-    let shader = Shader::from_wgsl(shader, format!("Generated at {} | {}: {:?}", file!(), line!(), group_id));
+    let shader = Shader::from_wgsl(
+        shader,
+        format!("Generated at {} | {}: {:?}", file!(), line!(), group_id),
+    );
     Ok(shader)
 }
 
-async fn load_asset_bytes_manually(assets: &AssetServer, path: String) -> Result<Vec<u8>, LoadShaderError> {
+async fn load_asset_bytes_manually(
+    assets: &AssetServer,
+    path: String,
+) -> Result<Vec<u8>, LoadShaderError> {
     let path = AssetPath::from(path);
-    let mut reader = assets.get_source(path.source())?.reader().read(path.path()).await?;
+    let mut reader = assets
+        .get_source(path.source())?
+        .reader()
+        .read(path.path())
+        .await?;
     let mut bytes = Vec::new();
     Reader::read_to_end(&mut reader, &mut bytes).await?;
     Ok(bytes)

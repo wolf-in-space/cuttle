@@ -1,36 +1,39 @@
-use bevy::math::bounding::BoundingVolume;
+use crate::extensions::Extensions;
+use bevy::math::bounding::{BoundingCircle, BoundingVolume};
+use bevy::math::Vec3A;
 use bevy::prelude::*;
 use bevy::render::primitives::{Frustum, Sphere};
-use bevy::render::{Render, RenderApp};
 use bevy::render::view::{
     NoCpuCulling, NoFrustumCulling, RenderLayers, VisibilitySystems, VisibleEntities,
 };
 use bevy::utils::Parallel;
-use crate::extensions::{Extensions};
-use crate::pipeline::CuttleRenderSet;
-use crate::pipeline::extract::{CombinedBounding, ExtractedBounding};
 
 pub fn plugin(app: &mut App) {
-    app.configure_sets(
-        PostUpdate,
-        (Bounding::Add, Bounding::Multiply, Bounding::Apply).chain(),
-    )
-    .add_systems(
-        PostUpdate,
-        (
-            apply_bounding.in_set(Bounding::Apply),
-            check_visibility.in_set(VisibilitySystems::CheckVisibility),
-        ),
-    );
-    app.sub_app_mut(RenderApp).add_systems(Render, combine_bindings.in_set(CuttleRenderSet::PrepareBounds));
+    app.configure_sets(PostUpdate, (Bounding::Add, Bounding::Multiply).chain())
+        .add_systems(
+            PostUpdate,
+            (
+                compute_global_bounding_circles,
+                check_visibility.in_set(VisibilitySystems::CheckVisibility),
+            )
+                .chain(),
+        );
 }
 
 pub type InitBoundingFn = Box<dyn FnMut(&mut App) + Send + Sync>;
 
-#[derive(Clone, Copy, Debug, Component, Default)]
-pub struct CuttleBounding {
-    pub bounding: f32,
-    compute_bounding: f32,
+#[derive(Clone, Copy, Debug, Component, Default, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct BoundingRadius(pub f32);
+
+#[derive(Clone, Copy, Debug, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct GlobalBoundingCircle(BoundingCircle);
+
+impl Default for GlobalBoundingCircle {
+    fn default() -> Self {
+        Self(BoundingCircle::new(Vec2::ZERO, 0.0))
+    }
 }
 
 #[derive(SystemSet, Hash, PartialEq, Eq, Debug, Clone, Copy, Default)]
@@ -39,66 +42,44 @@ pub enum Bounding {
     None,
     Add,
     Multiply,
-    Apply,
-}
-
-pub fn apply_bounding(mut query: Query<&mut CuttleBounding>) {
-    for mut sdf in &mut query {
-        if sdf.bounding == sdf.compute_bounding {
-            sdf.bypass_change_detection().compute_bounding = 0.;
-        } else {
-            sdf.bounding = sdf.compute_bounding;
-            sdf.compute_bounding = 0.;
-        }
-    }
 }
 
 pub const fn make_compute_aabb_system<C: Component>(
     func: fn(&C) -> f32,
     set: Bounding,
-) -> impl Fn(Query<(&mut CuttleBounding, &C)>) {
+) -> impl Fn(Query<(&mut BoundingRadius, &C)>) {
     move |mut query| {
-        for (mut sdf, c) in &mut query {
+        for (mut bounding, c) in &mut query {
             let val = func(c);
-            let bounds = &mut sdf.bypass_change_detection().compute_bounding;
             match set {
-                Bounding::Add => *bounds += val,
-                Bounding::Multiply => *bounds *= val,
-                Bounding::Apply | Bounding::None => panic!("NO"),
+                Bounding::Add => **bounding += val,
+                Bounding::Multiply => **bounding *= val,
+                Bounding::None => panic!("NO"),
             }
         }
     }
 }
 
-fn combine_bindings(
+fn compute_global_bounding_circles(
     mut roots: Query<(
-        &ExtractedBounding,
+        &Transform,
+        &mut BoundingRadius,
         &Extensions,
-        &mut CombinedBounding,
+        &mut GlobalBoundingCircle,
     )>,
-    extension_bounds: Query<&ExtractedBounding>,
+    mut extension_bounds: Query<(&Transform, &mut BoundingRadius), Without<GlobalBoundingCircle>>,
 ) {
-    for (root_bound, extensions, mut combined_bound) in &mut roots {
-        combined_bound.0 = root_bound.0;
+    for (transform, mut radius, extensions, mut bounding) in &mut roots {
+        **bounding = BoundingCircle::new(transform.translation.xy(), **radius);
+        **radius = default();
 
         for extension_entity in extensions.iter() {
-            let bound = extension_bounds.get(*extension_entity).unwrap();
-            combined_bound.0 = combined_bound.merge(&bound);
+            let (transform, mut radius) = extension_bounds.get_mut(*extension_entity).unwrap();
+            **bounding = bounding.merge(&BoundingCircle::new(transform.translation.xy(), **radius));
+            **radius = default();
         }
     }
 }
-
-/*
-fn debug_bounding(mut gizmos: Gizmos, bounds: Query<(&SdfBoundingRadius, &GlobalTransform)>) {
-    for (bound, transform) in &bounds {
-        gizmos.rect_2d(
-            transform.translation().xy(),
-            Vec2::splat(bound.bounding * 2.0),
-            tailwind::BLUE_900,
-        )
-    }
-}
-*/
 
 //TODO: Change Comments
 /// System updating the visibility of entities each frame.
@@ -125,8 +106,7 @@ pub fn check_visibility(
         &InheritedVisibility,
         &mut ViewVisibility,
         Option<&RenderLayers>,
-        &CuttleBounding,
-        &GlobalTransform,
+        &GlobalBoundingCircle,
         Has<NoFrustumCulling>,
     )>,
 ) {
@@ -147,7 +127,6 @@ pub fn check_visibility(
                     mut view_visibility,
                     maybe_entity_mask,
                     bounding,
-                    transform,
                     no_frustum_culling,
                 ) = query_item;
 
@@ -165,8 +144,8 @@ pub fn check_visibility(
                 // frustum culling
                 if !no_frustum_culling && !no_cpu_culling {
                     let model_sphere = Sphere {
-                        center: transform.translation().into(),
-                        radius: bounding.bounding,
+                        center: Vec3A::from(bounding.center.extend(0.)),
+                        radius: bounding.circle.radius,
                     };
                     if !frustum.intersects_sphere(&model_sphere, false) {
                         return;
@@ -178,7 +157,7 @@ pub fn check_visibility(
             },
         );
 
-        visible_entities.clear::<CuttleBounding>();
-        thread_queues.drain_into(visible_entities.get_mut::<CuttleBounding>());
+        visible_entities.clear::<BoundingRadius>();
+        thread_queues.drain_into(visible_entities.get_mut::<BoundingRadius>());
     }
 }

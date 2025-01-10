@@ -1,31 +1,21 @@
+use crate::bounding::GlobalBoundingCircle;
 use crate::components::initialization::CuttleRenderDataFrom;
-use crate::groups::CuttleGroup;
+use crate::components::{arena::IndexArena, buffer::CompBuffer};
+use crate::extensions::CompIndicesBuffer;
 use crate::indices::{ComponentIndex, CuttleIndex, CuttleIndices};
-use crate::{
-    bounding::CuttleBounding,
-    components::{arena::IndexArena, buffer::CompBuffer},
-    extensions::Extensions,
-};
-use bevy::render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy::ecs::entity::EntityHashMap;
 use bevy::{
     math::bounding::BoundingCircle,
     prelude::*,
-    render::{sync_component::SyncComponentPlugin, sync_world::RenderEntity, Extract, RenderApp},
+    render::{Extract, RenderApp},
 };
 use std::any::type_name;
 use std::fmt::Debug;
-use std::ops::Range;
 
 pub fn plugin(app: &mut App) {
-    app.add_plugins((
-        SyncComponentPlugin::<Extensions>::default(),
-        SyncComponentPlugin::<CuttleIndices>::default(),
-        ExtractComponentPlugin::<CuttleBounding>::default(),
-        ExtractComponentPlugin::<ExtractedZ>::default(),
-        ExtractComponentPlugin::<ExtractedVisibility>::default(),
-    ))
-    .sub_app_mut(RenderApp)
-    .add_systems(ExtractSchedule, (extract_flags));
+    app.sub_app_mut(RenderApp)
+        .init_resource::<ExtractedCuttles>()
+        .add_systems(ExtractSchedule, extract_cuttles);
 }
 
 pub(crate) fn extract_cuttle_comp<C: Component, R: CuttleRenderDataFrom<C>>(
@@ -50,103 +40,62 @@ pub(crate) fn extract_cuttle_comp<C: Component, R: CuttleRenderDataFrom<C>>(
     }
 }
 
-#[derive(Component, Debug, Default, Deref, DerefMut)]
-pub(crate) struct RenderIndexRange(pub Range<u32>);
+#[derive(Debug, Resource, Default, Deref, DerefMut)]
+pub(crate) struct ExtractedCuttles(EntityHashMap<ExtractedCuttle>);
 
-#[derive(Component, Debug, Deref, DerefMut)]
-pub(crate) struct CombinedBounding(pub BoundingCircle);
-
-impl Default for CombinedBounding {
-    fn default() -> Self {
-        Self(BoundingCircle::new(Vec2::ZERO, 0.))
-    }
+#[derive(Debug)]
+pub(crate) struct ExtractedCuttle {
+    pub group_id: usize,
+    pub visible: bool,
+    pub bounding: BoundingCircle,
+    pub indices_start: u32,
+    pub indices_end: u32,
+    pub z: f32,
 }
 
-pub(crate) fn extract_group_marker<G: CuttleGroup>(
-    mut cmds: Commands,
-    query: Extract<Query<RenderEntity, With<G>>>,
+fn extract_cuttles(
+    extract: Extract<
+        Query<(
+            Entity,
+            &GlobalTransform,
+            &GlobalBoundingCircle,
+            &CuttleIndices,
+            &ViewVisibility,
+        )>,
+    >,
+    mut extracted: ResMut<ExtractedCuttles>,
+    mut buffer: ResMut<CompIndicesBuffer>,
 ) {
-    let extracted: Vec<_> = query
+    let buffer = buffer.get_mut();
+    buffer.clear();
+
+    **extracted = extract
         .iter()
-        .map(|e| {
+        .map(|(entity, transform, bounding, indices, vis)| {
+            let indices_start = buffer.len() as u32;
+            let indices_end = (buffer.len() + indices.indices.len()) as u32;
+            buffer.extend(indices.indices.iter().map(id_and_index_to_u32));
+
             (
-                e,
-                (
-                    RenderIndexRange::default(),
-                    CombinedBounding::default(),
-                    G::default(),
-                ),
+                entity,
+                ExtractedCuttle {
+                    group_id: indices.group_id,
+                    visible: **vis,
+                    indices_start,
+                    indices_end,
+                    bounding: **bounding,
+                    z: transform.translation().z,
+                },
             )
         })
-        .collect();
-    cmds.insert_or_spawn_batch(extracted)
-}
-
-#[derive(Component)]
-pub(crate) struct ExtractedZ(pub f32);
-
-impl ExtractComponent for ExtractedZ {
-    type QueryData = (&'static GlobalTransform, Option<&'static ComputedNode>);
-    type QueryFilter = ();
-    type Out = ExtractedZ;
-
-    fn extract_component(
-        (transform, z_index): (&GlobalTransform, Option<&ComputedNode>),
-    ) -> Option<Self::Out> {
-        Some(ExtractedZ(match z_index {
-            None => transform.translation().z,
-            Some(computed) => computed.stack_index() as f32,
-        }))
-    }
-}
-
-#[derive(Component, Deref, DerefMut)]
-pub struct ExtractedBounding(pub(crate) BoundingCircle);
-
-impl ExtractComponent for CuttleBounding {
-    type QueryData = (&'static CuttleBounding, &'static GlobalTransform);
-    type QueryFilter = ();
-    type Out = ExtractedBounding;
-
-    fn extract_component(
-        (bounding, transform): (&CuttleBounding, &GlobalTransform),
-    ) -> Option<Self::Out> {
-        Some(ExtractedBounding(BoundingCircle::new(
-            transform.translation().xy(),
-            bounding.bounding,
-        )))
-    }
-}
-
-#[derive(Component, Deref, DerefMut, Debug)]
-pub(crate) struct ExtractedCuttleFlags(Vec<u32>);
-
-fn extract_flags(mut cmds: Commands, query: Extract<Query<(RenderEntity, &CuttleIndices)>>) {
-    let extracted: Vec<_> = query
-        .iter()
-        .map(|(ent, flags)| {
-            let compressed: Vec<u32> = flags.indices.iter().map(id_and_index_to_u32).collect();
-            (ent, ExtractedCuttleFlags(compressed))
+        .inspect(|e| {
+            dbg!(e);
         })
         .collect();
-    cmds.insert_or_spawn_batch(extracted);
 }
 
 fn id_and_index_to_u32((&CuttleIndex { component_id, .. }, &index): (&CuttleIndex, &u32)) -> u32 {
     (index << 8) | component_id as u32
-}
-
-#[derive(Component)]
-pub struct ExtractedVisibility(pub bool);
-
-impl ExtractComponent for ExtractedVisibility {
-    type QueryData = &'static ViewVisibility;
-    type QueryFilter = ();
-    type Out = ExtractedVisibility;
-
-    fn extract_component(vis: &ViewVisibility) -> Option<Self::Out> {
-        Some(ExtractedVisibility(vis.get()))
-    }
 }
 
 #[cfg(test)]
