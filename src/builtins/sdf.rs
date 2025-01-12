@@ -10,7 +10,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins((sdf_plugin::<Sdf>, sdf_plugin::<UiSdf>));
 }
 fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
-    app.sdf_group::<G>()
+    app.cuttle_group::<G>()
         .snippet_file("embedded://cuttle/builtins/builtins.wgsl")
         .calculation("world_position", "vec2<f32>")
         .calculation("position", "vec2<f32>")
@@ -30,7 +30,7 @@ fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
         .component::<Quad>()
         .component_with(
             RegisterCuttleComponent::<GlobalTransform, GlobalTransformRender> {
-                sort: 1100,
+                sort: TRANSFORM_POS + 100,
                 ..default()
             },
         )

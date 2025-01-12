@@ -12,8 +12,11 @@ use bevy::{
 use std::fmt::Debug;
 
 pub fn plugin(app: &mut App) {
-    let world = app.world_mut();
-    world.register_required_components::<Extension, BoundingRadius>();
+    app.register_type::<Extension>()
+        .register_type::<Extensions>();
+
+    app.world_mut()
+        .register_required_components::<Extension, BoundingRadius>();
     app.sub_app_mut(RenderApp)
         .init_resource::<CompIndicesBuffer>()
         .init_resource::<CompIndicesBindgroup>()
@@ -24,7 +27,8 @@ pub fn plugin(app: &mut App) {
         );
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Component)]
 pub struct Extension {
     pub target: Entity,
     pub index: u8,
@@ -55,7 +59,8 @@ impl Component for Extension {
     }
 }
 
-#[derive(Debug, Component, Clone, Deref, DerefMut, Default)]
+#[derive(Debug, Component, Clone, Deref, DerefMut, Default, Reflect)]
+#[reflect(Component)]
 pub struct Extensions(pub Vec<Entity>);
 
 #[derive(Resource, Default, Deref, DerefMut)]

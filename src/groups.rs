@@ -119,7 +119,7 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
     /// #     type Phase = Transparent2d;
     /// # }
     ///
-    /// app.sdf_group::<MyGroup>()
+    /// app.cuttle_group::<MyGroup>()
     /// .snippet(stringify!(
     ///     fn my_component(input: MyComponent) {
     ///         distance += input.value;
@@ -146,7 +146,7 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
     /// #     type Phase = Transparent2d;
     /// # }
     ///
-    /// app.sdf_group::<MyGroup>()
+    /// app.cuttle_group::<MyGroup>()
     /// // Adds an embedded file to the Group.
     /// // Can be hot reloaded if bevy`s 'embedded_watcher' feature is enabled.
     /// .snippet_file("embedded://cuttle/builtins/builtins.wgsl")
@@ -250,11 +250,11 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
 }
 
 pub trait CuttleGroupBuilderAppExt {
-    fn sdf_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder<G>;
+    fn cuttle_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder<G>;
 }
 
 impl CuttleGroupBuilderAppExt for App {
-    fn sdf_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder<G> {
+    fn cuttle_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder<G> {
         if !self.is_plugin_added::<GroupPlugin<G>>() {
             self.add_plugins(GroupPlugin::<G>::new());
         }

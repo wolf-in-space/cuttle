@@ -172,6 +172,8 @@ impl CuttleZstComponent for ForceFieldAlpha {
     const SORT: u32 = 10000;
 }
 
+pub const TRANSFORM_POS: u32 = 1000;
+
 #[derive(Debug, Default, ShaderType, Reflect)]
 pub struct GlobalTransformRender {
     pub transform: Mat4,

@@ -24,7 +24,7 @@ fn spawn(mut cmds: Commands) {
 }
 
 fn do_a_wave(app: &mut App) {
-    app.sdf_group::<Sdf>()
+    app.cuttle_group::<Sdf>()
         .component::<DoAWave>()
         .snippet(stringify!(
             fn do_a_wave(comp: DoAWave) {
