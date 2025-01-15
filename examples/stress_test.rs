@@ -30,7 +30,7 @@ fn spawn(mut cmds: Commands) {
                     y * Y_DISTANCE - Y_HALF_SIZE,
                     0.,
                 ),
-                builtins::Circle { radius: 0.5 },
+                Circle(0.5),
                 Fill(Srgba::new(
                     f32::sin(x / 100.) + 0.5,
                     f32::cos(y / 100.) + 0.5,

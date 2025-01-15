@@ -31,7 +31,7 @@ fn spawn(mut cmds: Commands) {
                 height: Val::Percent(10.0),
                 ..default()
             },
-            builtins::Circle { radius: 15. },
+            Circle(15.),
             BackgroundColor(Color::srgba(1.0, 0.0, 0.0, 0.1)),
             Fill(Srgba::new(1.0, 0.0, 0.0, 1.0)),
         ));
@@ -43,8 +43,8 @@ fn spawn(mut cmds: Commands) {
                 height: Val::Percent(10.0),
                 ..default()
             },
-            builtins::Circle { radius: 10. },
-            Annular { annular: 5. },
+            Circle(10.),
+            Annular(5.),
             BackgroundColor(Color::srgba(0.0, 1.0, 0.0, 0.1)),
             Fill(Srgba::new(0.0, 1.0, 0.0, 1.0)),
         ));
@@ -56,7 +56,7 @@ fn spawn(mut cmds: Commands) {
                 height: Val::Percent(10.0),
                 ..default()
             },
-            builtins::Circle { radius: 20. },
+            Circle(20.),
             BackgroundColor(Color::srgba(0.0, 0.0, 1.0, 0.1)),
             Fill(Srgba::new(0.0, 0.0, 1.0, 1.0)),
         ));

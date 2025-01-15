@@ -1,5 +1,4 @@
 use bevy::{color::palettes::css, prelude::*, render::render_resource::ShaderType};
-use cuttle::components::initialization::CuttleComponent;
 use cuttle::groups::CuttleGroupBuilderAppExt;
 use cuttle::prelude::*;
 
@@ -14,7 +13,8 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2d);
     cmds.spawn((
         Sdf,
-        builtins::Circle { radius: 200. },
+        Transform::default(),
+        Circle(200.),
         DoAWave {
             amplitude: 50.,
             frequency: 10.,
@@ -25,7 +25,8 @@ fn spawn(mut cmds: Commands) {
 
 fn do_a_wave(app: &mut App) {
     app.cuttle_group::<Sdf>()
-        .component::<DoAWave>()
+        .component::<DoAWave>(SdfOrder::Distance)
+        .affect_bounds(Bounding::Add, |&DoAWave { amplitude, .. }| amplitude)
         .snippet(stringify!(
             fn do_a_wave(comp: DoAWave) {
                 let norm = normalize(position);
@@ -39,9 +40,4 @@ fn do_a_wave(app: &mut App) {
 struct DoAWave {
     amplitude: f32,
     frequency: f32,
-}
-
-impl CuttleComponent for DoAWave {
-    type RenderData = Self;
-    const SORT: u32 = DISTANCE_POS + 500;
 }

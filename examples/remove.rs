@@ -18,7 +18,7 @@ fn setup(mut cmds: Commands) {
     cmds.spawn(Camera2d);
 }
 
-fn delete_and_spawn(current: Query<Entity, With<builtins::Circle>>, mut cmds: Commands) {
+fn delete_and_spawn(current: Query<Entity, With<Sdf>>, mut cmds: Commands) {
     for entity in current.into_iter() {
         cmds.entity(entity).despawn();
     }
@@ -30,7 +30,7 @@ fn delete_and_spawn(current: Query<Entity, With<builtins::Circle>>, mut cmds: Co
                 (i / 10) as f32 * 100. - 100.,
                 0.,
             ),
-            builtins::Circle { radius: 40. },
+            Circle(40.),
             Fill(Srgba::new(
                 ((i % 10) + 1) as f32 * 0.1,
                 ((i / 10) + 1) as f32 * 0.333,

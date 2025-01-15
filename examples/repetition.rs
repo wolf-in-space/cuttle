@@ -27,10 +27,5 @@ fn main() {
 fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2d);
 
-    cmds.spawn((
-        Sdf,
-        builtins::Circle { radius: 10. },
-        Repetition::default(),
-        Fill(css::RED),
-    ));
+    cmds.spawn((Sdf, Circle(10.), Repetition::default(), Fill(css::RED)));
 }
