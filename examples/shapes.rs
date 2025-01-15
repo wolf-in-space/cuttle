@@ -15,7 +15,8 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn((
         Name::new("Circle"),
         Sdf,
-        builtins::Circle { radius: 50. },
+        Transform::default(),
+        Circle(50.),
         Fill(css::RED),
     ));
 
@@ -23,8 +24,8 @@ fn spawn(mut cmds: Commands) {
         Name::new("Donut"),
         Sdf,
         Transform::from_xyz(0., 200., 0.),
-        builtins::Circle { radius: 15. },
-        Annular { annular: 15. },
+        Circle(15.),
+        Annular(15.),
         Fill(css::REBECCA_PURPLE),
     ));
 
@@ -32,7 +33,7 @@ fn spawn(mut cmds: Commands) {
         Name::new("Gradient Circle"),
         Sdf,
         Transform::from_xyz(0., -200., 0.),
-        builtins::Circle { radius: 50. },
+        Circle(50.),
         Fill(css::BLACK),
     ));
 
@@ -40,10 +41,8 @@ fn spawn(mut cmds: Commands) {
         Name::new("Rounded Square"),
         Sdf,
         Transform::from_xyz(-200., -200., 0.),
-        Quad {
-            half_size: Vec2::splat(30.),
-        },
-        Rounded { rounded: 20. },
+        Quad(Vec2::splat(30.)),
+        Rounded(20.),
         Fill(css::TURQUOISE),
     ));
 
@@ -51,9 +50,7 @@ fn spawn(mut cmds: Commands) {
         Name::new("Square"),
         Sdf,
         Transform::from_xyz(-200., 0., 0.),
-        Quad {
-            half_size: Vec2::splat(50.),
-        },
+        Quad(Vec2::splat(50.)),
         Fill(css::GREEN),
     ));
 
@@ -61,9 +58,7 @@ fn spawn(mut cmds: Commands) {
         Name::new("Rectangle"),
         Sdf,
         Transform::from_xyz(-200., 200., 0.),
-        Quad {
-            half_size: Vec2::new(70., 30.),
-        },
+        Quad(Vec2::new(70., 30.)),
         Fill(css::LAWN_GREEN),
     ));
 
@@ -71,11 +66,9 @@ fn spawn(mut cmds: Commands) {
         Name::new("Annular Square"),
         Sdf,
         Transform::from_xyz(-400., 200., 0.),
-        Quad {
-            half_size: Vec2::splat(30.),
-        },
-        Rounded { rounded: 10. },
-        Annular { annular: 10. },
+        Quad(Vec2::splat(30.)),
+        Rounded(10.),
+        Annular(10.),
         Fill(css::STEEL_BLUE),
     ));
 
@@ -83,10 +76,8 @@ fn spawn(mut cmds: Commands) {
         Name::new("Rotated Square"),
         Sdf,
         Transform::from_xyz(-400., 0., 0.).with_rotation(Quat::from_rotation_z(PI * 0.25)),
-        Quad {
-            half_size: Vec2::splat(30.),
-        },
-        Rounded { rounded: 20. },
+        Quad(Vec2::splat(30.)),
+        Rounded(20.),
         Fill(css::ROYAL_BLUE),
     ));
 
@@ -94,22 +85,22 @@ fn spawn(mut cmds: Commands) {
         Name::new("Gradient Line"),
         Sdf,
         Transform::from_xyz(200., 200., 0.),
-        Line { length: 32. },
-        Annular { annular: 10. },
-        Rounded { rounded: 22. },
+        Line(32.),
+        Annular(10.),
+        Rounded(22.),
         Fill(css::CADET_BLUE),
-        // Gradient {
-        //     color: css::BLACK.into(),
-        //     intervall: 1.25,
-        // },
+        DistanceGradient {
+            interval: 1.25,
+            color: css::BLACK.to_vec4(),
+        },
     ));
 
     cmds.spawn((
         Name::new("Line"),
         Sdf,
         Transform::from_xyz(200., 0., 0.),
-        Line { length: 32. },
-        Rounded { rounded: 32. },
+        Line(32.),
+        Rounded(32.),
         Fill(css::BLUE),
     ));
 
@@ -117,9 +108,9 @@ fn spawn(mut cmds: Commands) {
         Name::new("Annular Line"),
         Sdf,
         Transform::from_xyz(-400., -200., 0.),
-        Line { length: 32. },
-        Annular { annular: 10. },
-        Rounded { rounded: 22. },
+        Line(32.),
+        Annular(10.),
+        Rounded(22.),
         Fill(css::LIGHT_YELLOW),
     ));
 }

@@ -1,6 +1,7 @@
 use crate::calculations::Calculation;
 use crate::groups::GlobalGroupInfos;
 use crate::pipeline::specialization::CuttlePipeline;
+use crate::shader::wgsl_struct::ToWgslFn;
 use bevy::asset::io::{AssetReaderError, MissingAssetSourceError};
 use bevy::asset::AssetPath;
 use bevy::render::RenderApp;
@@ -10,7 +11,6 @@ use bevy::{
 };
 use derive_more::derive::{Display, Error, From};
 use gen::gen_shader;
-use serde::{Deserialize, Serialize};
 use std::string::FromUtf8Error;
 
 pub mod gen;
@@ -28,16 +28,31 @@ impl Plugin for ShaderPlugin {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone)]
 pub struct ComponentShaderInfo {
-    pub name: String,
-    pub(crate) render_data: Option<RenderDataShaderInfo>,
+    pub function_name: String,
+    pub render_data: Option<RenderDataShaderInfo>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+pub struct ToComponentShaderInfo {
+    pub function_name: String,
+    pub to_render_data: Option<ToRenderDataShaderInfo>,
+}
+
+#[derive(Clone)]
 pub struct RenderDataShaderInfo {
     pub binding: u32,
-    pub struct_wgsl: String,
+    pub wgsl: RenderDataWgsl,
+}
+
+pub struct ToRenderDataShaderInfo {
+    pub binding: u32,
+    pub to_wgsl: ToWgslFn,
+}
+
+#[derive(Clone)]
+pub struct RenderDataWgsl {
+    pub definition: String,
+    pub name: String,
 }
 
 pub(crate) fn load_shader_to_pipeline(app: &mut App, settings: ShaderSettings, group_id: usize) {
@@ -116,7 +131,7 @@ async fn load_asset_bytes_manually(
     Ok(bytes)
 }
 
-#[derive(Serialize, Deserialize, Default, Clone)]
+#[derive(Default)]
 pub(crate) struct ShaderSettings {
     pub infos: Vec<ComponentShaderInfo>,
     pub calculations: Vec<Calculation>,
@@ -129,7 +144,7 @@ pub struct Snippet(pub String);
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct AddSnippets(Vec<AddSnippet>);
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Clone)]
 pub enum AddSnippet {
     Inline(String),
     File(String),

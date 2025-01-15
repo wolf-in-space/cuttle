@@ -25,8 +25,6 @@ pub fn plugin(app: &mut App) {
 #[derive(Debug, SystemSet, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone)]
 pub struct ComputeGlobalBounding;
 
-pub type InitBoundingFn = Box<dyn FnMut(&mut App) + Send + Sync>;
-
 #[derive(Clone, Copy, Debug, Component, Default, Reflect, Deref, DerefMut)]
 #[reflect(Component)]
 pub struct BoundingRadius(pub f32);
@@ -41,14 +39,13 @@ impl Default for GlobalBoundingCircle {
     }
 }
 
-#[derive(SystemSet, Hash, PartialEq, Eq, Debug, Clone, Copy, Default)]
+#[derive(SystemSet, Hash, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum Bounding {
-    #[default]
-    None,
     Add,
     Multiply,
 }
 
+#[inline]
 pub const fn make_compute_aabb_system<C: Component>(
     func: fn(&C) -> f32,
     set: Bounding,
@@ -59,7 +56,6 @@ pub const fn make_compute_aabb_system<C: Component>(
             match set {
                 Bounding::Add => **bounding += val,
                 Bounding::Multiply => **bounding *= val,
-                Bounding::None => panic!("NO"),
             }
         }
     }
@@ -88,7 +84,7 @@ fn compute_global_bounding_circles(
     }
 }
 
-//TODO: Change Comments
+// TODO: Change Comments
 /// System updating the visibility of entities each frame.
 ///
 /// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each

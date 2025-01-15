@@ -62,9 +62,7 @@ fn spawn(mut cmds: Commands) {
     spin::<SmoothUnion>(&mut cmds, -500., -50., |cmds, x, y| {
         cmds.spawn((
             Sdf,
-            Quad {
-                half_size: Vec2::new(15., 220.),
-            },
+            Quad(Vec2::new(15., 220.)),
             Transform::from_xyz(x, y - 40. * 5., 0.),
             Fill(tailwind::GRAY_100),
             Rotate { speed: 0.2 },
@@ -75,9 +73,7 @@ fn spawn(mut cmds: Commands) {
     spin::<SmoothSubtract>(&mut cmds, 0., -50., |cmds, x, y| {
         cmds.spawn((
             Sdf,
-            Quad {
-                half_size: Vec2::new(100., 220.),
-            },
+            Quad(Vec2::new(100., 220.)),
             Transform::from_xyz(x, y - 40. * 5., 0.),
             Fill(tailwind::GRAY_100),
             Rotate { speed: 0.2 },
@@ -88,7 +84,7 @@ fn spawn(mut cmds: Commands) {
     cmds.spawn((
         Sdf,
         Transform::from_xyz(500., -250., 100.),
-        builtins::Circle { radius: 10. },
+        Circle(10.),
         Fill(css::RED),
         Repetition {
             repetitions: Vec2::new(3., 5.),
@@ -123,9 +119,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
     let quad = cmds
         .spawn((
             Sdf,
-            Quad {
-                half_size: Vec2::new(25., 25.),
-            },
+            Quad(Vec2::new(25., 25.)),
             Transform::from_translation(pos),
             Fill(tailwind::AMBER_400),
         ))
@@ -133,7 +127,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
 
     cmds.spawn((
         Extension::new(quad),
-        builtins::Circle { radius: 15. },
+        Circle(15.),
         Transform::from_translation(pos),
         Fill(tailwind::TEAL_400),
         Morph::default(),
@@ -148,8 +142,8 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
     let quad = cmds
         .spawn((
             Sdf,
-            Line { length: 30. },
-            Rounded { rounded: 15. },
+            Line(30.),
+            Rounded(15.),
             Transform::from_translation(pos).with_rotation(Quat::from_rotation_z(PI * 0.5)),
             Fill(tailwind::RED_700),
         ))
@@ -157,9 +151,7 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
 
     cmds.spawn((
         Extension::new(quad),
-        Quad {
-            half_size: Vec2::splat(20.),
-        },
+        Quad(Vec2::splat(20.)),
         Transform::from_translation(pos),
         Fill(tailwind::BLUE_700),
         Morph::default(),
@@ -177,7 +169,7 @@ struct AnimateMorph {
 
 fn animate_morph(mut morphs: Query<(&AnimateMorph, &mut Morph)>, time: Res<Time>) {
     for (animate, mut morph) in &mut morphs {
-        morph.morph = (time.elapsed_secs() * animate.speed).sin() * animate.scale * 0.5 + 0.5;
+        morph.0 = (time.elapsed_secs() * animate.speed).sin() * animate.scale * 0.5 + 0.5;
     }
 }
 
@@ -193,7 +185,7 @@ fn spin<OP: Default + Component>(
         (
             Extension::new(sdf),
             Transform::from_xyz(x, pos, 0.),
-            builtins::Circle { radius: 10. },
+            Circle(10.),
             Fill(color),
             MovingBall { offset, start: x },
             OP::default(),
@@ -216,9 +208,7 @@ fn spin<OP: Default + Component>(
     cmds.spawn((
         Extension::new(sdf),
         Transform::from_xyz(x, y - 40. * 7., 0.),
-        Quad {
-            half_size: Vec2::splat(10.),
-        },
+        Quad(Vec2::splat(10.)),
         Fill(tailwind::GREEN_400),
         MovingBall {
             offset: 2.1,
@@ -229,9 +219,7 @@ fn spin<OP: Default + Component>(
 
     cmds.spawn((
         Extension::new(sdf),
-        Quad {
-            half_size: Vec2::splat(10.),
-        },
+        Quad(Vec2::splat(10.)),
         Transform::from_xyz(x, y - 40. * 8., 0.),
         Fill(tailwind::GREEN_400),
         MovingBall {
@@ -245,23 +233,21 @@ fn spin<OP: Default + Component>(
     cmds.spawn((
         Extension::new(sdf),
         Transform::from_xyz(x, y - 40. * 9., 0.),
-        builtins::Circle { radius: 7. },
+        Circle(7.),
         Fill(tailwind::GREEN_400),
         MovingBall {
             offset: 2.7,
             start: x,
         },
-        Annular { annular: 3. },
+        Annular(3.),
         OP::default(),
     ));
 
     cmds.spawn((
         Extension::new(sdf),
         Transform::from_xyz(x, y - 40. * 10., 0.),
-        Quad {
-            half_size: Vec2::splat(7.),
-        },
-        Annular { annular: 3. },
+        Quad(Vec2::splat(7.)),
+        Annular(3.),
         Fill(tailwind::GREEN_400),
         MovingBall {
             offset: 3.0,
@@ -278,7 +264,7 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
         .spawn((
             Sdf,
             Transform::from_xyz(pos.x, pos.y, 0.),
-            builtins::Circle { radius: 30. },
+            Circle(30.),
             Fill(tailwind::SKY_400),
             // Gradient {
             //     color: tailwind::NEUTRAL_200.into(),
@@ -289,9 +275,7 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
     cmds.spawn((
         Extension::new(sdf),
         Transform::from_xyz(pos.x, pos.y, 0.),
-        Quad {
-            half_size: Vec2::splat(25.),
-        },
+        Quad(Vec2::splat(25.)),
         Fill(tailwind::FUCHSIA_400),
         O::default(),
         MovingBox,

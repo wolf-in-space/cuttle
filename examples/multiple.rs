@@ -29,12 +29,7 @@ fn spawn(mut cmds: Commands) {
         );
         match thread_rng().gen_range(0..2) {
             0 => cmds.spawn((base, (builtins::Circle { radius: 40. },))),
-            _ => cmds.spawn((
-                base,
-                (Quad {
-                    half_size: Vec2::splat(40.),
-                },),
-            )),
+            _ => cmds.spawn((base, (Quad(Vec2::splat(40.)),))),
         };
     }
 }

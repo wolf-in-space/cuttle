@@ -1,15 +1,14 @@
 use crate::bounding::GlobalBoundingCircle;
-use crate::components::initialization::CuttleRenderDataFrom;
+use crate::components::initialization::CuttleRenderData;
 use crate::components::{arena::IndexArena, buffer::CompBuffer};
 use crate::extensions::CompIndicesBuffer;
-use crate::indices::{ComponentIndex, CuttleIndices};
+use crate::indices::{CuttleComponentIndex, CuttleIndices};
 use bevy::ecs::entity::EntityHashMap;
 use bevy::{
     math::bounding::BoundingCircle,
     prelude::*,
     render::{Extract, RenderApp},
 };
-use std::any::type_name;
 use std::fmt::Debug;
 
 pub fn plugin(app: &mut App) {
@@ -18,25 +17,14 @@ pub fn plugin(app: &mut App) {
         .add_systems(ExtractSchedule, extract_cuttles);
 }
 
-pub(crate) fn extract_cuttle_comp<C: Component, R: CuttleRenderDataFrom<C>>(
-    mut buffer: Single<&mut CompBuffer<R>>,
+pub(crate) fn extract_cuttle_comp<C: Component, R: CuttleRenderData>(
+    mut buffer: Single<&mut CompBuffer<C, R>>,
     arena: Extract<Res<IndexArena<C>>>,
-    comps: Extract<Query<(&ComponentIndex<C>, &C), Changed<C>>>,
+    comps: Extract<Query<(&CuttleComponentIndex<C>, &C), Changed<C>>>,
 ) {
-    let buffer = buffer.get_mut();
-    buffer.resize_with(arena.max as usize, || R::default());
-
+    buffer.resize(arena.max as usize);
     for (index, comp) in &comps {
-        if let Some(elem) = buffer.get_mut(**index as usize) {
-            *elem = R::from_comp(comp);
-        } else {
-            error!(
-                "{} out of bounds for CompBuffer<{}> with size {}",
-                **index,
-                type_name::<C>(),
-                buffer.len()
-            );
-        };
+        buffer.set(**index as usize, comp);
     }
 }
 

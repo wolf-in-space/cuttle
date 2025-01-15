@@ -20,9 +20,7 @@ fn spawn(mut cmds: Commands) {
             justify_content: JustifyContent::Center,
             ..default()
         },
-        Quad {
-            half_size: Vec2::new(50., 20.),
-        },
+        Quad(Vec2::new(50., 20.)),
         Fill(tailwind::SKY_800),
     ))
     .with_children(|c| {
@@ -35,7 +33,7 @@ fn spawn(mut cmds: Commands) {
             },
             builtins::Circle { radius: 15. },
             BackgroundColor(Color::srgba(1.0, 0.0, 0.0, 0.1)),
-            Fill(Srgba::new (1.0, 0.0, 0.0, 1.0)),
+            Fill(Srgba::new(1.0, 0.0, 0.0, 1.0)),
         ));
 
         c.spawn((
@@ -48,7 +46,7 @@ fn spawn(mut cmds: Commands) {
             builtins::Circle { radius: 10. },
             Annular { annular: 5. },
             BackgroundColor(Color::srgba(0.0, 1.0, 0.0, 0.1)),
-            Fill(Srgba::new (0.0, 1.0, 0.0, 1.0)),
+            Fill(Srgba::new(0.0, 1.0, 0.0, 1.0)),
         ));
 
         c.spawn((
@@ -60,7 +58,7 @@ fn spawn(mut cmds: Commands) {
             },
             builtins::Circle { radius: 20. },
             BackgroundColor(Color::srgba(0.0, 0.0, 1.0, 0.1)),
-            Fill(Srgba::new (0.0, 0.0, 1.0, 1.0)),
+            Fill(Srgba::new(0.0, 0.0, 1.0, 1.0)),
         ));
     });
 }

@@ -1,20 +1,28 @@
-use crate::bounding::{make_compute_aabb_system, InitBoundingFn};
+use crate::bounding::{make_compute_aabb_system, Bounding};
 use crate::calculations::Calculation;
+use crate::components::arena::IndexArena;
 use crate::components::buffer::BufferEntity;
 use crate::components::initialization::{
-    init_component, init_components_for_group, init_zst_component, CuttleComponent,
-    CuttleRenderDataFrom, CuttleZstComponent, InitComponentInfo, RegisterCuttleComponent,
+    init_render_data, ComponentOrder, CuttleStructComponent, CuttleWrapperComponent,
 };
 use crate::indices::{
-    build_set_flag_index, on_add_group_marker_initialize_indices_group_id, CuttleIndices,
+    build_set_flag_index, on_add_group_marker_initialize_indices_group_id, CuttleComponentIndex,
+    CuttleIndices,
 };
 use crate::pipeline::SortedCuttlePhaseItem;
-use crate::shader::{load_shader_to_pipeline, AddSnippet, ShaderSettings};
+use crate::shader::wgsl_struct::WgslTypeInfos;
+use crate::shader::{
+    load_shader_to_pipeline, AddSnippet, ComponentShaderInfo, RenderDataShaderInfo, ShaderSettings,
+    ToComponentShaderInfo, ToRenderDataShaderInfo,
+};
 use bevy::prelude::*;
+use bevy::reflect::Typed;
 use bevy::render::sync_world::RenderEntity;
 use bevy::render::RenderApp;
 use bevy::utils::TypeIdMap;
-use std::{any::TypeId, marker::PhantomData};
+use convert_case::{Case, Casing};
+use std::any::type_name;
+use std::{any::TypeId, marker::PhantomData, mem};
 
 pub trait CuttleGroup: Component + Default {
     type Phase: SortedCuttlePhaseItem;
@@ -25,7 +33,6 @@ pub type InitGroupFn = fn(&mut App);
 pub struct InitGroupFns(Vec<InitGroupFn>);
 
 pub type InitObserversFn = fn(&mut App, positions: Vec<Option<u8>>);
-pub type InitExtractFn = fn(&mut App, positions: Vec<Option<u8>>);
 
 #[derive(Resource)]
 pub struct GlobalGroupInfos {
@@ -57,29 +64,121 @@ impl GlobalGroupInfos {
             .contains_key(&TypeId::of::<C>())
     }
 
-    pub fn register_component<C: Component>(&mut self, group_id: usize, pos: u8) {
-        let id = TypeId::of::<C>();
-        self.component_positions[group_id].insert(id, pos);
-        self.component_observer_inits.insert(id, |app, positions| {
-            app.add_observer(build_set_flag_index::<true, OnAdd, C>(positions.clone()));
-            app.add_observer(build_set_flag_index::<false, OnRemove, C>(positions));
-        });
+    pub fn register_component_positions(
+        app: &mut App,
+        group_id: usize,
+        positions: Vec<(TypeId, u8)>,
+    ) {
+        let mut global = app.world_mut().resource_mut::<GlobalGroupInfos>();
+        for (id, pos) in positions {
+            global.component_positions[group_id].insert(id, pos);
+        }
     }
+
+    pub fn register_component<C: Component>(app: &mut App) {
+        let mut global = app.world_mut().resource_mut::<GlobalGroupInfos>();
+        let id = TypeId::of::<C>();
+        if !global.is_registered::<C>() {
+            global
+                .component_observer_inits
+                .insert(id, |app, positions| {
+                    app.add_observer(build_set_flag_index::<true, OnAdd, C>(positions.clone()));
+                    app.add_observer(build_set_flag_index::<false, OnRemove, C>(positions));
+                });
+        }
+    }
+}
+
+pub struct ComponentInfo {
+    order: ComponentOrder,
+    to_shader_info: ToComponentShaderInfo,
 }
 
 #[derive(Resource)]
 pub(crate) struct GroupData<G> {
-    pub init_comp_fns: Vec<InitComponentInfo>,
+    pub component_infos: Vec<ComponentInfo>,
     pub calculations: Vec<Calculation>,
     pub snippets: Vec<AddSnippet>,
     pub marker: PhantomData<G>,
+}
+
+impl<G: CuttleGroup> GroupData<G> {
+    fn init(app: &mut App) {
+        let world = app.world_mut();
+        let group_id = world.resource::<GroupIdStore<G>>().id;
+        let GroupData {
+            component_infos,
+            snippets,
+            calculations,
+            ..
+        } = world.remove_resource::<GroupData<G>>().unwrap();
+
+        let (component_order, to_shader_infos) =
+            Self::sort_and_split_component_infos(component_infos);
+        Self::init_component_positions(app, group_id, component_order);
+        let infos = Self::process_to_shader_infos(app, to_shader_infos);
+
+        let shader_settings = ShaderSettings {
+            infos,
+            calculations,
+            snippets,
+        };
+        load_shader_to_pipeline(app, shader_settings, group_id);
+    }
+
+    fn sort_and_split_component_infos(
+        mut component_infos: Vec<ComponentInfo>,
+    ) -> (Vec<ComponentOrder>, Vec<ToComponentShaderInfo>) {
+        component_infos.sort_by_key(|c| c.order.sort);
+        component_infos
+            .into_iter()
+            .map(|i| (i.order, i.to_shader_info))
+            .unzip()
+    }
+
+    fn init_component_positions(app: &mut App, group_id: usize, components: Vec<ComponentOrder>) {
+        let positions = components
+            .into_iter()
+            .enumerate()
+            .map(|(i, info)| (info.id, i as u8))
+            .collect();
+        GlobalGroupInfos::register_component_positions(app, group_id, positions);
+    }
+
+    fn process_to_shader_infos(
+        app: &mut App,
+        to_shader_info: Vec<ToComponentShaderInfo>,
+    ) -> Vec<ComponentShaderInfo> {
+        let wgsl_type_infos = app.world().resource::<WgslTypeInfos>();
+        to_shader_info
+            .into_iter()
+            .map(
+                |ToComponentShaderInfo {
+                     function_name,
+                     to_render_data,
+                 }| {
+                    let render_data =
+                        to_render_data.map(|ToRenderDataShaderInfo { binding, to_wgsl }| {
+                            RenderDataShaderInfo {
+                                binding,
+                                wgsl: to_wgsl(&wgsl_type_infos),
+                            }
+                        });
+                    ComponentShaderInfo {
+                        function_name,
+                        render_data,
+                    }
+                },
+            )
+            .collect()
+    }
 }
 
 impl<G> Default for GroupData<G> {
     fn default() -> Self {
         Self {
             marker: PhantomData,
-            init_comp_fns: default(),
+            component_infos: default(),
             calculations: vec![Calculation {
                 name: "vertex".to_string(),
                 wgsl_type: "VertexOut".to_string(),
@@ -89,8 +188,9 @@ impl<G> Default for GroupData<G> {
     }
 }
 
-pub struct CuttleGroupBuilder<'a, G> {
-    pub(crate) group: &'a mut GroupData<G>,
+pub struct CuttleGroupBuilder<'a, G: CuttleGroup> {
+    pub(crate) group: GroupData<G>,
+    pub(crate) app: &'a mut App,
 }
 
 impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
@@ -161,91 +261,115 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
         self
     }
 
-    /// Registers a zst (zero sized type / struct with no data) component
-    /// to affect any entity of this Group that it is added to
-    ///
-    /// ```
-    /// # use bevy::prelude::{Component, Reflect};
-    /// # use bevy::render::render_resource::ShaderType;
-    /// # use cuttle::components::initialization::{CuttleComponent, CuttleZstComponent};
-    /// # use cuttle::prelude::DISTANCE_POS;
-    ///
-    /// #[derive(Component, Reflect, ShaderType, Clone, Debug)]
-    /// struct MyZstComponent;
-    ///
-    /// impl CuttleZstComponent for MyZstComponent {
-    ///     const SORT: u32 = DISTANCE_POS + 500;
-    /// }
-    /// ```
-    ///
-    /// Example wgsl code for MyZstComponent:
-    /// ```wgsl
-    /// fn my_zst_component() {
-    ///     distance *= 2.0;
-    /// }
-    /// ```
-    pub fn zst_component<C: CuttleZstComponent>(&mut self) -> &mut Self {
-        self.group.init_comp_fns.push(InitComponentInfo {
-            sort: C::SORT,
-            init_bounding: None,
-            init_fn: init_zst_component::<C, G>,
-        });
-        self
-    }
-
     /// Registers a component to affect any entity of this Group that it is added to
     ///
     /// ```
     /// # use bevy::prelude::{Component, Reflect};
     /// # use bevy::render::render_resource::ShaderType;
-    /// # use cuttle::components::initialization::CuttleComponent;
-    /// # use cuttle::prelude::DISTANCE_POS;
     ///
     /// #[derive(Component, Reflect, ShaderType, Clone, Debug)]
     /// struct MyComponent {
     ///     value: f32,
     /// }
     ///
-    /// impl CuttleComponent for MyComponent {
-    ///     type RenderData = Self;
-    ///     const SORT: u32 = DISTANCE_POS + 500;
-    /// }
     /// ```
-    ///
     /// Example wgsl code for MyComponent:
     /// ```wgsl
     /// fn my_component(input: MyComponent) {
     ///     distance += input.value;
     /// }
     /// ```
-    pub fn component<C: CuttleComponent>(&'a mut self) -> &'a mut Self {
-        self.component_with(C::registration_data())
+    pub fn component<C: CuttleStructComponent>(&mut self, sort: impl Into<u32>) -> &mut Self {
+        let binding = init_render_data(self.app, C::to_render_data);
+        self.register_component_manual::<C>(
+            sort,
+            Some(ToRenderDataShaderInfo {
+                binding,
+                to_wgsl: C::wgsl_type,
+            }),
+        )
     }
 
-    /// Specify all the data for the component manually. Useful to
-    /// evade the orphan rule.
-    /// see [`component`](CuttleGroupBuilder::component) for more info.
-    pub fn component_with<C: Component, R: CuttleRenderDataFrom<C>>(
+    pub fn wrapper_component<C: CuttleWrapperComponent>(
         &mut self,
-        data: RegisterCuttleComponent<C, R>,
+        sort: impl Into<u32>,
     ) -> &mut Self {
-        let init_bounding = data.affect_bounds_fn.map(|func| {
-            let result: InitBoundingFn = Box::new(move |app: &mut App| {
-                app.add_systems(
-                    PostUpdate,
-                    make_compute_aabb_system(func, data.affect_bounds)
-                        .ambiguous_with_all()
-                        .in_set(data.affect_bounds),
-                );
-            });
-            result
+        let binding = init_render_data(self.app, C::to_render_data);
+        self.register_component_manual::<C>(
+            sort,
+            Some(ToRenderDataShaderInfo {
+                binding,
+                to_wgsl: C::wgsl_type,
+            }),
+        )
+    }
+
+    /// Registers a marker component to work with this group.
+    ///
+    /// ```
+    /// # use bevy::core_pipeline::core_2d::Transparent2d;
+    /// # use bevy::prelude::{App, Component, Reflect};
+    /// # use bevy::render::render_resource::ShaderType;
+    /// # use cuttle::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
+    /// # use cuttle::prelude::{Sdf, SdfOrder};
+    /// # let mut app = App::new();
+    /// # #[derive(Default, Component)]
+    /// # struct MyGroup;
+    /// # impl CuttleGroup for MyGroup { type Phase = Transparent2d; }
+    ///
+    /// #[derive(Component, Reflect, Clone, Debug)]
+    /// struct Intersect;
+    ///
+    /// app.cuttle_group::<Sdf>()
+    ///     .marker_component::<Intersect>(SdfOrder::Operations)
+    ///     .snippet(stringify!(
+    ///         fn my_marker_component() {
+    ///             distance *= 2.0;
+    ///         }
+    ///     ));
+    /// ```
+    pub fn marker_component<C: Component + Typed>(&mut self, sort: impl Into<u32>) -> &mut Self {
+        self.register_component_manual::<C>(sort, None)
+    }
+
+    pub fn register_component_manual<C: Component + Typed>(
+        &mut self,
+        sort: impl Into<u32>,
+        to_render_data: Option<ToRenderDataShaderInfo>,
+    ) -> &mut Self {
+        let Some(function_name) = C::type_ident().map(|i| i.to_case(Case::Snake)) else {
+            panic!(
+                "Registering Component '{}' is not a named type",
+                type_name::<C>()
+            );
+        };
+
+        let order = ComponentOrder {
+            sort: sort.into(),
+            id: TypeId::of::<C>(),
+        };
+        let to_shader_info = ToComponentShaderInfo {
+            function_name,
+            to_render_data,
+        };
+        self.group.component_infos.push(ComponentInfo {
+            order,
+            to_shader_info,
         });
-        self.group.init_comp_fns.push(InitComponentInfo {
-            sort: data.sort,
-            init_bounding,
-            init_fn: init_component::<C, R, G>,
-        });
+        GlobalGroupInfos::register_component::<C>(self.app);
         self
+    }
+
+    pub fn affect_bounds<C: Component>(&mut self, set: Bounding, func: fn(&C) -> f32) -> &mut Self {
+        self.app
+            .add_systems(PostUpdate, make_compute_aabb_system(func, set));
+        self
+    }
+}
+
+impl<'a, G: CuttleGroup> Drop for CuttleGroupBuilder<'a, G> {
+    fn drop(&mut self) {
+        self.app.insert_resource(mem::take(&mut self.group));
     }
 }
 
@@ -258,9 +382,8 @@ impl CuttleGroupBuilderAppExt for App {
         if !self.is_plugin_added::<GroupPlugin<G>>() {
             self.add_plugins(GroupPlugin::<G>::new());
         }
-        CuttleGroupBuilder {
-            group: self.world_mut().resource_mut::<GroupData<G>>().into_inner(),
-        }
+        let group = self.world_mut().remove_resource::<GroupData<G>>().unwrap();
+        CuttleGroupBuilder { group, app: self }
     }
 }
 
@@ -312,24 +435,6 @@ impl<G: CuttleGroup> Plugin for GroupPlugin<G> {
 
         app.world_mut()
             .resource_mut::<InitGroupFns>()
-            .push(init_group::<G>);
+            .push(GroupData::<G>::init);
     }
-}
-
-fn init_group<G: CuttleGroup>(app: &mut App) {
-    let world = app.world_mut();
-    let group_id = world.resource::<GroupIdStore<G>>().id;
-    let GroupData {
-        init_comp_fns,
-        snippets,
-        calculations,
-        ..
-    } = world.remove_resource::<GroupData<G>>().unwrap();
-    let infos = init_components_for_group(app, init_comp_fns, group_id);
-    let shader_settings = ShaderSettings {
-        infos,
-        calculations,
-        snippets,
-    };
-    load_shader_to_pipeline(app, shader_settings, group_id);
 }

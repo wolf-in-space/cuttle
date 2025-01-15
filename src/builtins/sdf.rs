@@ -1,14 +1,39 @@
+use crate::bounding::Bounding;
 use crate::builtins::*;
-use crate::components::initialization::RegisterCuttleComponent;
+use crate::components::initialization::{init_render_data, CuttleWrapperComponent};
 use crate::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
-use crate::prelude::Annular;
+use crate::shader::wgsl_struct::WgslTypeInfos;
+use crate::shader::ToRenderDataShaderInfo;
+use bevy::asset::embedded_asset;
 use bevy::core_pipeline::core_2d::Transparent2d;
 use bevy::prelude::{App, Component};
+use bevy::render::render_resource::ShaderType;
 use bevy::ui::TransparentUi;
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_plugins((sdf_plugin::<Sdf>, sdf_plugin::<UiSdf>));
+    embedded_asset!(app, "builtins.wgsl");
+    app.register_type::<Rounded>()
+        .register_type::<Annular>()
+        .register_type::<PrepareBase>()
+        .register_type::<Circle>()
+        .register_type::<Line>()
+        .register_type::<Quad>()
+        .register_type::<Fill>()
+        .register_type::<DistanceGradient>()
+        .register_type::<ForceFieldAlpha>()
+        .register_type::<PrepareOperation>()
+        .register_type::<Unioni>()
+        .register_type::<SmoothUnion>()
+        .register_type::<Subtract>()
+        .register_type::<SmoothSubtract>()
+        .register_type::<Intersect>()
+        .register_type::<SmoothIntersect>()
+        .register_type::<Xor>()
+        .register_type::<Morph>()
+        .register_type::<Repetition>();
+    app.add_plugins(sdf_plugin::<Sdf>);
 }
+
 fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
     app.cuttle_group::<G>()
         .snippet_file("embedded://cuttle/builtins/builtins.wgsl")
@@ -19,33 +44,47 @@ fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
         .calculation("color", "vec4<f32>")
         .calculation("prev_distance", "f32")
         .calculation("prev_color", "vec4<f32>")
-        .component::<Annular>()
-        .component::<Fill>()
-        .component::<DistanceGradient>()
-        .zst_component::<ForceFieldAlpha>()
-        .zst_component::<PrepareBase>()
-        .component::<Stretch>()
-        .component::<Circle>()
-        .component::<Line>()
-        .component::<Quad>()
-        .component_with(
-            RegisterCuttleComponent::<GlobalTransform, GlobalTransformRender> {
-                sort: TRANSFORM_POS + 100,
-                ..default()
-            },
-        )
-        .component::<Rounded>()
-        .zst_component::<PrepareOperation>()
-        .zst_component::<Unioni>()
-        .zst_component::<Subtract>()
-        .zst_component::<Intersect>()
-        .zst_component::<Xor>()
-        .component::<SmoothUnion>()
-        .component::<SmoothSubtract>()
-        .component::<SmoothIntersect>()
-        .component::<SmoothXor>()
-        .component::<Repetition>()
-        .component::<Morph>();
+        .marker_component::<PrepareOperation>(SdfOrder::Prepare)
+        .marker_component::<PrepareBase>(SdfOrder::Prepare)
+        .wrapper_component::<Annular>(SdfOrder::Distance)
+        .affect_bounds(Bounding::Add, |&Annular(a)| a)
+        .wrapper_component::<Fill>(SdfOrder::Distance)
+        .component::<DistanceGradient>(SdfOrder::Last)
+        .marker_component::<ForceFieldAlpha>(SdfOrder::Alpha)
+        .wrapper_component::<Stretch>(SdfOrder::Translation)
+        .affect_bounds(Bounding::Multiply, |&Stretch(s)| s.length())
+        .wrapper_component::<Circle>(SdfOrder::Base)
+        .affect_bounds(Bounding::Add, |&Circle(c)| c)
+        .wrapper_component::<Line>(SdfOrder::Base)
+        .affect_bounds(Bounding::Add, |&Line(l)| l)
+        .wrapper_component::<Quad>(SdfOrder::Base)
+        .affect_bounds(Bounding::Add, |&Quad(q)| q.length())
+        .wrapper_component::<Rounded>(SdfOrder::Distance)
+        .affect_bounds(Bounding::Add, |&Rounded(r)| r)
+        .marker_component::<Unioni>(SdfOrder::Operations)
+        .marker_component::<Subtract>(SdfOrder::Operations)
+        .marker_component::<Intersect>(SdfOrder::Operations)
+        .marker_component::<Xor>(SdfOrder::Operations)
+        .wrapper_component::<SmoothUnion>(SdfOrder::Operations)
+        .wrapper_component::<SmoothSubtract>(SdfOrder::Operations)
+        .wrapper_component::<SmoothIntersect>(SdfOrder::Operations)
+        .wrapper_component::<SmoothXor>(SdfOrder::Operations)
+        .component::<Repetition>(SdfOrder::Operations)
+        .wrapper_component::<Morph>(SdfOrder::Operations);
+
+    register_global_transform(app);
+}
+
+fn register_global_transform(app: &mut App) {
+    let binding = init_render_data(app, |g: &GlobalTransform| g.compute_matrix().inverse());
+    app.cuttle_group::<Sdf>()
+        .register_component_manual::<GlobalTransform>(
+            SdfOrder::Translation,
+            Some(ToRenderDataShaderInfo {
+                binding,
+                to_wgsl: WgslTypeInfos::wgsl_type_for_builtin::<Mat4>,
+            }),
+        );
 }
 
 #[derive(Component, Debug, Default, Clone)]
@@ -62,3 +101,163 @@ pub struct UiSdf;
 impl CuttleGroup for UiSdf {
     type Phase = TransparentUi;
 }
+
+#[derive(Copy, Clone)]
+pub enum SdfOrder {
+    Prepare = 1000,
+    Translation = 2000,
+    Base = 3000,
+    Distance = 4000,
+    Color = 5000,
+    Alpha = 6000,
+    Operations = 7000,
+    Last = 99999,
+}
+
+impl From<SdfOrder> for u32 {
+    fn from(value: SdfOrder) -> Self {
+        value as u32
+    }
+}
+
+#[derive(Debug, Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct PrepareBase;
+
+#[derive(Debug, Default, Clone, Copy, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct Rounded(pub f32);
+
+#[derive(Debug, Default, Clone, Copy, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct Annular(pub f32);
+
+#[derive(Debug, Default, Copy, Clone, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+#[require(PrepareBase)]
+pub struct Circle(pub f32);
+
+#[derive(Debug, Default, Clone, Copy, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+#[require(PrepareBase)]
+pub struct Line(pub f32);
+
+#[derive(Debug, Default, Clone, Copy, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+#[require(PrepareBase)]
+pub struct Quad(pub Vec2);
+
+#[derive(Debug, Default, Clone, Component, Reflect)]
+#[reflect(Component)]
+pub struct Fill(pub Srgba);
+
+impl CuttleWrapperComponent for Fill {
+    type RenderData = Vec4;
+    fn to_render_data(&self) -> Self::RenderData {
+        self.0.to_vec4()
+    }
+}
+
+#[derive(Debug, Default, Clone, Component, ShaderType, Reflect)]
+#[reflect(Component)]
+pub struct DistanceGradient {
+    pub interval: f32,
+    pub color: Vec4,
+}
+
+#[derive(Debug, Default, Clone, Component, Reflect)]
+#[reflect(Component)]
+pub struct ForceFieldAlpha;
+
+#[derive(Debug, Component, Reflect, Default)]
+#[reflect(Component)]
+pub struct PrepareOperation;
+
+#[derive(Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+#[require(PrepareOperation)]
+pub struct Unioni;
+
+#[derive(Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+#[require(PrepareOperation)]
+pub struct Subtract;
+
+#[derive(Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+#[require(PrepareOperation)]
+pub struct Intersect;
+
+#[derive(Debug, Default, Component, Reflect)]
+#[reflect(Component)]
+#[require(PrepareOperation)]
+pub struct Xor;
+
+#[derive(Debug, Clone, Copy, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+#[require(PrepareOperation)]
+pub struct SmoothUnion(pub f32);
+
+impl Default for SmoothUnion {
+    fn default() -> Self {
+        Self(25.)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+#[require(PrepareOperation)]
+pub struct SmoothSubtract(pub f32);
+
+impl Default for SmoothSubtract {
+    fn default() -> Self {
+        Self(25.)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+#[require(PrepareOperation)]
+pub struct SmoothIntersect(pub f32);
+
+impl Default for SmoothIntersect {
+    fn default() -> Self {
+        Self(25.)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+#[require(PrepareOperation)]
+pub struct SmoothXor(pub f32);
+
+impl Default for SmoothXor {
+    fn default() -> Self {
+        Self(25.)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Component, Reflect, ShaderType)]
+#[reflect(Component)]
+pub struct Repetition {
+    pub scale: f32,
+    pub repetitions: Vec2,
+}
+
+impl Default for Repetition {
+    fn default() -> Self {
+        Self {
+            scale: 1.0,
+            repetitions: Vec2::splat(2.),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+#[require(PrepareOperation)]
+pub struct Morph(pub f32);
+
+#[derive(Debug, Clone, Copy, Default, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct Stretch(pub Vec2);

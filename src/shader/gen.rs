@@ -14,7 +14,7 @@ pub fn gen_shader(
 
     let shader = format!("{snippets}\n{stuff}\n{calculations}\n{selector}");
 
-    // println!("{}", shader);
+    // println!("SHADER\n{}", shader);
 
     shader
 }
@@ -36,7 +36,7 @@ fn comp_selector(infos: &[ComponentShaderInfo]) -> String {
         .iter()
         .enumerate()
         .try_fold(String::new(), |mut result, (i, info)| {
-            let snake = info.name.to_case(Case::Snake);
+            let snake = info.function_name.to_case(Case::Snake);
             writeln!(result, "    case u32({i}): {{")?;
             match info.render_data {
                 Some(_) => {
@@ -67,7 +67,7 @@ fn structs_and_bindings(infos: &[ComponentShaderInfo]) -> String {
             info.render_data.clone().map(|render| {
                 format!(
                     "@group(2) @binding({}) var<storage, read> comps{}: array<{}>;\n\n{}",
-                    render.binding, i, info.name, render.struct_wgsl
+                    render.binding, i, render.wgsl.name, render.wgsl.definition
                 )
             })
         })

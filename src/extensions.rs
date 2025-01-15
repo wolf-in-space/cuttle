@@ -1,6 +1,7 @@
 use crate::bounding::BoundingRadius;
 use crate::pipeline::{specialization::CuttlePipeline, CuttleRenderSet};
 use bevy::ecs::component::{ComponentHooks, StorageType};
+use bevy::utils::tracing::event;
 use bevy::{
     prelude::*,
     render::{

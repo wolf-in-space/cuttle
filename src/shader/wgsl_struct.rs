@@ -1,6 +1,8 @@
-use bevy::reflect::StructInfo;
+use crate::shader::RenderDataWgsl;
+use bevy::reflect::{TypeInfo, Typed};
 use bevy::{prelude::*, utils::TypeIdMap};
-use std::{any::TypeId, fmt::Write};
+use std::any::{type_name, TypeId};
+use std::fmt::Write;
 
 pub fn plugin(app: &mut App) {
     app.register_wgsl_type::<f32>("f32");
@@ -19,30 +21,48 @@ pub trait RegisterWgslTypeExt {
 
 impl RegisterWgslTypeExt for App {
     fn register_wgsl_type<T: 'static>(&mut self, name: &'static str) -> &mut Self {
-        self.world_mut().get_resource_or_init::<WgslTypeInfos>().register::<T>(name);
+        self.world_mut()
+            .get_resource_or_init::<WgslTypeInfos>()
+            .insert(TypeId::of::<T>(), name);
         self
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct WgslTypeInfo {
-    pub name: &'static str,
-}
-
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct WgslTypeInfos(TypeIdMap<WgslTypeInfo>);
+pub struct WgslTypeInfos(TypeIdMap<&'static str>);
+
+pub type ToWgslFn = fn(&WgslTypeInfos) -> RenderDataWgsl;
 
 impl WgslTypeInfos {
-    pub fn structure_to_wgsl(&self, structure: &StructInfo, name: &str) -> String {
-        let vars: String = structure.iter().fold(String::new(), |mut accu, field| {
-            let wgsl_type_name = self.get(&field.type_id()).unwrap().name;
-            writeln!(accu, "    {}: {},", field.name(), wgsl_type_name).unwrap();
-            accu
+    pub fn wgsl_type_for_struct<R: Typed>(&self) -> RenderDataWgsl {
+        let (TypeInfo::Struct(structure), Some(name)) = (R::type_info(), R::type_ident()) else {
+            panic!("Render data {}  is not a named struct", type_name::<R>(),)
+        };
+
+        let vars = structure.iter().fold(String::new(), |mut vars, field| {
+            let wgsl_type = self.get(&field.type_id()).unwrap();
+            writeln!(vars, "    {}: {},", field.name(), wgsl_type).unwrap();
+            vars
         });
-        format!("struct {} {}\n{}{}\n", name, "{", vars, "}")
+        let definition = format!("struct {} {}\n{}{}\n", name, "{", vars, "}");
+
+        RenderDataWgsl {
+            definition,
+            name: name.to_string(),
+        }
     }
 
-    pub fn register<T: 'static>(&mut self, name: &'static str) {
-        self.insert(TypeId::of::<T>(), WgslTypeInfo { name });
+    pub fn wgsl_type_for_builtin<R: Typed>(&self) -> RenderDataWgsl {
+        let Some(wgsl_type) = self.get(&TypeId::of::<R>()) else {
+            panic!(
+                "RenderData {} not registered with WgslTypeInfos",
+                type_name::<R>(),
+            )
+        };
+
+        RenderDataWgsl {
+            name: wgsl_type.to_string(),
+            definition: String::new(),
+        }
     }
 }

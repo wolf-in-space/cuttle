@@ -50,14 +50,14 @@ pub fn on_add_group_marker_initialize_indices_group_id<G: CuttleGroup>(
 
 #[derive(Debug, Reflect, Deref, DerefMut, Copy, Clone)]
 #[reflect(Component)]
-pub(crate) struct ComponentIndex<C: Component> {
+pub(crate) struct CuttleComponentIndex<C: Component> {
     #[deref]
     index: u32,
     #[reflect(ignore)]
     phantom: PhantomData<C>,
 }
 
-impl<C: Component> Default for ComponentIndex<C> {
+impl<C: Component> Default for CuttleComponentIndex<C> {
     fn default() -> Self {
         Self {
             index: 0,
@@ -66,16 +66,16 @@ impl<C: Component> Default for ComponentIndex<C> {
     }
 }
 
-impl<C: Component> Component for ComponentIndex<C> {
+impl<C: Component> Component for CuttleComponentIndex<C> {
     const STORAGE_TYPE: StorageType = StorageType::Table;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         let on_add = |mut world: DeferredWorld, entity, _| {
             let index = world.resource_mut::<IndexArena<C>>().get();
-            **world.get_mut::<ComponentIndex<C>>(entity).unwrap() = index;
+            **world.get_mut::<CuttleComponentIndex<C>>(entity).unwrap() = index;
         };
         let on_remove = |mut world: DeferredWorld, entity, _| {
-            let index = **world.get::<ComponentIndex<C>>(entity).unwrap();
+            let index = **world.get::<CuttleComponentIndex<C>>(entity).unwrap();
             world.resource_mut::<IndexArena<C>>().release(index);
         };
         hooks.on_add(on_add).on_remove(on_remove);
@@ -101,7 +101,10 @@ pub(crate) const fn build_set_flag_index<const SET: bool, T, C: Component>(
 }
 
 fn set_index<C: Component>(positions: &[Option<u8>], mut world: DeferredWorld, entity: Entity) {
-    let index = **world.get::<ComponentIndex<C>>(entity).unwrap();
+    let index = world
+        .get::<CuttleComponentIndex<C>>(entity)
+        .map(|i| **i)
+        .unwrap_or(u32::MAX);
 
     let Some((flags, pos)) = get_indices_and_pos(&mut world, positions, entity) else {
         return;

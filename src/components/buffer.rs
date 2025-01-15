@@ -11,6 +11,7 @@ use bevy::{
         Render, RenderApp,
     },
 };
+use std::any::type_name;
 
 pub struct BufferPlugin;
 impl Plugin for BufferPlugin {
@@ -30,19 +31,53 @@ impl Plugin for BufferPlugin {
     }
 }
 
-#[derive(Component, Deref, DerefMut)]
-pub(crate) struct CompBuffer<C: CuttleRenderData>(StorageBuffer<Vec<C>>);
-
-impl<C: CuttleRenderData> Default for CompBuffer<C> {
-    fn default() -> Self {
-        Self(default())
-    }
+#[derive(Component)]
+pub(crate) struct CompBuffer<C: Component, R: CuttleRenderData> {
+    storage: StorageBuffer<Vec<R>>,
+    to_render_data: fn(&C) -> R,
 }
 
-impl<C: CuttleRenderData> CompBuffer<C> {
+impl<C: Component, R: CuttleRenderData> CompBuffer<C, R> {
+    pub fn new(to_render_data: fn(&C) -> R) -> Self {
+        Self {
+            storage: StorageBuffer::default(),
+            to_render_data,
+        }
+    }
+
+    pub fn set(&mut self, index: usize, comp: &C) {
+        let value = (self.to_render_data)(comp);
+        trace!(
+            "EXTRACT_COMP_VAL: Comp={}, RenderType={}, val={:?}",
+            type_name::<C>(),
+            type_name::<R>(),
+            value
+        );
+        *self.storage.get_mut().get_mut(index).unwrap() = value;
+    }
+
+    pub fn resize(&mut self, size: usize) {
+        let buffer = self.storage.get_mut();
+        buffer.resize_with(size, || R::default());
+    }
+
+    pub fn init(app: &mut App, buffer_entity: Entity, to_render_data: fn(&C) -> R) {
+        let render_world = app.sub_app_mut(RenderApp).world_mut();
+
+        render_world
+            .entity_mut(buffer_entity)
+            .insert(CompBuffer::<C, R>::new(to_render_data));
+
+        let mut buffer_fns = render_world.resource_mut::<BufferFns>();
+        buffer_fns.write.push(CompBuffer::<C, R>::write);
+        buffer_fns
+            .bindings
+            .push(CompBuffer::<C, R>::get_binding_res);
+    }
+
     pub fn write(entity: &mut EntityMut, device: &RenderDevice, queue: &RenderQueue) {
         if let Some(mut buffer) = entity.get_mut::<Self>() {
-            buffer.write_buffer(device, queue);
+            buffer.storage.write_buffer(device, queue);
         }
     }
 
@@ -50,6 +85,7 @@ impl<C: CuttleRenderData> CompBuffer<C> {
         entity
             .get::<Self>()
             .unwrap()
+            .storage
             .buffer()
             .unwrap()
             .as_entire_binding()
@@ -99,7 +135,7 @@ fn build_buffer_bindgroup(
         })
         .collect();
     bindgroup.0 =
-        Some(device.create_bind_group("sdf component buffers", &pipeline.comp_layout, &entries));
+        Some(device.create_bind_group("cuttle component buffers", &pipeline.comp_layout, &entries));
 }
 
 pub fn build_buffer_layout(count: u32, device: &RenderDevice, name: &str) -> BindGroupLayout {
