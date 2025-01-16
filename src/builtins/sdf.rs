@@ -70,20 +70,11 @@ fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
         .wrapper_component::<SmoothIntersect>(SdfOrder::Operations)
         .wrapper_component::<SmoothXor>(SdfOrder::Operations)
         .component::<Repetition>(SdfOrder::Operations)
-        .wrapper_component::<Morph>(SdfOrder::Operations);
-
-    register_global_transform(app);
-}
-
-fn register_global_transform(app: &mut App) {
-    let binding = init_render_data(app, |g: &GlobalTransform| g.compute_matrix().inverse());
-    app.cuttle_group::<Sdf>()
-        .register_component_manual::<GlobalTransform>(
+        .wrapper_component::<Morph>(SdfOrder::Operations)
+        .register_component_manual(
             SdfOrder::Translation,
-            Some(ToRenderDataShaderInfo {
-                binding,
-                to_wgsl: WgslTypeInfos::wgsl_type_for_builtin::<Mat4>,
-            }),
+            Some(WgslTypeInfos::wgsl_type_for_builtin::<Mat4>),
+            Some(|g: &GlobalTransform| g.compute_matrix().inverse()),
         );
 }
 

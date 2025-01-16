@@ -1,16 +1,15 @@
 use crate::bounding::{make_compute_aabb_system, Bounding};
 use crate::calculations::Calculation;
-use crate::components::arena::IndexArena;
 use crate::components::buffer::BufferEntity;
 use crate::components::initialization::{
-    init_render_data, ComponentOrder, CuttleStructComponent, CuttleWrapperComponent,
+    init_render_data, ComponentOrder, CuttleRenderData, CuttleStructComponent,
+    CuttleWrapperComponent,
 };
 use crate::indices::{
-    build_set_flag_index, on_add_group_marker_initialize_indices_group_id, CuttleComponentIndex,
-    CuttleIndices,
+    build_set_flag_index, on_add_group_marker_initialize_indices_group_id, CuttleIndices,
 };
 use crate::pipeline::SortedCuttlePhaseItem;
-use crate::shader::wgsl_struct::WgslTypeInfos;
+use crate::shader::wgsl_struct::{ToWgslFn, WgslTypeInfos};
 use crate::shader::{
     load_shader_to_pipeline, AddSnippet, ComponentShaderInfo, RenderDataShaderInfo, ShaderSettings,
     ToComponentShaderInfo, ToRenderDataShaderInfo,
@@ -280,28 +279,14 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
     /// }
     /// ```
     pub fn component<C: CuttleStructComponent>(&mut self, sort: impl Into<u32>) -> &mut Self {
-        let binding = init_render_data(self.app, C::to_render_data);
-        self.register_component_manual::<C>(
-            sort,
-            Some(ToRenderDataShaderInfo {
-                binding,
-                to_wgsl: C::wgsl_type,
-            }),
-        )
+        self.register_component_manual(sort, Some(C::wgsl_type), Some(C::to_render_data))
     }
 
     pub fn wrapper_component<C: CuttleWrapperComponent>(
         &mut self,
         sort: impl Into<u32>,
     ) -> &mut Self {
-        let binding = init_render_data(self.app, C::to_render_data);
-        self.register_component_manual::<C>(
-            sort,
-            Some(ToRenderDataShaderInfo {
-                binding,
-                to_wgsl: C::wgsl_type,
-            }),
-        )
+        self.register_component_manual(sort, Some(C::wgsl_type), Some(C::to_render_data))
     }
 
     /// Registers a marker component to work with this group.
@@ -329,13 +314,14 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
     ///     ));
     /// ```
     pub fn marker_component<C: Component + Typed>(&mut self, sort: impl Into<u32>) -> &mut Self {
-        self.register_component_manual::<C>(sort, None)
+        self.register_component_manual::<C, f32>(sort, None, None)
     }
 
-    pub fn register_component_manual<C: Component + Typed>(
+    pub fn register_component_manual<C: Component + Typed, R: CuttleRenderData>(
         &mut self,
         sort: impl Into<u32>,
-        to_render_data: Option<ToRenderDataShaderInfo>,
+        to_wgsl: Option<ToWgslFn>,
+        to_render_data: Option<fn(&C) -> R>,
     ) -> &mut Self {
         let Some(function_name) = C::type_ident().map(|i| i.to_case(Case::Snake)) else {
             panic!(
@@ -343,6 +329,10 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
                 type_name::<C>()
             );
         };
+
+        let to_render_data = to_render_data
+            .map(|to| init_render_data(self.app, to))
+            .and_then(|binding| to_wgsl.map(|to_wgsl| ToRenderDataShaderInfo { binding, to_wgsl }));
 
         let order = ComponentOrder {
             sort: sort.into(),
