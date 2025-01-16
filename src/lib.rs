@@ -13,6 +13,7 @@ pub mod bounding;
 pub mod builtins;
 mod calculations;
 pub mod components;
+pub mod debug;
 pub mod extensions;
 pub mod groups;
 pub mod indices;
