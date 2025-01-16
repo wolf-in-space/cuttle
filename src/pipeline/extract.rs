@@ -4,6 +4,7 @@ use crate::components::{arena::IndexArena, buffer::CompBuffer};
 use crate::extensions::CompIndicesBuffer;
 use crate::indices::{CuttleComponentIndex, CuttleIndices};
 use bevy::ecs::entity::EntityHashMap;
+use bevy::render::{Render, RenderSet};
 use bevy::{
     math::bounding::BoundingCircle,
     prelude::*,
@@ -14,7 +15,8 @@ use std::fmt::Debug;
 pub fn plugin(app: &mut App) {
     app.sub_app_mut(RenderApp)
         .init_resource::<ExtractedCuttles>()
-        .add_systems(ExtractSchedule, extract_cuttles);
+        .add_systems(ExtractSchedule, extract_cuttles)
+        .add_systems(Render, clear_cuttles.in_set(RenderSet::Cleanup));
 }
 
 pub(crate) fn extract_cuttle_comp<C: Component, R: CuttleRenderData>(
@@ -55,26 +57,31 @@ fn extract_cuttles(
     mut buffer: ResMut<CompIndicesBuffer>,
 ) {
     let buffer = buffer.get_mut();
-    buffer.clear();
 
-    **extracted = extract
-        .iter()
-        .map(|(entity, transform, bounding, indices, vis)| {
-            let indices_start = buffer.len() as u32;
-            let indices_end = (buffer.len() + indices.indices.len()) as u32;
-            buffer.extend(indices.iter_as_packed_u32s());
+    extracted.extend(
+        extract
+            .iter()
+            .map(|(entity, transform, bounding, indices, vis)| {
+                let indices_start = buffer.len() as u32;
+                let indices_end = (buffer.len() + indices.indices.len()) as u32;
+                buffer.extend(indices.iter_as_packed_u32s());
 
-            (
-                entity,
-                ExtractedCuttle {
-                    group_id: indices.group_id,
-                    visible: **vis,
-                    indices_start,
-                    indices_end,
-                    bounding: **bounding,
-                    z: transform.translation().z,
-                },
-            )
-        })
-        .collect();
+                (
+                    entity,
+                    ExtractedCuttle {
+                        group_id: indices.group_id,
+                        visible: **vis,
+                        indices_start,
+                        indices_end,
+                        bounding: **bounding,
+                        z: transform.translation().z,
+                    },
+                )
+            }),
+    );
+}
+
+fn clear_cuttles(mut cuttles: ResMut<ExtractedCuttles>, mut buffer: ResMut<CompIndicesBuffer>) {
+    cuttles.clear();
+    buffer.get_mut().clear();
 }
