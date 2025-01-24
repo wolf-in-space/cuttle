@@ -14,6 +14,27 @@ pub trait CuttleGroup: Component + Default {
     type Phase: SortedCuttlePhaseItem;
 }
 
+fn initialize_group<G: CuttleGroup>(app: &mut App) -> Entity {
+    if let Some(store) = app.world().get_resource::<GroupStore<G>>() {
+        return store.group;
+    };
+
+    if !app.world().contains_resource::<GlobalGroupInfos>() {
+        let infos = GlobalGroupInfos::new(app);
+        app.insert_resource(infos);
+    }
+
+    app.register_required_components::<G, CuttleIndices>();
+    app.world_mut()
+        .register_component_hooks::<G>()
+        .on_add(on_add_group_marker_initialize_indices_group_id::<G>);
+
+    let world = app.world_mut();
+    let group_id_store = GroupStore::<G>::new(world);
+    world.insert_resource(group_id_store);
+    group_id_store.group
+}
+
 #[derive(Debug, Copy, Clone, Component, Reflect, Hash, Eq, PartialEq)]
 #[reflect(Component)]
 #[require(Calculations, Snippets, ComponentInfos)]
@@ -50,25 +71,4 @@ impl<G> GroupStore<G> {
             phantom_data: PhantomData,
         }
     }
-}
-
-fn initialize_group<G: CuttleGroup>(app: &mut App) -> Entity {
-    if let Some(store) = app.world().get_resource::<GroupStore<G>>() {
-        return store.group;
-    };
-
-    if !app.world().contains_resource::<GlobalGroupInfos>() {
-        let infos = GlobalGroupInfos::new(app);
-        app.insert_resource(infos);
-    }
-
-    app.register_required_components::<G, CuttleIndices>();
-    app.world_mut()
-        .register_component_hooks::<G>()
-        .on_add(on_add_group_marker_initialize_indices_group_id::<G>);
-
-    let world = app.world_mut();
-    let group_id_store = GroupStore::<G>::new(world);
-    world.insert_resource(group_id_store);
-    group_id_store.group
 }
