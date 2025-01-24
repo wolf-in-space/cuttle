@@ -58,7 +58,6 @@ impl Plugin for CuttlePlugin {
 
         for (id, func) in &globals.component_observer_inits {
             let positions: Vec<_> = (0..globals.group_count)
-                .into_iter()
                 .map(|i| globals.component_positions[i].get(id).copied())
                 .collect();
 

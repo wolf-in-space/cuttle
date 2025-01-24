@@ -5,6 +5,7 @@ use crate::components::initialization::{
     init_render_data, ComponentOrder, CuttleRenderData, CuttleStructComponent,
     CuttleWrapperComponent,
 };
+use crate::components::ComponentPosition;
 use crate::indices::{
     build_set_flag_index, on_add_group_marker_initialize_indices_group_id, CuttleIndices,
 };
@@ -31,14 +32,14 @@ pub type InitGroupFn = fn(&mut App);
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct InitGroupFns(Vec<InitGroupFn>);
 
-pub type InitObserversFn = fn(&mut App, positions: Vec<Option<u8>>);
+pub type InitObserversFn = fn(&mut App, positions: Vec<Option<ComponentPosition>>);
 
 #[derive(Resource)]
 pub struct GlobalGroupInfos {
     pub group_count: usize,
     pub component_bindings: TypeIdMap<u32>,
     pub component_observer_inits: TypeIdMap<InitObserversFn>,
-    pub component_positions: Vec<TypeIdMap<u8>>,
+    pub component_positions: Vec<TypeIdMap<ComponentPosition>>,
     pub buffer_entity: RenderEntity,
 }
 
@@ -66,7 +67,7 @@ impl GlobalGroupInfos {
     pub fn register_component_positions(
         app: &mut App,
         group_id: usize,
-        positions: Vec<(TypeId, u8)>,
+        positions: Vec<(TypeId, ComponentPosition)>,
     ) {
         let mut global = app.world_mut().resource_mut::<GlobalGroupInfos>();
         for (id, pos) in positions {
@@ -139,7 +140,12 @@ impl<G: CuttleGroup> GroupData<G> {
         let positions = components
             .into_iter()
             .enumerate()
-            .map(|(i, info)| (info.id, i as u8))
+            .map(|(i, info)| {
+                (
+                    info.id,
+                    ComponentPosition::new(i as u8, info.extension_override),
+                )
+            })
             .collect();
         GlobalGroupInfos::register_component_positions(app, group_id, positions);
     }
@@ -160,7 +166,7 @@ impl<G: CuttleGroup> GroupData<G> {
                         to_render_data.map(|ToRenderDataShaderInfo { binding, to_wgsl }| {
                             RenderDataShaderInfo {
                                 binding,
-                                wgsl: to_wgsl(&wgsl_type_infos),
+                                wgsl: to_wgsl(wgsl_type_infos),
                             }
                         });
                     ComponentShaderInfo {
@@ -192,7 +198,7 @@ pub struct CuttleGroupBuilder<'a, G: CuttleGroup> {
     pub(crate) app: &'a mut App,
 }
 
-impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
+impl<G: CuttleGroup> CuttleGroupBuilder<'_, G> {
     pub fn calculation(
         &mut self,
         name: impl Into<String>,
@@ -279,14 +285,14 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
     /// }
     /// ```
     pub fn component<C: CuttleStructComponent>(&mut self, sort: impl Into<u32>) -> &mut Self {
-        self.register_component_manual(sort, Some(C::wgsl_type), Some(C::to_render_data))
+        self.register_component_manual(sort, Some(C::wgsl_type), Some(C::to_render_data), None)
     }
 
     pub fn wrapper_component<C: CuttleWrapperComponent>(
         &mut self,
         sort: impl Into<u32>,
     ) -> &mut Self {
-        self.register_component_manual(sort, Some(C::wgsl_type), Some(C::to_render_data))
+        self.register_component_manual(sort, Some(C::wgsl_type), Some(C::to_render_data), None)
     }
 
     /// Registers a marker component to work with this group.
@@ -314,7 +320,7 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
     ///     ));
     /// ```
     pub fn marker_component<C: Component + Typed>(&mut self, sort: impl Into<u32>) -> &mut Self {
-        self.register_component_manual::<C, f32>(sort, None, None)
+        self.register_component_manual::<C, f32>(sort, None, None, None)
     }
 
     pub fn register_component_manual<C: Component + Typed, R: CuttleRenderData>(
@@ -322,6 +328,7 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
         sort: impl Into<u32>,
         to_wgsl: Option<ToWgslFn>,
         to_render_data: Option<fn(&C) -> R>,
+        extension_override: Option<u8>,
     ) -> &mut Self {
         let Some(function_name) = C::type_ident().map(|i| i.to_case(Case::Snake)) else {
             panic!(
@@ -337,6 +344,7 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
         let order = ComponentOrder {
             sort: sort.into(),
             id: TypeId::of::<C>(),
+            extension_override,
         };
         let to_shader_info = ToComponentShaderInfo {
             function_name,
@@ -357,7 +365,7 @@ impl<'a, G: CuttleGroup> CuttleGroupBuilder<'a, G> {
     }
 }
 
-impl<'a, G: CuttleGroup> Drop for CuttleGroupBuilder<'a, G> {
+impl<G: CuttleGroup> Drop for CuttleGroupBuilder<'_, G> {
     fn drop(&mut self) {
         self.app.insert_resource(mem::take(&mut self.group));
     }
@@ -373,7 +381,9 @@ impl CuttleGroupBuilderAppExt for App {
             self.add_plugins(GroupPlugin::<G>::new());
         }
         let group = self.world_mut().remove_resource::<GroupData<G>>().unwrap();
-        CuttleGroupBuilder { group, app: self }
+        let mut builder = CuttleGroupBuilder { group, app: self };
+        builder.calculation("color", "vec4<f32>");
+        builder
     }
 }
 

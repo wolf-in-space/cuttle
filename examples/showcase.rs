@@ -1,22 +1,13 @@
 use bevy::color::palettes::css;
 use bevy::{color::palettes::tailwind, prelude::*};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use cuttle::extensions::Extension;
 use cuttle::prelude::*;
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    //resolution: WindowResolution::new(1920., 1080.),
-                    //decorations: false,
-                    ..default()
-                }),
-                ..default()
-            }),
-            CuttlePlugin,
-        ))
+        .add_plugins((DefaultPlugins, CuttlePlugin, WorldInspectorPlugin::new()))
         .add_systems(Startup, spawn)
         .add_systems(
             Update,

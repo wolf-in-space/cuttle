@@ -17,6 +17,7 @@ use std::ops::Deref;
 pub struct ComponentOrder {
     pub id: TypeId,
     pub sort: u32,
+    pub extension_override: Option<u8>,
 }
 
 /// Returns the registered binding for the component or register a new binding

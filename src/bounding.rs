@@ -11,7 +11,12 @@ use bevy::utils::Parallel;
 pub fn plugin(app: &mut App) {
     app.register_type::<BoundingRadius>()
         .register_type::<GlobalBoundingCircle>()
-        .configure_sets(PostUpdate, (Bounding::Add, Bounding::Multiply).chain())
+        .configure_sets(
+            PostUpdate,
+            (Bounding::Add, Bounding::Multiply)
+                .chain()
+                .before(ComputeGlobalBounding),
+        )
         .configure_sets(PostUpdate, ComputeGlobalBounding.before(check_visibility))
         .add_systems(
             PostUpdate,

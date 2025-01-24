@@ -1,4 +1,9 @@
 
+fn sdf() {
+    color.w *= step(0.0, -distance);
+    // color.w *= smoothstep(0.0, 1.0, -distance);
+}
+
 fn prepare_base() {
     position = vertex.world_position;
 }
@@ -120,5 +125,5 @@ fn morph(morph: f32) {
 }
 
 fn stretch(stretch: vec2<f32>) {
-    position *= stretch;
+    position /= dot(normalize(position), normalize(stretch)) * length(stretch);
 }

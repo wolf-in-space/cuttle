@@ -1,6 +1,7 @@
 use crate::bounding::BoundingRadius;
 use crate::bounding::GlobalBoundingCircle;
 use crate::components::arena::IndexArena;
+use crate::components::ComponentPosition;
 use crate::extensions::Extensions;
 use crate::groups::{CuttleGroup, GroupIdStore};
 use crate::prelude::Extension;
@@ -89,18 +90,22 @@ pub struct CuttleIndex {
 }
 
 pub(crate) const fn build_set_flag_index<const SET: bool, T, C: Component>(
-    positions: Vec<Option<u8>>,
+    positions: Vec<Option<ComponentPosition>>,
 ) -> impl FnMut(Trigger<T, C>, DeferredWorld) {
     move |trigger, world| {
         if SET {
             set_index::<C>(&positions, world, trigger.entity())
         } else {
-            remove_index::<C>(&positions, world, trigger.entity())
+            remove_index(&positions, world, trigger.entity())
         }
     }
 }
 
-fn set_index<C: Component>(positions: &[Option<u8>], mut world: DeferredWorld, entity: Entity) {
+fn set_index<C: Component>(
+    positions: &[Option<ComponentPosition>],
+    mut world: DeferredWorld,
+    entity: Entity,
+) {
     let index = world
         .get::<CuttleComponentIndex<C>>(entity)
         .map(|i| **i)
@@ -113,19 +118,19 @@ fn set_index<C: Component>(positions: &[Option<u8>], mut world: DeferredWorld, e
     flags.indices.insert(pos, index);
 }
 
-fn remove_index<C: Component>(positions: &[Option<u8>], mut world: DeferredWorld, entity: Entity) {
+fn remove_index(positions: &[Option<ComponentPosition>], mut world: DeferredWorld, entity: Entity) {
     let Some((flags, index)) = get_indices_and_pos(&mut world, positions, entity) else {
         return;
     };
 
-    if let None = flags.indices.remove(&index) {
+    if flags.indices.remove(&index).is_none() {
         error!("Tried to remove an index that no longer exists")
     }
 }
 
 fn get_indices_and_pos<'a>(
     world: &'a mut DeferredWorld,
-    positions: &[Option<u8>],
+    positions: &[Option<ComponentPosition>],
     entity: Entity,
 ) -> Option<(&'a mut CuttleIndices, CuttleIndex)> {
     let (entity, extension_index) = match world.get::<Extension>(entity) {
@@ -133,13 +138,16 @@ fn get_indices_and_pos<'a>(
         None => (entity, 0),
     };
     let flags = world.get_mut::<CuttleIndices>(entity)?;
-    let pos = positions.get(flags.group_id).copied()??;
+    let ComponentPosition {
+        position,
+        extension_override,
+    } = positions.get(flags.group_id).copied()??;
 
     Some((
         flags.into_inner(),
         CuttleIndex {
-            component_id: pos,
-            extension_index,
+            component_id: position,
+            extension_index: extension_override.unwrap_or(extension_index),
         },
     ))
 }

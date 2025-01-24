@@ -47,7 +47,7 @@ fn extract_cuttles(
     extract: Extract<
         Query<(
             Entity,
-            &GlobalTransform,
+            Option<&GlobalTransform>,
             &GlobalBoundingCircle,
             &CuttleIndices,
             &ViewVisibility,
@@ -74,7 +74,7 @@ fn extract_cuttles(
                         indices_start,
                         indices_end,
                         bounding: **bounding,
-                        z: transform.translation().z,
+                        z: transform.map(|t| t.translation().z).unwrap_or_default(),
                     },
                 )
             }),

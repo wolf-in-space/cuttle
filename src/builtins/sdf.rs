@@ -1,9 +1,8 @@
 use crate::bounding::Bounding;
 use crate::builtins::*;
-use crate::components::initialization::{init_render_data, CuttleWrapperComponent};
+use crate::components::initialization::CuttleWrapperComponent;
 use crate::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
 use crate::shader::wgsl_struct::WgslTypeInfos;
-use crate::shader::ToRenderDataShaderInfo;
 use bevy::asset::embedded_asset;
 use bevy::core_pipeline::core_2d::Transparent2d;
 use bevy::prelude::{App, Component};
@@ -12,7 +11,8 @@ use bevy::ui::TransparentUi;
 
 pub(super) fn plugin(app: &mut App) {
     embedded_asset!(app, "builtins.wgsl");
-    app.register_type::<Rounded>()
+    app.register_type::<Sdf>()
+        .register_type::<Rounded>()
         .register_type::<Annular>()
         .register_type::<PrepareBase>()
         .register_type::<Circle>()
@@ -41,9 +41,9 @@ fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
         .calculation("position", "vec2<f32>")
         .calculation("distance", "f32")
         .calculation("size", "f32")
-        .calculation("color", "vec4<f32>")
         .calculation("prev_distance", "f32")
         .calculation("prev_color", "vec4<f32>")
+        .register_component_manual::<Sdf, f32>(SdfOrder::Result, None, None, Some(255))
         .marker_component::<PrepareOperation>(SdfOrder::Prepare)
         .marker_component::<PrepareBase>(SdfOrder::Prepare)
         .wrapper_component::<Annular>(SdfOrder::Distance)
@@ -51,8 +51,8 @@ fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
         .wrapper_component::<Fill>(SdfOrder::Distance)
         .component::<DistanceGradient>(SdfOrder::Last)
         .marker_component::<ForceFieldAlpha>(SdfOrder::Alpha)
-        .wrapper_component::<Stretch>(SdfOrder::Translation)
-        .affect_bounds(Bounding::Multiply, |&Stretch(s)| s.length())
+        .wrapper_component::<Stretch>(u32::from(SdfOrder::Translation) + 100)
+        .affect_bounds(Bounding::Multiply, |&Stretch(s)| (s.length() + 1.) * 20.)
         .wrapper_component::<Circle>(SdfOrder::Base)
         .affect_bounds(Bounding::Add, |&Circle(c)| c)
         .wrapper_component::<Line>(SdfOrder::Base)
@@ -75,10 +75,11 @@ fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
             SdfOrder::Translation,
             Some(WgslTypeInfos::wgsl_type_for_builtin::<Mat4>),
             Some(|g: &GlobalTransform| g.compute_matrix().inverse()),
+            None,
         );
 }
 
-#[derive(Component, Debug, Default, Clone)]
+#[derive(Component, Debug, Default, Clone, Reflect)]
 pub struct Sdf;
 
 impl CuttleGroup for Sdf {
@@ -102,7 +103,8 @@ pub enum SdfOrder {
     Color = 5000,
     Alpha = 6000,
     Operations = 7000,
-    Last = 99999,
+    Last = 8000,
+    Result = 9999,
 }
 
 impl From<SdfOrder> for u32 {
