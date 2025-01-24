@@ -1,3 +1,5 @@
+use crate::components::initialization::ComponentOrder;
+use crate::shader::ToComponentShaderInfo;
 use bevy::prelude::*;
 use buffer::BufferPlugin;
 
@@ -132,4 +134,9 @@ mod tests {
         assert_eq!(world.resource::<IndexArena<Comp<3>>>().max, 4);
     }
     */
+}
+
+pub struct ComponentInfo {
+    pub(crate) order: ComponentOrder,
+    pub(crate) to_shader_info: ToComponentShaderInfo,
 }

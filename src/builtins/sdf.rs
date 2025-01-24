@@ -1,7 +1,7 @@
 use crate::bounding::Bounding;
 use crate::builtins::*;
 use crate::components::initialization::CuttleWrapperComponent;
-use crate::groups::{CuttleGroup, CuttleGroupBuilderAppExt};
+use crate::groups::{builder::CuttleGroupBuilderAppExt, CuttleGroup};
 use crate::shader::wgsl_struct::WgslTypeInfos;
 use bevy::asset::embedded_asset;
 use bevy::core_pipeline::core_2d::Transparent2d;

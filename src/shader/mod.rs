@@ -1,5 +1,5 @@
 use crate::calculations::Calculation;
-use crate::groups::GlobalGroupInfos;
+use crate::groups::global::GlobalGroupInfos;
 use crate::pipeline::specialization::CuttlePipeline;
 use crate::shader::wgsl_struct::ToWgslFn;
 use bevy::asset::io::{AssetReaderError, MissingAssetSourceError};

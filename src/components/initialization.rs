@@ -1,6 +1,6 @@
 use crate::components::arena::IndexArena;
 use crate::components::buffer::CompBuffer;
-use crate::groups::GlobalGroupInfos;
+use crate::groups::global::GlobalGroupInfos;
 use crate::indices::CuttleComponentIndex;
 use crate::pipeline::extract::extract_cuttle_comp;
 use crate::shader::wgsl_struct::WgslTypeInfos;
@@ -73,7 +73,7 @@ impl<C: Component + CuttleRenderData + Clone> CuttleStructComponent for C {
 ///
 /// ```
 /// # use bevy::prelude::{App, Component, Deref, Reflect};
-/// # use cuttle::groups::CuttleGroupBuilderAppExt;
+/// # use cuttle::groups::builder::CuttleGroupBuilderAppExt;
 /// # use cuttle::prelude::{Sdf, SdfOrder};
 /// # let mut app = App::new();
 ///

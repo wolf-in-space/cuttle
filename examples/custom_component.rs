@@ -1,5 +1,5 @@
 use bevy::{color::palettes::css, prelude::*, render::render_resource::ShaderType};
-use cuttle::groups::CuttleGroupBuilderAppExt;
+use cuttle::groups::builder::CuttleGroupBuilderAppExt;
 use cuttle::prelude::*;
 
 fn main() {

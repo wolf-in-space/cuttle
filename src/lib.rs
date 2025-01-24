@@ -1,10 +1,10 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 
-use crate::groups::{GlobalGroupInfos, InitGroupFns};
 use bevy::prelude::*;
 use builtins::BuiltinsPlugin;
 use components::CompPlugin;
+use groups::global::{GlobalGroupInfos, InitGroupFns};
 use pipeline::PipelinePlugin;
 use shader::ShaderPlugin;
 
