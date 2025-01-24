@@ -4,7 +4,7 @@ use crate::indices::{on_add_group_marker_initialize_indices_group_id, CuttleIndi
 use crate::pipeline::SortedCuttlePhaseItem;
 use crate::shader::Snippets;
 use bevy::prelude::*;
-use global::{GlobalGroupInfos, InitGroupFns};
+use global::GlobalGroupInfos;
 use std::marker::PhantomData;
 
 pub mod builder;
@@ -58,7 +58,6 @@ fn initialize_group<G: CuttleGroup>(app: &mut App) -> Entity {
     };
 
     if !app.world().contains_resource::<GlobalGroupInfos>() {
-        app.init_resource::<InitGroupFns>();
         let infos = GlobalGroupInfos::new(app);
         app.insert_resource(infos);
     }

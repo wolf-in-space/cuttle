@@ -2,16 +2,11 @@ use crate::components::buffer::BufferEntity;
 use crate::components::ComponentPosition;
 use crate::indices::build_set_flag_index;
 use bevy::app::App;
-use bevy::prelude::{default, Component, Deref, DerefMut, OnAdd, OnRemove, Resource};
+use bevy::prelude::{default, Component, OnAdd, OnRemove, Resource};
 use bevy::render::sync_world::RenderEntity;
 use bevy::render::RenderApp;
 use bevy::utils::TypeIdMap;
 use std::any::TypeId;
-
-pub type InitGroupFn = fn(&mut App);
-
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct InitGroupFns(Vec<InitGroupFn>);
 
 pub type InitObserversFn = fn(&mut App, positions: Vec<Option<ComponentPosition>>);
 

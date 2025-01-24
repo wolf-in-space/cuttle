@@ -8,7 +8,7 @@ use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use builtins::BuiltinsPlugin;
 use components::CompPlugin;
-use groups::global::{GlobalGroupInfos, InitGroupFns};
+use groups::global::GlobalGroupInfos;
 use pipeline::PipelinePlugin;
 use shader::ShaderPlugin;
 
@@ -50,12 +50,6 @@ impl Plugin for CuttlePlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let init_groups = app.world_mut().remove_resource::<InitGroupFns>().unwrap();
-
-        for init_group in init_groups.iter() {
-            init_group(app);
-        }
-
         let world = app.world_mut();
         world.run_system_once(sort_component_infos).unwrap();
         world.run_system_once(init_component_positions).unwrap();
