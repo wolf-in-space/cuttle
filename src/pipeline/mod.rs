@@ -1,3 +1,4 @@
+use crate::groups::GroupId;
 use bevy::render::render_phase::SortedPhaseItem;
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
@@ -24,7 +25,7 @@ pub mod specialization;
 
 #[derive(Debug, Component, PartialEq, Eq, Clone, Hash)]
 pub struct CuttlePipelineKey {
-    group_id: usize,
+    group_id: GroupId,
     multisample_count: u32,
     has_depth: bool,
 }

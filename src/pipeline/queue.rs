@@ -1,6 +1,7 @@
 use super::{
     draw::DrawSdf, specialization::CuttlePipeline, CuttlePipelineKey, SortedCuttlePhaseItem,
 };
+use crate::groups::GroupId;
 use crate::pipeline::extract::{ExtractedCuttle, ExtractedCuttles};
 use bevy::render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy::{
@@ -49,7 +50,7 @@ pub(crate) fn cuttle_queue_sorted_for_group<P: SortedCuttlePhaseItem>(
                 &cuttle_pipeline,
                 CuttlePipelineKey {
                     multisample_count: P::multisample_count(),
-                    group_id,
+                    group_id: GroupId(group_id),
                     has_depth: P::depth(),
                 },
             );

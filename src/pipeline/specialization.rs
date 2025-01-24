@@ -1,6 +1,9 @@
 use super::{queue::GroupInstanceBuffer, CuttlePipelineKey, SortedCuttlePhaseItem};
 use crate::components::buffer::build_buffer_layout;
+use crate::groups::global::GlobalGroupInfos;
+use crate::groups::GroupId;
 use bevy::image::BevyDefault;
+use bevy::render::RenderApp;
 use bevy::utils::HashMap;
 use bevy::{
     core_pipeline::core_2d::CORE_2D_DEPTH_FORMAT,
@@ -24,7 +27,7 @@ use bevy::{
 pub struct CuttlePipeline {
     pub _common_shader: Handle<Shader>,
     pub vertex_shader: Handle<Shader>,
-    pub fragment_shaders: HashMap<usize, Handle<Shader>>,
+    pub fragment_shaders: HashMap<GroupId, Handle<Shader>>,
     pub global_layout: BindGroupLayout,
     pub op_layout: BindGroupLayout,
     pub comp_layout: BindGroupLayout,
@@ -32,7 +35,15 @@ pub struct CuttlePipeline {
 }
 
 impl CuttlePipeline {
-    pub fn new(world: &mut World, comp_buf_count: u32) -> Self {
+    pub fn init(app: &mut App, fragment_shaders: HashMap<GroupId, Handle<Shader>>) {
+        let comp_count = app
+            .world()
+            .resource::<GlobalGroupInfos>()
+            .component_bindings
+            .len() as u32;
+
+        let world = app.sub_app_mut(RenderApp).world_mut();
+
         let device = world.resource::<RenderDevice>();
         let queue = world.resource::<RenderQueue>();
 
@@ -49,23 +60,24 @@ impl CuttlePipeline {
         );
 
         let comp_layout =
-            build_buffer_layout(comp_buf_count, device, "cuttle component buffers layout");
+            build_buffer_layout(comp_count, device, "cuttle component buffers layout");
         let op_layout = build_buffer_layout(1, device, "cuttle index buffers layout");
 
         let asset_server = world.resource_mut::<AssetServer>();
-
         let _common_shader = asset_server.load::<Shader>("embedded://cuttle/shader/common.wgsl");
         let vertex_shader = asset_server.load::<Shader>("embedded://cuttle/shader/vertex.wgsl");
 
-        CuttlePipeline {
+        let pipeline = CuttlePipeline {
             indices,
             global_layout,
             _common_shader,
             vertex_shader,
-            fragment_shaders: HashMap::new(),
+            fragment_shaders,
             comp_layout,
             op_layout,
-        }
+        };
+
+        world.insert_resource(pipeline);
     }
 }
 

@@ -3,7 +3,7 @@ use crate::bounding::GlobalBoundingCircle;
 use crate::components::arena::IndexArena;
 use crate::components::ComponentPosition;
 use crate::extensions::Extensions;
-use crate::groups::{CuttleGroup, GroupIdStore};
+use crate::groups::{CuttleGroup, GroupStore};
 use crate::prelude::Extension;
 use bevy::ecs::component::{ComponentHooks, ComponentId, StorageType};
 use bevy::ecs::world::DeferredWorld;
@@ -45,7 +45,7 @@ pub fn on_add_group_marker_initialize_indices_group_id<G: CuttleGroup>(
     entity: Entity,
     _: ComponentId,
 ) {
-    let id = world.resource::<GroupIdStore<G>>().id;
+    let id = world.resource::<GroupStore<G>>().id;
     world.get_mut::<CuttleIndices>(entity).unwrap().group_id = id;
 }
 

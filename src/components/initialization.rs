@@ -14,6 +14,7 @@ use std::any::TypeId;
 use std::fmt::Debug;
 use std::ops::Deref;
 
+#[derive(Debug, Reflect)]
 pub struct ComponentOrder {
     pub id: TypeId,
     pub sort: u32,

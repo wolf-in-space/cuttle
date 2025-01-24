@@ -1,10 +1,10 @@
-use crate::calculations::Calculation;
-use crate::groups::global::GlobalGroupInfos;
-use crate::pipeline::specialization::CuttlePipeline;
-use crate::shader::wgsl_struct::ToWgslFn;
+use crate::calculations::{Calculation, Calculations};
+use crate::components::ComponentInfos;
+use crate::groups::GroupId;
+use crate::shader::wgsl_struct::{ToWgslFn, WgslTypeInfos};
 use bevy::asset::io::{AssetReaderError, MissingAssetSourceError};
 use bevy::asset::AssetPath;
-use bevy::render::RenderApp;
+use bevy::utils::HashMap;
 use bevy::{
     asset::{embedded_asset, io::Reader},
     prelude::*,
@@ -20,7 +20,7 @@ pub struct ShaderPlugin;
 impl Plugin for ShaderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(wgsl_struct::plugin);
-        app.init_asset::<Snippet>().init_resource::<AddSnippets>();
+        app.init_asset::<Snippet>();
 
         embedded_asset!(app, "common.wgsl");
         embedded_asset!(app, "vertex.wgsl");
@@ -30,21 +30,24 @@ impl Plugin for ShaderPlugin {
 
 pub struct ComponentShaderInfo {
     pub function_name: String,
-    pub render_data: Option<RenderDataShaderInfo>,
+    pub render_data: Option<ShaderInfo>,
 }
 
+#[derive(Debug, Reflect)]
 pub struct ToComponentShaderInfo {
     pub function_name: String,
-    pub to_render_data: Option<ToRenderDataShaderInfo>,
+    #[reflect(ignore)]
+    pub to_render_data: Option<ToShaderInfo>,
 }
 
 #[derive(Clone)]
-pub struct RenderDataShaderInfo {
+pub struct ShaderInfo {
     pub binding: u32,
     pub wgsl: RenderDataWgsl,
 }
 
-pub struct ToRenderDataShaderInfo {
+#[derive(Debug, Copy, Clone)]
+pub struct ToShaderInfo {
     pub binding: u32,
     pub to_wgsl: ToWgslFn,
 }
@@ -55,27 +58,37 @@ pub struct RenderDataWgsl {
     pub name: String,
 }
 
-pub(crate) fn load_shader_to_pipeline(app: &mut App, settings: ShaderSettings, group_id: usize) {
-    let comp_count = app
-        .world()
-        .resource::<GlobalGroupInfos>()
-        .component_bindings
-        .len() as u32;
+pub fn load_shaders(
+    query: Query<(&GroupId, &ComponentInfos, &Snippets, &Calculations)>,
+    wgsl_type_infos: Res<WgslTypeInfos>,
+    assets: Res<AssetServer>,
+) -> HashMap<GroupId, Handle<Shader>> {
+    let mut result = HashMap::new();
+    let wgsl_type_infos = wgsl_type_infos.into_inner();
 
-    let assets = app.world().resource::<AssetServer>();
-    let shader = assets.add_async(load_shader(assets.clone(), settings, group_id));
+    for (&id, infos, snippets, calculations) in &query {
+        let settings = ShaderSettings {
+            snippets: snippets.0.clone(),
+            calculations: calculations.0.clone(),
+            infos: infos
+                .iter()
+                .map(|i| ComponentShaderInfo {
+                    function_name: i.to_shader_info.function_name.clone(),
+                    render_data: i.to_shader_info.to_render_data.clone().map(
+                        |ToShaderInfo { binding, to_wgsl }| ShaderInfo {
+                            binding,
+                            wgsl: to_wgsl(wgsl_type_infos),
+                        },
+                    ),
+                })
+                .collect(),
+        };
 
-    let render_world = app.sub_app_mut(RenderApp).world_mut();
-    match render_world.get_resource_mut::<CuttlePipeline>() {
-        Some(mut pipeline) => {
-            pipeline.fragment_shaders.insert(group_id, shader);
-        }
-        None => {
-            let mut pipeline = CuttlePipeline::new(render_world, comp_count);
-            pipeline.fragment_shaders.insert(group_id, shader);
-            render_world.insert_resource(pipeline);
-        }
+        let shader = assets.add_async(load_shader(assets.clone(), settings, id.0));
+        result.insert(id, shader);
     }
+
+    result
 }
 
 #[derive(Debug, Error, Display, From)]
@@ -138,13 +151,13 @@ pub(crate) struct ShaderSettings {
     pub snippets: Vec<AddSnippet>,
 }
 
-#[derive(Asset, TypePath, Debug)]
+#[derive(Asset, Debug, Reflect)]
 pub struct Snippet(pub String);
 
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct AddSnippets(Vec<AddSnippet>);
+#[derive(Debug, Component, Default, Deref, DerefMut, Reflect)]
+pub struct Snippets(Vec<AddSnippet>);
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Reflect)]
 pub enum AddSnippet {
     Inline(String),
     File(String),

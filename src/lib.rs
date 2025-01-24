@@ -1,6 +1,10 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 
+use crate::components::{init_component_positions, sort_component_infos};
+use crate::pipeline::specialization::CuttlePipeline;
+use crate::shader::load_shaders;
+use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use builtins::BuiltinsPlugin;
 use components::CompPlugin;
@@ -41,6 +45,7 @@ impl Plugin for CuttlePlugin {
             extensions::plugin,
             bounding::plugin,
             indices::plugin,
+            calculations::plugin,
         ));
     }
 
@@ -51,11 +56,16 @@ impl Plugin for CuttlePlugin {
             init_group(app);
         }
 
+        let world = app.world_mut();
+        world.run_system_once(sort_component_infos).unwrap();
+        world.run_system_once(init_component_positions).unwrap();
+        let shaders = world.run_system_once(load_shaders).unwrap();
+        CuttlePipeline::init(app, shaders);
+
         let globals = app
             .world_mut()
             .remove_resource::<GlobalGroupInfos>()
             .unwrap();
-
         for (id, func) in &globals.component_observer_inits {
             let positions: Vec<_> = (0..globals.group_count)
                 .map(|i| globals.component_positions[i].get(id).copied())

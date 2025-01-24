@@ -1,33 +1,40 @@
 use crate::bounding::{make_compute_aabb_system, Bounding};
-use crate::calculations::Calculation;
+use crate::calculations::{Calculation, Calculations};
 use crate::components::initialization::{
     init_render_data, ComponentOrder, CuttleRenderData, CuttleStructComponent,
     CuttleWrapperComponent,
 };
-use crate::components::ComponentInfo;
+use crate::components::{ComponentInfo, ComponentInfos};
 use crate::groups::global::GlobalGroupInfos;
-use crate::groups::{CuttleGroup, GroupData, GroupPlugin};
+use crate::groups::{initialize_group, CuttleGroup};
 use crate::shader::wgsl_struct::ToWgslFn;
-use crate::shader::{AddSnippet, ToComponentShaderInfo, ToRenderDataShaderInfo};
+use crate::shader::{AddSnippet, Snippets, ToComponentShaderInfo, ToShaderInfo};
 use bevy::app::{App, PostUpdate};
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 use bevy::reflect::Typed;
 use convert_case::{Case, Casing};
 use std::any::{type_name, TypeId};
-use std::mem;
 
-pub struct CuttleGroupBuilder<'a, G: CuttleGroup> {
-    pub(crate) group: GroupData<G>,
+pub struct CuttleGroupBuilder<'a> {
+    pub(crate) group: Entity,
     pub(crate) app: &'a mut App,
 }
 
-impl<G: CuttleGroup> CuttleGroupBuilder<'_, G> {
+impl CuttleGroupBuilder<'_> {
+    fn group_comp<C: Component>(&mut self) -> &mut C {
+        self.app
+            .world_mut()
+            .get_mut::<C>(self.group)
+            .unwrap()
+            .into_inner()
+    }
+
     pub fn calculation(
         &mut self,
         name: impl Into<String>,
         wgsl_type: impl Into<String>,
     ) -> &mut Self {
-        self.group.calculations.push(Calculation {
+        self.group_comp::<Calculations>().push(Calculation {
             name: name.into(),
             wgsl_type: wgsl_type.into(),
         });
@@ -56,7 +63,8 @@ impl<G: CuttleGroup> CuttleGroupBuilder<'_, G> {
     ///
     /// ```
     pub fn snippet(&mut self, snippet: impl Into<String>) -> &mut Self {
-        self.group.snippets.push(AddSnippet::Inline(snippet.into()));
+        self.group_comp::<Snippets>()
+            .push(AddSnippet::Inline(snippet.into()));
         self
     }
 
@@ -85,7 +93,8 @@ impl<G: CuttleGroup> CuttleGroupBuilder<'_, G> {
     ///
     /// see [`builtins.wgsl`](https://github.com/wolf-in-space/cuttle/blob/main/src/builtins/builtins.wgsl) for an example
     pub fn snippet_file(&mut self, path: impl Into<String>) -> &mut Self {
-        self.group.snippets.push(AddSnippet::File(path.into()));
+        self.group_comp::<Snippets>()
+            .push(AddSnippet::File(path.into()));
         self
     }
 
@@ -162,7 +171,7 @@ impl<G: CuttleGroup> CuttleGroupBuilder<'_, G> {
 
         let to_render_data = to_render_data
             .map(|to| init_render_data(self.app, to))
-            .and_then(|binding| to_wgsl.map(|to_wgsl| ToRenderDataShaderInfo { binding, to_wgsl }));
+            .and_then(|binding| to_wgsl.map(|to_wgsl| ToShaderInfo { binding, to_wgsl }));
 
         let order = ComponentOrder {
             sort: sort.into(),
@@ -173,7 +182,7 @@ impl<G: CuttleGroup> CuttleGroupBuilder<'_, G> {
             function_name,
             to_render_data,
         };
-        self.group.component_infos.push(ComponentInfo {
+        self.group_comp::<ComponentInfos>().push(ComponentInfo {
             order,
             to_shader_info,
         });
@@ -188,24 +197,16 @@ impl<G: CuttleGroup> CuttleGroupBuilder<'_, G> {
     }
 }
 
-impl<G: CuttleGroup> Drop for CuttleGroupBuilder<'_, G> {
-    fn drop(&mut self) {
-        self.app.insert_resource(mem::take(&mut self.group));
-    }
-}
-
 pub trait CuttleGroupBuilderAppExt {
-    fn cuttle_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder<G>;
+    fn cuttle_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder;
 }
 
 impl CuttleGroupBuilderAppExt for App {
-    fn cuttle_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder<G> {
-        if !self.is_plugin_added::<GroupPlugin<G>>() {
-            self.add_plugins(GroupPlugin::<G>::new());
-        }
-        let group = self.world_mut().remove_resource::<GroupData<G>>().unwrap();
+    fn cuttle_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder {
+        let group = initialize_group::<G>(self);
         let mut builder = CuttleGroupBuilder { group, app: self };
         builder.calculation("color", "vec4<f32>");
+        builder.calculation("vertex", "VertexOut");
         builder
     }
 }

@@ -1,4 +1,6 @@
 use crate::components::initialization::ComponentOrder;
+use crate::groups::global::GlobalGroupInfos;
+use crate::groups::GroupId;
 use crate::shader::ToComponentShaderInfo;
 use bevy::prelude::*;
 use buffer::BufferPlugin;
@@ -12,6 +14,33 @@ impl Plugin for CompPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(BufferPlugin);
     }
+}
+
+pub fn sort_component_infos(mut query: Query<&mut ComponentInfos>) {
+    for mut component_infos in &mut query {
+        component_infos.sort_by_key(|c| c.order.sort);
+    }
+}
+
+pub fn init_component_positions(
+    query: Query<(&GroupId, &ComponentInfos)>,
+    mut global: ResMut<GlobalGroupInfos>,
+) {
+    for (id, infos) in &query {
+        for (i, info) in infos.iter().enumerate() {
+            let pos = ComponentPosition::new(i as u8, info.order.extension_override);
+            global.component_positions[id.0].insert(info.order.id, pos);
+        }
+    }
+}
+
+#[derive(Debug, Default, Component, Deref, DerefMut, Reflect)]
+pub struct ComponentInfos(Vec<ComponentInfo>);
+
+#[derive(Debug, Reflect)]
+pub struct ComponentInfo {
+    pub(crate) order: ComponentOrder,
+    pub(crate) to_shader_info: ToComponentShaderInfo,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -134,9 +163,4 @@ mod tests {
         assert_eq!(world.resource::<IndexArena<Comp<3>>>().max, 4);
     }
     */
-}
-
-pub struct ComponentInfo {
-    pub(crate) order: ComponentOrder,
-    pub(crate) to_shader_info: ToComponentShaderInfo,
 }

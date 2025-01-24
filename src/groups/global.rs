@@ -45,17 +45,6 @@ impl GlobalGroupInfos {
             .contains_key(&TypeId::of::<C>())
     }
 
-    pub fn register_component_positions(
-        app: &mut App,
-        group_id: usize,
-        positions: Vec<(TypeId, ComponentPosition)>,
-    ) {
-        let mut global = app.world_mut().resource_mut::<GlobalGroupInfos>();
-        for (id, pos) in positions {
-            global.component_positions[group_id].insert(id, pos);
-        }
-    }
-
     pub fn register_component<C: Component>(app: &mut App) {
         let mut global = app.world_mut().resource_mut::<GlobalGroupInfos>();
         let id = TypeId::of::<C>();
