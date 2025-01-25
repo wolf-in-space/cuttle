@@ -36,7 +36,7 @@ pub type ToWgslFn = fn(&WgslTypeInfos) -> RenderDataWgsl;
 impl WgslTypeInfos {
     pub fn wgsl_type_for_struct<R: Typed>(&self) -> RenderDataWgsl {
         let (TypeInfo::Struct(structure), Some(name)) = (R::type_info(), R::type_ident()) else {
-            panic!("Render data {}  is not a named struct", type_name::<R>(),)
+            panic!("Render data {} is not a named struct", type_name::<R>(),)
         };
 
         let vars = structure.iter().fold(String::new(), |mut vars, field| {

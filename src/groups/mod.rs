@@ -63,7 +63,13 @@ impl<G> GroupStore<G> {
         let id = global.group_count;
         global.group_count += 1;
         global.component_positions.push(default());
-        let group = world.spawn(GroupId(id)).id();
+        let initial_calculations = vec![
+            Calculation::new("color", "vec4<f32>"),
+            Calculation::new("vertex", "VertexOut"),
+        ];
+        let group = world
+            .spawn((GroupId(id), Calculations(initial_calculations)))
+            .id();
 
         Self {
             id,

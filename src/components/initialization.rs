@@ -48,6 +48,18 @@ pub(crate) fn init_render_data<C: Component, R: CuttleRenderData>(
     binding
 }
 
+pub trait Cuttle: Typed + Component {
+    const HAS_RENDER_DATA: bool;
+    type RenderData: CuttleRenderData;
+    const EXTENSION_INDEX_OVERRIDE: Option<u8>;
+
+    fn wgsl_type(wgsl_types: &WgslTypeInfos) -> RenderDataWgsl;
+
+    fn to_render_data(&self) -> Self::RenderData;
+
+    fn sort() -> u32;
+}
+
 pub trait CuttleRenderData: Debug + ShaderSize + Default + Typed + WriteInto {}
 impl<T: Debug + ShaderSize + Default + Typed + WriteInto> CuttleRenderData for T {}
 
@@ -81,7 +93,6 @@ impl<C: Component + CuttleRenderData + Clone> CuttleStructComponent for C {
 /// #[derive(Component, Reflect, Deref)]
 /// struct Rounded(f32);
 ///
-/// app.cuttle_group::<Sdf>().wrapper_component::<Rounded>(SdfOrder::Distance);
 ///
 /// ```
 pub trait CuttleWrapperComponent: Typed + Component {

@@ -11,6 +11,15 @@ pub struct Calculation {
     pub wgsl_type: String,
 }
 
+impl Calculation {
+    pub fn new(name: impl Into<String>, wgsl_type: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            wgsl_type: wgsl_type.into(),
+        }
+    }
+}
+
 #[derive(Debug, Default, Component, Deref, DerefMut, Reflect)]
 #[reflect(Component)]
 pub struct Calculations(pub(crate) Vec<Calculation>);

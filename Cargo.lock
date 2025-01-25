@@ -1681,8 +1681,18 @@ dependencies = [
  "bevy-inspector-egui",
  "bytemuck",
  "convert_case",
+ "cuttle_macros",
  "derive_more",
  "rand",
+]
+
+[[package]]
+name = "cuttle_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

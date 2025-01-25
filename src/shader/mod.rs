@@ -37,7 +37,7 @@ pub struct ComponentShaderInfo {
 pub struct ToComponentShaderInfo {
     pub function_name: String,
     #[reflect(ignore)]
-    pub to_render_data: Option<ToShaderInfo>,
+    pub to_render_data: Option<ToRenderData>,
 }
 
 #[derive(Clone)]
@@ -47,7 +47,7 @@ pub struct ShaderInfo {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub struct ToShaderInfo {
+pub struct ToRenderData {
     pub binding: u32,
     pub to_wgsl: ToWgslFn,
 }
@@ -75,7 +75,7 @@ pub fn load_shaders(
                 .map(|i| ComponentShaderInfo {
                     function_name: i.to_shader_info.function_name.clone(),
                     render_data: i.to_shader_info.to_render_data.clone().map(
-                        |ToShaderInfo { binding, to_wgsl }| ShaderInfo {
+                        |ToRenderData { binding, to_wgsl }| ShaderInfo {
                             binding,
                             wgsl: to_wgsl(wgsl_type_infos),
                         },

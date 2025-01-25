@@ -28,6 +28,7 @@ pub mod prelude {
     pub use crate::bounding::Bounding;
     #[cfg(feature = "builtins")]
     pub use crate::builtins::{self, sdf::*, *};
+    pub use crate::components::initialization::{Cuttle, CuttleRenderData};
     pub use crate::extensions::Extension;
     pub use crate::extensions::Extensions;
     pub use crate::CuttlePlugin;
