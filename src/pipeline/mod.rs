@@ -1,31 +1,27 @@
-use crate::groups::GroupId;
+use crate::groups::ConfigId;
 use bevy::render::render_phase::SortedPhaseItem;
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     math::FloatOrd,
     prelude::*,
     render::{
-        render_phase::{
-            AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItemExtraIndex,
-        },
+        render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItemExtraIndex},
         render_resource::{CachedRenderPipelineId, SpecializedRenderPipelines},
         sync_world::MainEntity,
         Render, RenderApp, RenderSet,
     },
     ui::TransparentUi,
 };
-use draw::DrawSdf;
-use queue::{cuttle_prepare_sorted_for_group, cuttle_queue_sorted_for_group, GroupInstanceBuffer};
-use specialization::{prepare_view_bind_groups, write_group_buffer, CuttlePipeline};
+use specialization::{prepare_view_bind_groups, CuttlePipeline};
 
-mod draw;
+pub mod draw;
 pub mod extract;
-mod queue;
+pub mod queue;
 pub mod specialization;
 
 #[derive(Debug, Component, PartialEq, Eq, Clone, Hash)]
 pub struct CuttlePipelineKey {
-    group_id: GroupId,
+    group_id: ConfigId,
     multisample_count: u32,
     has_depth: bool,
 }
@@ -99,7 +95,6 @@ impl Plugin for PipelinePlugin {
         app.add_plugins(extract::plugin);
 
         app.sub_app_mut(RenderApp)
-            .add_plugins(render_item_plugin::<Transparent2d>)
             .configure_sets(
                 Render,
                 (
@@ -128,19 +123,6 @@ pub enum CuttleRenderSet {
     PrepareBindGroups,
 }
 use CuttleRenderSet::*;
-
-pub(crate) fn render_item_plugin<P: SortedCuttlePhaseItem>(app: &mut App) {
-    app.init_resource::<GroupInstanceBuffer<P>>()
-        .add_render_command::<P, DrawSdf<P>>()
-        .add_systems(
-            Render,
-            (
-                cuttle_queue_sorted_for_group::<P>.in_set(Queue),
-                cuttle_prepare_sorted_for_group::<P>.in_set(ItemPreparation),
-                write_group_buffer::<P>.in_set(WriteBuffers),
-            ),
-        );
-}
 
 /*
 pub(crate) fn render_group_plugin<G: CuttleGroup>(app: &mut App) {

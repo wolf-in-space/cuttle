@@ -2,7 +2,7 @@ use crate as cuttle;
 use crate::bounding::Bounding;
 use crate::builtins::*;
 use crate::components::initialization::init_render_data;
-use crate::groups::{builder::CuttleGroupBuilderAppExt, CuttleGroup};
+use crate::groups::{builder::CuttleGroupBuilderAppExt, CuttleConfig};
 use crate::shader::wgsl_struct::WgslTypeInfos;
 use crate::shader::ToRenderData;
 use bevy::asset::embedded_asset;
@@ -37,7 +37,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins(sdf_plugin::<Sdf>);
 }
 
-fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
+fn sdf_plugin<G: CuttleConfig>(app: &mut App) {
     app.cuttle_group::<G>()
         .snippet_file("embedded://cuttle/builtins/builtins.wgsl")
         .calculation("world_position", "vec2<f32>")
@@ -93,7 +93,7 @@ fn sdf_plugin<G: CuttleGroup>(app: &mut App) {
 #[cuttle(extension_index_override(255u8))]
 pub struct Sdf;
 
-impl CuttleGroup for Sdf {
+impl CuttleConfig for Sdf {
     type Phase = Transparent2d;
 }
 
@@ -101,7 +101,7 @@ impl CuttleGroup for Sdf {
 #[require(Node)]
 pub struct UiSdf;
 
-impl CuttleGroup for UiSdf {
+impl CuttleConfig for UiSdf {
     type Phase = TransparentUi;
 }
 

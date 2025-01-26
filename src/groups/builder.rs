@@ -1,28 +1,63 @@
 use crate::bounding::{make_compute_aabb_system, Bounding};
 use crate::calculations::{Calculation, Calculations};
+use crate::components::buffer::GlobalBuffer;
 use crate::components::initialization::{init_render_data, ComponentOrder, Cuttle};
 use crate::components::{ComponentInfo, ComponentInfos};
 use crate::groups::global::GlobalGroupInfos;
-use crate::groups::{initialize_group, CuttleGroup};
+use crate::groups::{initialize_config, CuttleConfig};
+use crate::pipeline::extract::extract_cuttle_global;
+use crate::shader::wgsl_struct::WgslTypeInfos;
 use crate::shader::{AddSnippet, Snippets, ToComponentShaderInfo, ToRenderData};
 use bevy::app::{App, PostUpdate};
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Component, Entity, ExtractSchedule};
 use bevy::reflect::Typed;
+use bevy::render::sync_world::RenderEntity;
+use bevy::render::RenderApp;
 use convert_case::{Case, Casing};
 use std::any::{type_name, TypeId};
+use std::marker::PhantomData;
 
-pub struct CuttleGroupBuilder<'a> {
-    pub(crate) group: Entity,
+pub struct CuttleConfigBuilder<'a, Config> {
+    pub(crate) config: Entity,
     pub(crate) app: &'a mut App,
+    marker: PhantomData<Config>,
 }
 
-impl CuttleGroupBuilder<'_> {
+impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
     fn group_comp<C: Component>(&mut self) -> &mut C {
         self.app
             .world_mut()
-            .get_mut::<C>(self.group)
+            .get_mut::<C>(self.config)
             .unwrap()
             .into_inner()
+    }
+
+    pub fn global_render_data<C: Cuttle + Default>(&mut self) -> &mut Self {
+        assert!(
+            C::HAS_RENDER_DATA,
+            "global_render_data without any render data has no point"
+        );
+
+        let mut config = self.app.world_mut().entity_mut(self.config);
+        config.insert(C::default());
+
+        let buffer_entity = config.get::<RenderEntity>().unwrap().id();
+        let binding = GlobalBuffer::init(self.app, buffer_entity, C::to_render_data);
+
+        let wgsl = C::wgsl_type(self.app.world().resource::<WgslTypeInfos>());
+        self.snippet(format!(
+            "@group(3) @binding({}) var<storage, read> {}: {};\n\n{}",
+            binding,
+            wgsl.name.to_case(Case::Snake),
+            wgsl.name,
+            wgsl.definition
+        ));
+
+        self.app
+            .sub_app_mut(RenderApp)
+            .add_systems(ExtractSchedule, extract_cuttle_global::<C, C::RenderData>);
+
+        self
     }
 
     pub fn calculation(
@@ -42,11 +77,11 @@ impl CuttleGroupBuilder<'_> {
     /// ```
     /// # use bevy::core_pipeline::core_2d::Transparent2d;
     /// # use bevy::prelude::*;
-    /// # use cuttle::groups::{CuttleGroup, builder::CuttleGroupBuilderAppExt};
+    /// # use cuttle::groups::{CuttleConfig, builder::CuttleGroupBuilderAppExt};
     /// # let mut app = App::new();
     /// # #[derive(Component, Default)]
     /// # struct MyGroup;
-    /// # impl CuttleGroup for MyGroup {
+    /// # impl CuttleConfig for MyGroup {
     /// #     type Phase = Transparent2d;
     /// # }
     ///
@@ -70,11 +105,11 @@ impl CuttleGroupBuilder<'_> {
     /// ```
     /// # use bevy::core_pipeline::core_2d::Transparent2d;
     /// # use bevy::prelude::*;
-    /// # use cuttle::groups::{CuttleGroup, builder::CuttleGroupBuilderAppExt};
+    /// # use cuttle::groups::{CuttleConfig, builder::CuttleGroupBuilderAppExt};
     /// # let mut app = App::new();
     /// # #[derive(Component, Default)]
     /// # struct MyGroup;
-    /// # impl CuttleGroup for MyGroup {
+    /// # impl CuttleConfig for MyGroup {
     /// #     type Phase = Transparent2d;
     /// # }
     ///
@@ -131,12 +166,12 @@ impl CuttleGroupBuilder<'_> {
     /// # use bevy::core_pipeline::core_2d::Transparent2d;
     /// # use bevy::prelude::{App, Component, Reflect};
     /// # use bevy::render::render_resource::ShaderType;
-    /// # use cuttle::groups::{CuttleGroup, builder::CuttleGroupBuilderAppExt};
+    /// # use cuttle::groups::{CuttleConfig, builder::CuttleGroupBuilderAppExt};
     /// # use cuttle::prelude::{Sdf, SdfOrder};
     /// # let mut app = App::new();
     /// # #[derive(Default, Component)]
     /// # struct MyGroup;
-    /// # impl CuttleGroup for MyGroup { type Phase = Transparent2d; }
+    /// # impl CuttleConfig for MyGroup { type Phase = Transparent2d; }
     ///
     /// #[derive(Component, Reflect, Clone, Debug)]
     /// struct Intersect;
@@ -191,12 +226,16 @@ impl CuttleGroupBuilder<'_> {
 }
 
 pub trait CuttleGroupBuilderAppExt {
-    fn cuttle_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder;
+    fn cuttle_group<Config: CuttleConfig>(&mut self) -> CuttleConfigBuilder<Config>;
 }
 
 impl CuttleGroupBuilderAppExt for App {
-    fn cuttle_group<G: CuttleGroup>(&mut self) -> CuttleGroupBuilder {
-        let group = initialize_group::<G>(self);
-        CuttleGroupBuilder { group, app: self }
+    fn cuttle_group<Config: CuttleConfig>(&mut self) -> CuttleConfigBuilder<Config> {
+        let config = initialize_config::<Config>(self);
+        CuttleConfigBuilder {
+            config,
+            app: self,
+            marker: PhantomData,
+        }
     }
 }

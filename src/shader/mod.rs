@@ -1,6 +1,6 @@
 use crate::calculations::{Calculation, Calculations};
 use crate::components::ComponentInfos;
-use crate::groups::GroupId;
+use crate::groups::ConfigId;
 use crate::shader::wgsl_struct::{ToWgslFn, WgslTypeInfos};
 use bevy::asset::io::{AssetReaderError, MissingAssetSourceError};
 use bevy::asset::AssetPath;
@@ -59,10 +59,10 @@ pub struct RenderDataWgsl {
 }
 
 pub fn load_shaders(
-    query: Query<(&GroupId, &ComponentInfos, &Snippets, &Calculations)>,
+    query: Query<(&ConfigId, &ComponentInfos, &Snippets, &Calculations)>,
     wgsl_type_infos: Res<WgslTypeInfos>,
     assets: Res<AssetServer>,
-) -> HashMap<GroupId, Handle<Shader>> {
+) -> HashMap<ConfigId, Handle<Shader>> {
     let mut result = HashMap::new();
     let wgsl_type_infos = wgsl_type_infos.into_inner();
 

@@ -1,7 +1,7 @@
-use super::{queue::GroupInstanceBuffer, CuttlePipelineKey, SortedCuttlePhaseItem};
-use crate::components::buffer::build_buffer_layout;
-use crate::groups::global::GlobalGroupInfos;
-use crate::groups::GroupId;
+use super::{queue::ConfigInstanceBuffer, CuttlePipelineKey};
+use crate::components::buffer::{build_buffer_layout, build_comp_layout, build_global_layouts};
+use crate::groups::{ConfigId, CuttleConfig};
+use bevy::ecs::system::RunSystemOnce;
 use bevy::image::BevyDefault;
 use bevy::render::RenderApp;
 use bevy::utils::HashMap;
@@ -27,21 +27,16 @@ use bevy::{
 pub struct CuttlePipeline {
     pub _common_shader: Handle<Shader>,
     pub vertex_shader: Handle<Shader>,
-    pub fragment_shaders: HashMap<GroupId, Handle<Shader>>,
-    pub global_layout: BindGroupLayout,
-    pub op_layout: BindGroupLayout,
-    pub comp_layout: BindGroupLayout,
+    pub fragment_shaders: HashMap<ConfigId, Handle<Shader>>,
+    pub view_layout: BindGroupLayout, // group 0
+    pub op_layout: BindGroupLayout,   // group 1
+    pub comp_layout: BindGroupLayout, // group 2
+    pub global_layouts: HashMap<ConfigId, BindGroupLayout>, // group 3
     pub indices: RawBufferVec<u16>,
 }
 
 impl CuttlePipeline {
-    pub fn init(app: &mut App, fragment_shaders: HashMap<GroupId, Handle<Shader>>) {
-        let comp_count = app
-            .world()
-            .resource::<GlobalGroupInfos>()
-            .component_bindings
-            .len() as u32;
-
+    pub fn init(app: &mut App, fragment_shaders: HashMap<ConfigId, Handle<Shader>>) {
         let world = app.sub_app_mut(RenderApp).world_mut();
 
         let device = world.resource::<RenderDevice>();
@@ -51,7 +46,7 @@ impl CuttlePipeline {
         *indices.values_mut() = vec![2, 0, 1, 1, 3, 2];
         indices.write_buffer(device, queue);
 
-        let global_layout = device.create_bind_group_layout(
+        let view_layout = device.create_bind_group_layout(
             "cuttle pipeline view uniform layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::VERTEX_FRAGMENT,
@@ -59,9 +54,9 @@ impl CuttlePipeline {
             ),
         );
 
-        let comp_layout =
-            build_buffer_layout(comp_count, device, "cuttle component buffers layout");
         let op_layout = build_buffer_layout(1, device, "cuttle index buffers layout");
+        let comp_layout = world.run_system_once(build_comp_layout).unwrap();
+        let global_layouts = world.run_system_once(build_global_layouts).unwrap();
 
         let asset_server = world.resource_mut::<AssetServer>();
         let _common_shader = asset_server.load::<Shader>("embedded://cuttle/shader/common.wgsl");
@@ -69,12 +64,13 @@ impl CuttlePipeline {
 
         let pipeline = CuttlePipeline {
             indices,
-            global_layout,
             _common_shader,
             vertex_shader,
             fragment_shaders,
-            comp_layout,
+            view_layout,
             op_layout,
+            comp_layout,
+            global_layouts,
         };
 
         world.insert_resource(pipeline);
@@ -134,9 +130,10 @@ impl SpecializedRenderPipeline for CuttlePipeline {
                 })],
             }),
             layout: vec![
-                self.global_layout.clone(),
+                self.view_layout.clone(),
                 self.op_layout.clone(),
                 self.comp_layout.clone(),
+                self.global_layouts.get(&key.group_id).unwrap().clone(),
             ],
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
@@ -179,7 +176,7 @@ pub fn prepare_view_bind_groups(
     for entity in &views {
         let view_bind_group = render_device.create_bind_group(
             "cuttle_view_bind_group",
-            &pipeline.global_layout,
+            &pipeline.view_layout,
             &BindGroupEntries::single(view_binding.clone()),
         );
 
@@ -189,10 +186,10 @@ pub fn prepare_view_bind_groups(
     }
 }
 
-pub fn write_group_buffer<P: SortedCuttlePhaseItem>(
+pub fn write_group_buffer<Config: CuttleConfig>(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    mut buffers: ResMut<GroupInstanceBuffer<P>>,
+    mut buffers: ResMut<ConfigInstanceBuffer<Config>>,
 ) {
     buffers.vertex.write_buffer(&device, &queue);
 }

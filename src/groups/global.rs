@@ -1,4 +1,4 @@
-use crate::components::buffer::BufferEntity;
+use crate::components::buffer::{BufferFns, CompBufferEntity};
 use crate::components::ComponentPosition;
 use crate::indices::build_set_flag_index;
 use bevy::app::App;
@@ -24,7 +24,7 @@ impl GlobalGroupInfos {
         let id = app
             .sub_app_mut(RenderApp)
             .world_mut()
-            .spawn(BufferEntity)
+            .spawn((CompBufferEntity, BufferFns::default()))
             .id();
         Self {
             group_count: 0,

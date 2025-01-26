@@ -25,13 +25,16 @@ pub mod pipeline;
 pub mod shader;
 
 pub mod prelude {
-    pub use crate::bounding::Bounding;
+    pub use crate::bounding::{Bounding, ComputeGlobalBounding};
     #[cfg(feature = "builtins")]
     pub use crate::builtins::{self, sdf::*, *};
     pub use crate::components::initialization::{Cuttle, CuttleRenderData};
     pub use crate::extensions::Extension;
     pub use crate::extensions::Extensions;
+    pub use crate::groups::builder::CuttleGroupBuilderAppExt;
+    pub use crate::groups::CuttleConfig;
     pub use crate::CuttlePlugin;
+    pub use cuttle_macros::Cuttle;
 }
 
 pub struct CuttlePlugin;

@@ -1,8 +1,10 @@
 use super::{
-    draw::DrawSdf, specialization::CuttlePipeline, CuttlePipelineKey, SortedCuttlePhaseItem,
+    draw::DrawCuttle, specialization::CuttlePipeline, CuttlePipelineKey, SortedCuttlePhaseItem,
 };
-use crate::groups::GroupId;
-use crate::pipeline::extract::{ExtractedCuttle, ExtractedCuttles};
+use crate::components::buffer::ConfigRenderEntity;
+use crate::groups::{ConfigId, CuttleConfig};
+use crate::pipeline::extract::{Extracted, ExtractedCuttle};
+use bevy::render::render_phase::PhaseItem;
 use bevy::render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy::{
     prelude::*,
@@ -17,17 +19,17 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Range;
 
-pub(crate) fn cuttle_queue_sorted_for_group<P: SortedCuttlePhaseItem>(
+pub fn cuttle_queue_sorted_for_group<Config: CuttleConfig>(
     mut cmds: Commands,
-    items: Res<ExtractedCuttles>,
+    extracted: Single<&Extracted, With<ConfigRenderEntity<Config>>>,
     views: Query<Entity, With<ExtractedView>>,
     cuttle_pipeline: Res<CuttlePipeline>,
-    draw_functions: Res<DrawFunctions<P>>,
+    draw_functions: Res<DrawFunctions<Config::Phase>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<CuttlePipeline>>,
     cache: Res<PipelineCache>,
-    mut render_phases: ResMut<ViewSortedRenderPhases<P>>,
+    mut render_phases: ResMut<ViewSortedRenderPhases<Config::Phase>>,
 ) {
-    let draw_function = draw_functions.read().id::<DrawSdf<P>>();
+    let draw_function = draw_functions.read().id::<DrawCuttle<Config>>();
     for view_entity in views.into_iter() {
         let Some(render_phase) = render_phases.get_mut(&view_entity) else {
             continue;
@@ -37,10 +39,10 @@ pub(crate) fn cuttle_queue_sorted_for_group<P: SortedCuttlePhaseItem>(
             &ExtractedCuttle {
                 z,
                 visible,
-                group_id,
+                group_id: item_group_id,
                 ..
             },
-        ) in items.iter()
+        ) in extracted.iter()
         {
             if !visible {
                 continue;
@@ -49,12 +51,12 @@ pub(crate) fn cuttle_queue_sorted_for_group<P: SortedCuttlePhaseItem>(
                 &cache,
                 &cuttle_pipeline,
                 CuttlePipelineKey {
-                    multisample_count: P::multisample_count(),
-                    group_id: GroupId(group_id),
-                    has_depth: P::depth(),
+                    multisample_count: Config::Phase::multisample_count(),
+                    group_id: ConfigId(item_group_id),
+                    has_depth: Config::Phase::depth(),
                 },
             );
-            render_phase.add(P::phase_item(
+            render_phase.add(Config::Phase::phase_item(
                 z,
                 (
                     cmds.spawn(TemporaryRenderEntity).id(),
@@ -82,12 +84,12 @@ pub struct CuttleInstance {
 }
 
 #[derive(Resource)]
-pub struct GroupInstanceBuffer<P> {
+pub struct ConfigInstanceBuffer<Config: CuttleConfig> {
     pub vertex: RawBufferVec<CuttleInstance>,
-    _phantom: PhantomData<P>,
+    _phantom: PhantomData<Config>,
 }
 
-impl<P> Default for GroupInstanceBuffer<P> {
+impl<Config: CuttleConfig> Default for ConfigInstanceBuffer<Config> {
     fn default() -> Self {
         Self {
             vertex: RawBufferVec::new(BufferUsages::VERTEX),
@@ -96,11 +98,11 @@ impl<P> Default for GroupInstanceBuffer<P> {
     }
 }
 
-pub(crate) fn cuttle_prepare_sorted_for_group<P: SortedCuttlePhaseItem>(
+pub fn cuttle_prepare_sorted_for_group<Config: CuttleConfig>(
     mut cmds: Commands,
-    mut phases: ResMut<ViewSortedRenderPhases<P>>,
-    mut buffers: ResMut<GroupInstanceBuffer<P>>,
-    items: Res<ExtractedCuttles>,
+    mut phases: ResMut<ViewSortedRenderPhases<Config::Phase>>,
+    mut buffers: ResMut<ConfigInstanceBuffer<Config>>,
+    extracted: Single<&Extracted, With<ConfigRenderEntity<Config>>>,
 ) {
     let mut batches = Vec::new();
     buffers.vertex.clear();
@@ -118,7 +120,7 @@ pub(crate) fn cuttle_prepare_sorted_for_group<P: SortedCuttlePhaseItem>(
                 indices_end,
                 bounding,
                 ..
-            }) = items.get(&item.main_entity().id())
+            }) = extracted.get(&item.main_entity().id())
             else {
                 batch = false;
                 continue;

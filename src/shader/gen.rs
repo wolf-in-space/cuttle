@@ -14,7 +14,7 @@ pub fn gen_shader(
 
     let shader = format!("{snippets}\n{stuff}\n{calculations}\n{selector}");
 
-    // println!("SHADER\n{}", shader);
+    // println!("SHADER:\n{}", shader);
 
     shader
 }

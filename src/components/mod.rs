@@ -1,6 +1,6 @@
 use crate::components::initialization::ComponentOrder;
 use crate::groups::global::GlobalGroupInfos;
-use crate::groups::GroupId;
+use crate::groups::ConfigId;
 use crate::shader::ToComponentShaderInfo;
 use bevy::prelude::*;
 use buffer::BufferPlugin;
@@ -23,7 +23,7 @@ pub fn sort_component_infos(mut query: Query<&mut ComponentInfos>) {
 }
 
 pub fn init_component_positions(
-    query: Query<(&GroupId, &ComponentInfos)>,
+    query: Query<(&ConfigId, &ComponentInfos)>,
     mut global: ResMut<GlobalGroupInfos>,
 ) {
     for (id, infos) in &query {

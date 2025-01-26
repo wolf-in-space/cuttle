@@ -1,7 +1,9 @@
 use crate::bounding::GlobalBoundingCircle;
+use crate::components::arena::IndexArena;
+use crate::components::buffer::{CompBuffer, ConfigRenderEntity, GlobalBuffer};
 use crate::components::initialization::CuttleRenderData;
-use crate::components::{arena::IndexArena, buffer::CompBuffer};
 use crate::extensions::CompIndicesBuffer;
+use crate::groups::{ConfigId, CuttleConfig};
 use crate::indices::{CuttleComponentIndex, CuttleIndices};
 use bevy::ecs::entity::EntityHashMap;
 use bevy::render::{Render, RenderSet};
@@ -11,12 +13,20 @@ use bevy::{
     render::{Extract, RenderApp},
 };
 use std::fmt::Debug;
+use std::ops::Deref;
 
 pub fn plugin(app: &mut App) {
     app.sub_app_mut(RenderApp)
-        .init_resource::<ExtractedCuttles>()
-        .add_systems(ExtractSchedule, extract_cuttles)
         .add_systems(Render, clear_cuttles.in_set(RenderSet::Cleanup));
+}
+
+pub(crate) fn extract_cuttle_global<C: Component, R: CuttleRenderData>(
+    mut buffer: Single<&mut GlobalBuffer<C, R>>,
+    component: Extract<Option<Single<&C, (Changed<C>, With<ConfigId>)>>>,
+) {
+    if let Some(component) = component.deref() {
+        buffer.set(&component);
+    }
 }
 
 pub(crate) fn extract_cuttle_comp<C: Component, R: CuttleRenderData>(
@@ -26,12 +36,12 @@ pub(crate) fn extract_cuttle_comp<C: Component, R: CuttleRenderData>(
 ) {
     buffer.resize(arena.max as usize);
     for (index, comp) in &comps {
-        buffer.set(**index as usize, comp);
+        buffer.insert(**index as usize, comp);
     }
 }
 
-#[derive(Debug, Resource, Default, Deref, DerefMut)]
-pub struct ExtractedCuttles(EntityHashMap<ExtractedCuttle>);
+#[derive(Debug, Component, Default, Deref, DerefMut)]
+pub struct Extracted(EntityHashMap<ExtractedCuttle>);
 
 #[derive(Debug)]
 pub struct ExtractedCuttle {
@@ -43,18 +53,21 @@ pub struct ExtractedCuttle {
     pub z: f32,
 }
 
-fn extract_cuttles(
+pub fn extract_cuttles<Config: CuttleConfig>(
     extract: Extract<
-        Query<(
-            Entity,
-            Option<&GlobalTransform>,
-            &GlobalBoundingCircle,
-            &CuttleIndices,
-            &ViewVisibility,
-        )>,
+        Query<
+            (
+                Entity,
+                Option<&GlobalTransform>,
+                &GlobalBoundingCircle,
+                &CuttleIndices,
+                &ViewVisibility,
+            ),
+            With<Config>,
+        >,
     >,
-    mut extracted: ResMut<ExtractedCuttles>,
     mut buffer: ResMut<CompIndicesBuffer>,
+    mut extracted: Single<&mut Extracted, With<ConfigRenderEntity<Config>>>,
 ) {
     let buffer = buffer.get_mut();
 
@@ -81,7 +94,9 @@ fn extract_cuttles(
     );
 }
 
-fn clear_cuttles(mut cuttles: ResMut<ExtractedCuttles>, mut buffer: ResMut<CompIndicesBuffer>) {
-    cuttles.clear();
+fn clear_cuttles(mut extracted: Query<&mut Extracted>, mut buffer: ResMut<CompIndicesBuffer>) {
+    for mut extracted in &mut extracted {
+        extracted.clear()
+    }
     buffer.get_mut().clear();
 }
