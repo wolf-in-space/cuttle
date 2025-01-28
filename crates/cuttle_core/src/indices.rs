@@ -2,12 +2,14 @@ use crate::bounding::BoundingRadius;
 use crate::bounding::GlobalBoundingCircle;
 use crate::components::arena::IndexArena;
 use crate::components::ComponentPosition;
+use crate::configs::{ConfigStore, CuttleConfig};
 use crate::extensions::Extensions;
-use crate::groups::{ConfigStore, CuttleConfig};
+use crate::internal_prelude::*;
+use crate::pipeline::extract::CuttleZ;
 use crate::prelude::Extension;
-use bevy::ecs::component::{ComponentHooks, ComponentId, StorageType};
-use bevy::ecs::world::DeferredWorld;
-use bevy::prelude::*;
+use bevy_ecs::component::{ComponentHooks, ComponentId, StorageType};
+use bevy_ecs::world::DeferredWorld;
+use bevy_utils::tracing::error;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
@@ -16,7 +18,7 @@ pub(super) fn plugin(app: &mut App) {
 }
 
 #[derive(Component, Reflect, Debug, Default, Deref)]
-#[require(Visibility, Extensions, BoundingRadius, GlobalBoundingCircle)]
+#[require(Visibility, Extensions, BoundingRadius, GlobalBoundingCircle, CuttleZ)]
 #[reflect(Component)]
 pub struct CuttleIndices {
     #[deref]
@@ -40,7 +42,7 @@ impl CuttleIndices {
     }
 }
 
-pub fn on_add_group_marker_initialize_indices_group_id<G: CuttleConfig>(
+pub fn on_add_config_marker_initialize_indices_config_id<G: CuttleConfig>(
     mut world: DeferredWorld,
     entity: Entity,
     _: ComponentId,

@@ -2,24 +2,22 @@ use super::{
     draw::DrawCuttle, specialization::CuttlePipeline, CuttlePipelineKey, SortedCuttlePhaseItem,
 };
 use crate::components::buffer::ConfigRenderEntity;
-use crate::groups::{ConfigId, CuttleConfig};
+use crate::configs::{ConfigId, CuttleConfig};
+use crate::internal_prelude::*;
 use crate::pipeline::extract::{Extracted, ExtractedCuttle};
-use bevy::render::render_phase::PhaseItem;
-use bevy::render::sync_world::{MainEntity, TemporaryRenderEntity};
-use bevy::{
-    prelude::*,
-    render::{
-        render_phase::{DrawFunctions, ViewSortedRenderPhases},
-        render_resource::{BufferUsages, PipelineCache, RawBufferVec, SpecializedRenderPipelines},
-        view::ExtractedView,
-    },
+use bevy_math::Vec2;
+use bevy_render::render_phase::{DrawFunctions, PhaseItem, ViewSortedRenderPhases};
+use bevy_render::render_resource::{
+    BufferUsages, PipelineCache, RawBufferVec, SpecializedRenderPipelines,
 };
+use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
+use bevy_render::view::ExtractedView;
 use bytemuck::NoUninit;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Range;
 
-pub fn cuttle_queue_sorted_for_group<Config: CuttleConfig>(
+pub fn cuttle_queue_sorted_for_config<Config: CuttleConfig>(
     mut cmds: Commands,
     extracted: Single<&Extracted, With<ConfigRenderEntity<Config>>>,
     views: Query<Entity, With<ExtractedView>>,
@@ -38,15 +36,11 @@ pub fn cuttle_queue_sorted_for_group<Config: CuttleConfig>(
             &entity,
             &ExtractedCuttle {
                 z,
-                visible,
                 group_id: item_group_id,
                 ..
             },
         ) in extracted.iter()
         {
-            if !visible {
-                continue;
-            }
             let pipeline = pipelines.specialize(
                 &cache,
                 &cuttle_pipeline,
@@ -98,7 +92,7 @@ impl<Config: CuttleConfig> Default for ConfigInstanceBuffer<Config> {
     }
 }
 
-pub fn cuttle_prepare_sorted_for_group<Config: CuttleConfig>(
+pub fn cuttle_prepare_sorted_for_config<Config: CuttleConfig>(
     mut cmds: Commands,
     mut phases: ResMut<ViewSortedRenderPhases<Config::Phase>>,
     mut buffers: ResMut<ConfigInstanceBuffer<Config>>,

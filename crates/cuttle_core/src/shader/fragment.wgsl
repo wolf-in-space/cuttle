@@ -1,3 +1,6 @@
+// NOTE: This file would not compile on its own, it will be included
+//       as a Snippet in the generated shader.
+
 #import cuttle::common::VertexOut
 
 @group(1) @binding(0) var<storage, read> indices: array<u32>;

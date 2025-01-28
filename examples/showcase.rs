@@ -1,7 +1,6 @@
 use bevy::color::palettes::css;
 use bevy::{color::palettes::tailwind, prelude::*};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use cuttle::extensions::Extension;
 use cuttle::prelude::*;
 use std::f32::consts::PI;
 

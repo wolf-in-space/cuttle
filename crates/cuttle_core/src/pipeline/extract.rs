@@ -2,20 +2,24 @@ use crate::bounding::GlobalBoundingCircle;
 use crate::components::arena::IndexArena;
 use crate::components::buffer::{CompBuffer, ConfigRenderEntity, GlobalBuffer};
 use crate::components::initialization::CuttleRenderData;
+use crate::configs::{ConfigId, CuttleConfig};
 use crate::extensions::CompIndicesBuffer;
-use crate::groups::{ConfigId, CuttleConfig};
 use crate::indices::{CuttleComponentIndex, CuttleIndices};
-use bevy::ecs::entity::EntityHashMap;
-use bevy::render::{Render, RenderSet};
-use bevy::{
-    math::bounding::BoundingCircle,
-    prelude::*,
-    render::{Extract, RenderApp},
-};
+use crate::internal_prelude::*;
+use bevy_app::{App, PostUpdate};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::entity::EntityHashMap;
+use bevy_math::bounding::BoundingCircle;
+use bevy_render::{Extract, Render, RenderApp, RenderSet};
+use bevy_transform::systems::propagate_transforms;
 use std::fmt::Debug;
 use std::ops::Deref;
 
 pub fn plugin(app: &mut App) {
+    app.add_systems(
+        PostUpdate,
+        set_cuttle_z_from_bevy_global_transform.after(propagate_transforms),
+    );
     app.sub_app_mut(RenderApp)
         .add_systems(Render, clear_cuttles.in_set(RenderSet::Cleanup));
 }
@@ -40,13 +44,22 @@ pub(crate) fn extract_cuttle_comp<C: Component, R: CuttleRenderData>(
     }
 }
 
+#[derive(Debug, Default, Copy, Clone, Component, Reflect)]
+#[reflect(Component)]
+pub struct CuttleZ(pub f32);
+
+pub fn set_cuttle_z_from_bevy_global_transform(mut query: Query<(&mut CuttleZ, &GlobalTransform)>) {
+    for (mut z, transform) in &mut query {
+        z.0 = transform.translation().z;
+    }
+}
+
 #[derive(Debug, Component, Default, Deref, DerefMut)]
 pub struct Extracted(EntityHashMap<ExtractedCuttle>);
 
 #[derive(Debug)]
 pub struct ExtractedCuttle {
     pub group_id: usize,
-    pub visible: bool,
     pub bounding: BoundingCircle,
     pub indices_start: u32,
     pub indices_end: u32,
@@ -57,11 +70,11 @@ pub fn extract_cuttles<Config: CuttleConfig>(
     extract: Extract<
         Query<
             (
+                &ViewVisibility,
                 Entity,
-                Option<&GlobalTransform>,
+                &CuttleZ,
                 &GlobalBoundingCircle,
                 &CuttleIndices,
-                &ViewVisibility,
             ),
             With<Config>,
         >,
@@ -74,7 +87,8 @@ pub fn extract_cuttles<Config: CuttleConfig>(
     extracted.extend(
         extract
             .iter()
-            .map(|(entity, transform, bounding, indices, vis)| {
+            .filter(|(visibility, ..)| visibility.get())
+            .map(|(_, entity, &CuttleZ(z), bounding, indices)| {
                 let indices_start = buffer.len() as u32;
                 let indices_end = (buffer.len() + indices.indices.len()) as u32;
                 buffer.extend(indices.iter_as_packed_u32s());
@@ -83,11 +97,10 @@ pub fn extract_cuttles<Config: CuttleConfig>(
                     entity,
                     ExtractedCuttle {
                         group_id: indices.group_id,
-                        visible: **vis,
                         indices_start,
                         indices_end,
                         bounding: **bounding,
-                        z: transform.map(|t| t.translation().z).unwrap_or_default(),
+                        z,
                     },
                 )
             }),

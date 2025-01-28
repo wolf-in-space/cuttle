@@ -1,6 +1,7 @@
+use crate::internal_prelude::*;
 use crate::shader::RenderDataWgsl;
-use bevy::reflect::{TypeInfo, Typed};
-use bevy::{prelude::*, utils::TypeIdMap};
+use bevy_math::{Mat2, Mat4, Vec2, Vec3, Vec4};
+use bevy_reflect::{TypeInfo, Typed};
 use std::any::{type_name, TypeId};
 use std::fmt::Write;
 

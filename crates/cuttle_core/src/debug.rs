@@ -1,9 +1,8 @@
 use crate::bounding::{BoundingRadius, ComputeGlobalBounding, GlobalBoundingCircle};
-use bevy::app::App;
-use bevy::prelude::{
-    Gizmos, GlobalTransform, IntoSystemConfigs, Plugin, PostUpdate, Query, Res, Resource, Srgba,
-    Vec3Swizzles,
-};
+use crate::internal_prelude::*;
+use bevy_color::Srgba;
+use bevy_gizmos::prelude::Gizmos;
+use bevy_math::Vec3Swizzles;
 
 #[derive(Resource, Default, Clone, Copy)]
 pub struct CuttleDebugPlugin {

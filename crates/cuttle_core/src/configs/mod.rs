@@ -1,21 +1,21 @@
 use crate::calculations::*;
 use crate::components::buffer::ConfigRenderEntity;
 use crate::components::ComponentInfos;
-use crate::indices::{on_add_group_marker_initialize_indices_group_id, CuttleIndices};
+use crate::indices::{on_add_config_marker_initialize_indices_config_id, CuttleIndices};
+use crate::internal_prelude::*;
 use crate::pipeline::draw::DrawCuttle;
 use crate::pipeline::extract::extract_cuttles;
 use crate::pipeline::queue::{
-    cuttle_prepare_sorted_for_group, cuttle_queue_sorted_for_group, ConfigInstanceBuffer,
+    cuttle_prepare_sorted_for_config, cuttle_queue_sorted_for_config, ConfigInstanceBuffer,
 };
 use crate::pipeline::specialization::write_group_buffer;
 use crate::pipeline::CuttleRenderSet::WriteBuffers;
 use crate::pipeline::{CuttleRenderSet, SortedCuttlePhaseItem};
 use crate::shader::Snippets;
-use bevy::prelude::*;
-use bevy::render::render_phase::AddRenderCommand;
-use bevy::render::sync_world::RenderEntity;
-use bevy::render::{Render, RenderApp};
-use global::GlobalGroupInfos;
+use bevy_render::render_phase::AddRenderCommand;
+use bevy_render::sync_world::RenderEntity;
+use bevy_render::{Render, RenderApp};
+use global::GlobalConfigInfos;
 use std::marker::PhantomData;
 
 pub mod builder;
@@ -27,18 +27,18 @@ pub trait CuttleConfig: Component + Default {
 
 fn initialize_config<Config: CuttleConfig>(app: &mut App) -> Entity {
     if let Some(store) = app.world().get_resource::<ConfigStore<Config>>() {
-        return store.group;
+        return store.config_entity;
     };
 
-    if !app.world().contains_resource::<GlobalGroupInfos>() {
-        let infos = GlobalGroupInfos::new(app);
+    if !app.world().contains_resource::<GlobalConfigInfos>() {
+        let infos = GlobalConfigInfos::new(app);
         app.insert_resource(infos);
     }
 
     app.register_required_components::<Config, CuttleIndices>();
     app.world_mut()
         .register_component_hooks::<Config>()
-        .on_add(on_add_group_marker_initialize_indices_group_id::<Config>);
+        .on_add(on_add_config_marker_initialize_indices_config_id::<Config>);
 
     let config_id = initialize_config_id(app);
     let config_buffer_entity = initialize_config_render_world::<Config>(app, config_id);
@@ -83,8 +83,8 @@ fn initialize_config_render_world<Config: CuttleConfig>(
         .add_systems(
             Render,
             (
-                cuttle_queue_sorted_for_group::<Config>.in_set(CuttleRenderSet::Queue),
-                cuttle_prepare_sorted_for_group::<Config>.in_set(CuttleRenderSet::ItemPreparation),
+                cuttle_queue_sorted_for_config::<Config>.in_set(CuttleRenderSet::Queue),
+                cuttle_prepare_sorted_for_config::<Config>.in_set(CuttleRenderSet::ItemPreparation),
                 write_group_buffer::<Config>.in_set(WriteBuffers),
             ),
         );
@@ -94,9 +94,9 @@ fn initialize_config_render_world<Config: CuttleConfig>(
 
 fn initialize_config_id(app: &mut App) -> ConfigId {
     let world = app.world_mut();
-    let mut global = world.resource_mut::<GlobalGroupInfos>();
-    let id = global.group_count;
-    global.group_count += 1;
+    let mut global = world.resource_mut::<GlobalConfigInfos>();
+    let id = global.config_count;
+    global.config_count += 1;
     global.component_positions.push(default());
     ConfigId(id)
 }
@@ -108,7 +108,7 @@ pub struct ConfigId(pub(crate) usize);
 #[derive(Resource)]
 pub struct ConfigStore<G> {
     pub id: usize,
-    pub group: Entity,
+    pub config_entity: Entity,
     phantom_data: PhantomData<G>,
 }
 impl<G> Copy for ConfigStore<G> {}
@@ -116,7 +116,7 @@ impl<G> Clone for ConfigStore<G> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
-            group: self.group,
+            config_entity: self.config_entity,
             phantom_data: PhantomData,
         }
     }
@@ -126,7 +126,7 @@ impl<Config: CuttleConfig> ConfigStore<Config> {
     fn new(id: usize, entity: Entity) -> Self {
         Self {
             id,
-            group: entity,
+            config_entity: entity,
             phantom_data: PhantomData,
         }
     }

@@ -1,22 +1,16 @@
 use crate::components::initialization::CuttleRenderData;
-use crate::groups::{ConfigId, CuttleConfig};
+use crate::configs::{ConfigId, CuttleConfig};
+use crate::internal_prelude::*;
 use crate::pipeline::extract::Extracted;
 use crate::pipeline::CuttleRenderSet;
-use bevy::ecs::world::{EntityMutExcept, EntityRefExcept};
-use bevy::render::render_resource::encase::private::WriteInto;
-use bevy::render::render_resource::ShaderType;
-use bevy::utils::HashMap;
-use bevy::{
-    prelude::*,
-    render::{
-        render_resource::{
-            BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BindingResource,
-            BindingType, BufferBindingType, ShaderStages, StorageBuffer,
-        },
-        renderer::{RenderDevice, RenderQueue},
-        Render, RenderApp,
-    },
+use bevy_ecs::world::{EntityMutExcept, EntityRefExcept};
+use bevy_render::render_resource::encase::internal::WriteInto;
+use bevy_render::render_resource::{
+    BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry, BindingResource, BindingType,
+    BufferBindingType, ShaderStages, ShaderType, StorageBuffer,
 };
+use bevy_render::renderer::{RenderDevice, RenderQueue};
+use bevy_render::{Render, RenderApp};
 use std::marker::PhantomData;
 
 pub struct BufferPlugin;

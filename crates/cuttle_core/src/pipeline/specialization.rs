@@ -1,27 +1,23 @@
 use super::{queue::ConfigInstanceBuffer, CuttlePipelineKey};
 use crate::components::buffer::{build_buffer_layout, build_comp_layout, build_global_layouts};
-use crate::groups::{ConfigId, CuttleConfig};
-use bevy::ecs::system::RunSystemOnce;
-use bevy::image::BevyDefault;
-use bevy::render::RenderApp;
-use bevy::utils::HashMap;
-use bevy::{
-    core_pipeline::core_2d::CORE_2D_DEPTH_FORMAT,
-    prelude::*,
-    render::{
-        mesh::PrimitiveTopology,
-        render_resource::{
-            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
-            BindGroupLayoutEntries, BlendState, BufferUsages, ColorTargetState, ColorWrites,
-            CompareFunction, DepthBiasState, DepthStencilState, FragmentState, FrontFace,
-            MultisampleState, PolygonMode, PrimitiveState, RawBufferVec, RenderPipelineDescriptor,
-            ShaderStages, SpecializedRenderPipeline, StencilFaceState, StencilState, TextureFormat,
-            VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
-        },
-        renderer::{RenderDevice, RenderQueue},
-        view::{ExtractedView, ViewUniform, ViewUniforms},
-    },
+use crate::configs::{ConfigId, CuttleConfig};
+use crate::internal_prelude::*;
+use bevy_asset::{AssetServer, Handle};
+use bevy_core_pipeline::core_2d::CORE_2D_DEPTH_FORMAT;
+use bevy_ecs::system::RunSystemOnce;
+use bevy_image::BevyDefault;
+use bevy_render::mesh::{PrimitiveTopology, VertexBufferLayout};
+use bevy_render::render_resource::binding_types::uniform_buffer;
+use bevy_render::render_resource::{
+    BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendState, BufferUsages,
+    ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
+    FragmentState, FrontFace, MultisampleState, PolygonMode, PrimitiveState, RawBufferVec,
+    RenderPipelineDescriptor, ShaderStages, SpecializedRenderPipeline, StencilFaceState,
+    StencilState, TextureFormat, VertexFormat, VertexState, VertexStepMode,
 };
+use bevy_render::renderer::{RenderDevice, RenderQueue};
+use bevy_render::view::{ExtractedView, ViewUniform, ViewUniforms};
+use bevy_render::RenderApp;
 
 #[derive(Resource)]
 pub struct CuttlePipeline {
@@ -59,8 +55,10 @@ impl CuttlePipeline {
         let global_layouts = world.run_system_once(build_global_layouts).unwrap();
 
         let asset_server = world.resource_mut::<AssetServer>();
-        let _common_shader = asset_server.load::<Shader>("embedded://cuttle/shader/common.wgsl");
-        let vertex_shader = asset_server.load::<Shader>("embedded://cuttle/shader/vertex.wgsl");
+        let _common_shader =
+            asset_server.load::<Shader>("embedded://cuttle_core/shader/common.wgsl");
+        let vertex_shader =
+            asset_server.load::<Shader>("embedded://cuttle_core/shader/vertex.wgsl");
 
         let pipeline = CuttlePipeline {
             indices,

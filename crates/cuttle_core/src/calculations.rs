@@ -1,4 +1,6 @@
-use bevy::prelude::*;
+use crate::internal_prelude::*;
+use bevy_app::App;
+use bevy_derive::{Deref, DerefMut};
 
 pub(super) fn plugin(app: &mut App) {
     app.register_type::<Calculations>()

@@ -1,91 +1,96 @@
-use crate as cuttle;
-use crate::bounding::Bounding;
-use crate::builtins::*;
-use crate::components::initialization::init_render_data;
-use crate::groups::{builder::CuttleGroupBuilderAppExt, CuttleConfig};
-use crate::shader::wgsl_struct::WgslTypeInfos;
-use crate::shader::ToRenderData;
-use bevy::asset::embedded_asset;
-use bevy::core_pipeline::core_2d::Transparent2d;
-use bevy::prelude::{App, Component};
-use bevy::render::render_resource::ShaderType;
-use bevy::ui::TransparentUi;
+use bevy_app::{App, Plugin};
+use bevy_asset::embedded_asset;
+use bevy_color::{ColorToComponents, Srgba};
+use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::prelude::Component;
+use bevy_ecs::prelude::ReflectComponent;
+use bevy_math::{Mat4, Vec2, Vec4};
+use bevy_reflect::Reflect;
+use bevy_render::render_resource::ShaderType;
+use bevy_transform::prelude::GlobalTransform;
+use cuttle_core::components::initialization::init_render_data;
+use cuttle_core::prelude::{Bounding, CuttleConfig, CuttleGroupBuilderAppExt};
+use cuttle_core::shader::wgsl_struct::WgslTypeInfos;
+use cuttle_core::shader::ToRenderData;
 use cuttle_macros::Cuttle;
 
-pub(super) fn plugin(app: &mut App) {
-    embedded_asset!(app, "builtins.wgsl");
-    app.register_type::<Sdf>()
-        .register_type::<Rounded>()
-        .register_type::<Annular>()
-        .register_type::<PrepareBase>()
-        .register_type::<Circle>()
-        .register_type::<Line>()
-        .register_type::<Quad>()
-        .register_type::<Fill>()
-        .register_type::<DistanceGradient>()
-        .register_type::<ForceFieldAlpha>()
-        .register_type::<PrepareOperation>()
-        .register_type::<Unioni>()
-        .register_type::<SmoothUnion>()
-        .register_type::<Subtract>()
-        .register_type::<SmoothSubtract>()
-        .register_type::<Intersect>()
-        .register_type::<SmoothIntersect>()
-        .register_type::<Xor>()
-        .register_type::<Morph>()
-        .register_type::<Repetition>();
-    app.add_plugins(sdf_plugin::<Sdf>);
-}
+pub struct SdfPlugin;
+impl Plugin for SdfPlugin {
+    fn build(&self, app: &mut App) {
+        app.register_type::<Sdf>()
+            .register_type::<Rounded>()
+            .register_type::<Annular>()
+            .register_type::<PrepareBase>()
+            .register_type::<Circle>()
+            .register_type::<Line>()
+            .register_type::<Quad>()
+            .register_type::<Fill>()
+            .register_type::<DistanceGradient>()
+            .register_type::<ForceFieldAlpha>()
+            .register_type::<PrepareOperation>()
+            .register_type::<Unioni>()
+            .register_type::<SmoothUnion>()
+            .register_type::<Subtract>()
+            .register_type::<SmoothSubtract>()
+            .register_type::<Intersect>()
+            .register_type::<SmoothIntersect>()
+            .register_type::<Xor>()
+            .register_type::<Morph>()
+            .register_type::<Repetition>();
 
-fn sdf_plugin<G: CuttleConfig>(app: &mut App) {
-    app.cuttle_group::<G>()
-        .snippet_file("embedded://cuttle/builtins/builtins.wgsl")
-        .calculation("world_position", "vec2<f32>")
-        .calculation("position", "vec2<f32>")
-        .calculation("distance", "f32")
-        .calculation("size", "f32")
-        .calculation("prev_distance", "f32")
-        .calculation("prev_color", "vec4<f32>")
-        .component::<DistanceGradient>()
-        .component::<Sdf>()
-        .component::<PrepareOperation>()
-        .component::<PrepareBase>()
-        .component::<Annular>()
-        .affect_bounds(Bounding::Add, |&Annular(a)| a)
-        .component::<Fill>()
-        .component::<ForceFieldAlpha>()
-        .component::<Stretch>()
-        .affect_bounds(Bounding::Multiply, |&Stretch(s)| (s.length() + 1.) * 20.)
-        .component::<Circle>()
-        .affect_bounds(Bounding::Add, |&Circle(c)| c)
-        .component::<Line>()
-        .affect_bounds(Bounding::Add, |&Line(l)| l)
-        .component::<Quad>()
-        .affect_bounds(Bounding::Add, |&Quad(q)| q.length())
-        .component::<Rounded>()
-        .affect_bounds(Bounding::Add, |&Rounded(r)| r)
-        .component::<Unioni>()
-        .component::<Subtract>()
-        .component::<Intersect>()
-        .component::<Xor>()
-        .component::<SmoothUnion>()
-        .component::<SmoothSubtract>()
-        .component::<SmoothIntersect>()
-        .component::<SmoothXor>()
-        .component::<Repetition>()
-        .component::<Morph>();
+        embedded_asset!(app, "sdf.wgsl");
 
-    let global_transform_binding =
-        init_render_data(app, |g: &GlobalTransform| g.compute_matrix().inverse());
-    app.cuttle_group::<Sdf>()
-        .register_component_manual::<GlobalTransform>(
-            SdfOrder::Translation,
-            Some(ToRenderData {
-                binding: global_transform_binding,
-                to_wgsl: WgslTypeInfos::wgsl_type_for_builtin::<Mat4>,
-            }),
-            None,
-        );
+        app.cuttle_config::<Sdf>()
+            .snippet_file("embedded://cuttle_sdf/sdf.wgsl")
+            .calculation("world_position", "vec2<f32>")
+            .calculation("position", "vec2<f32>")
+            .calculation("distance", "f32")
+            .calculation("size", "f32")
+            .calculation("prev_distance", "f32")
+            .calculation("prev_color", "vec4<f32>")
+            .component::<DistanceGradient>()
+            .component::<Sdf>()
+            .component::<PrepareOperation>()
+            .component::<PrepareBase>()
+            .component::<Annular>()
+            .affect_bounds(Bounding::Add, |&Annular(a)| a)
+            .component::<Fill>()
+            .component::<ForceFieldAlpha>()
+            .component::<Stretch>()
+            .affect_bounds(Bounding::Multiply, |&Stretch(s)| (s.length() + 1.) * 20.)
+            .component::<Circle>()
+            .affect_bounds(Bounding::Add, |&Circle(c)| c)
+            .component::<Line>()
+            .affect_bounds(Bounding::Add, |&Line(l)| l)
+            .component::<Quad>()
+            .affect_bounds(Bounding::Add, |&Quad(q)| q.length())
+            .component::<Rounded>()
+            .affect_bounds(Bounding::Add, |&Rounded(r)| r)
+            .component::<Unioni>()
+            .component::<Subtract>()
+            .component::<Intersect>()
+            .component::<Xor>()
+            .component::<SmoothUnion>()
+            .component::<SmoothSubtract>()
+            .component::<SmoothIntersect>()
+            .component::<SmoothXor>()
+            .component::<Repetition>()
+            .component::<Morph>();
+
+        let global_transform_binding =
+            init_render_data(app, |g: &GlobalTransform| g.compute_matrix().inverse());
+
+        app.cuttle_config::<Sdf>()
+            .register_component_manual::<GlobalTransform>(
+                SdfOrder::Translation,
+                Some(ToRenderData {
+                    binding: global_transform_binding,
+                    to_wgsl: WgslTypeInfos::wgsl_type_for_builtin::<Mat4>,
+                }),
+                None,
+            );
+    }
 }
 
 #[derive(Component, Debug, Default, Clone, Reflect, Cuttle)]
@@ -95,14 +100,6 @@ pub struct Sdf;
 
 impl CuttleConfig for Sdf {
     type Phase = Transparent2d;
-}
-
-#[derive(Component, Debug, Default, Clone, Reflect, Cuttle)]
-#[require(Node)]
-pub struct UiSdf;
-
-impl CuttleConfig for UiSdf {
-    type Phase = TransparentUi;
 }
 
 #[derive(Copy, Clone)]

@@ -1,13 +1,14 @@
 use crate::bounding::BoundingRadius;
 use crate::pipeline::{specialization::CuttlePipeline, CuttleRenderSet};
-use bevy::ecs::component::{ComponentHooks, StorageType};
-use bevy::{
-    prelude::*,
-    render::{
-        render_resource::{BindGroup, BindGroupEntries, StorageBuffer},
-        renderer::{RenderDevice, RenderQueue},
-        Render, RenderApp,
-    },
+use bevy_app::prelude::*;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::component::{ComponentHooks, StorageType};
+use bevy_ecs::prelude::*;
+use bevy_reflect::prelude::*;
+use bevy_render::{
+    render_resource::{BindGroup, BindGroupEntries, StorageBuffer},
+    renderer::{RenderDevice, RenderQueue},
+    Render, RenderApp,
 };
 use std::fmt::Debug;
 

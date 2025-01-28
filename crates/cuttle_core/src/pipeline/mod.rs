@@ -1,17 +1,14 @@
-use crate::groups::ConfigId;
-use bevy::render::render_phase::SortedPhaseItem;
-use bevy::{
-    core_pipeline::core_2d::Transparent2d,
-    math::FloatOrd,
-    prelude::*,
-    render::{
-        render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItemExtraIndex},
-        render_resource::{CachedRenderPipelineId, SpecializedRenderPipelines},
-        sync_world::MainEntity,
-        Render, RenderApp, RenderSet,
-    },
-    ui::TransparentUi,
+use crate::configs::ConfigId;
+use crate::internal_prelude::*;
+use bevy_app::{App, Plugin};
+use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_math::FloatOrd;
+use bevy_render::render_phase::{
+    CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItemExtraIndex, SortedPhaseItem,
 };
+use bevy_render::render_resource::{CachedRenderPipelineId, SpecializedRenderPipelines};
+use bevy_render::sync_world::MainEntity;
+use bevy_render::{Render, RenderApp, RenderSet};
 use specialization::{prepare_view_bind_groups, CuttlePipeline};
 
 pub mod draw;
@@ -63,6 +60,7 @@ impl SortedCuttlePhaseItem for Transparent2d {
     }
 }
 
+/*
 impl SortedCuttlePhaseItem for TransparentUi {
     fn phase_item(
         sort: f32,
@@ -88,6 +86,7 @@ impl SortedCuttlePhaseItem for TransparentUi {
         false
     }
 }
+*/
 
 pub struct PipelinePlugin;
 impl Plugin for PipelinePlugin {

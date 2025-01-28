@@ -1,12 +1,11 @@
 use crate::extensions::Extensions;
-use bevy::math::bounding::{BoundingCircle, BoundingVolume};
-use bevy::math::Vec3A;
-use bevy::prelude::*;
-use bevy::render::primitives::{Frustum, Sphere};
-use bevy::render::view::{
+use crate::internal_prelude::*;
+use bevy_math::bounding::{BoundingCircle, BoundingVolume};
+use bevy_math::{Vec2, Vec3A, Vec3Swizzles};
+use bevy_render::primitives::{Frustum, Sphere};
+use bevy_render::view::{
     NoCpuCulling, NoFrustumCulling, RenderLayers, VisibilitySystems, VisibleEntities,
 };
-use bevy::utils::Parallel;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<BoundingRadius>()

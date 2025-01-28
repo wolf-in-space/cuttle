@@ -1,8 +1,10 @@
 use crate::components::initialization::ComponentOrder;
-use crate::groups::global::GlobalGroupInfos;
-use crate::groups::ConfigId;
+use crate::configs::global::GlobalConfigInfos;
+use crate::configs::ConfigId;
+use crate::internal_prelude::*;
 use crate::shader::ToComponentShaderInfo;
-use bevy::prelude::*;
+use bevy_app::{App, Plugin};
+use bevy_derive::{Deref, DerefMut};
 use buffer::BufferPlugin;
 
 pub mod arena;
@@ -24,7 +26,7 @@ pub fn sort_component_infos(mut query: Query<&mut ComponentInfos>) {
 
 pub fn init_component_positions(
     query: Query<(&ConfigId, &ComponentInfos)>,
-    mut global: ResMut<GlobalGroupInfos>,
+    mut global: ResMut<GlobalConfigInfos>,
 ) {
     for (id, infos) in &query {
         for (i, info) in infos.iter().enumerate() {

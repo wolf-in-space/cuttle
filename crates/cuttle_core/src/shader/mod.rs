@@ -1,15 +1,11 @@
 use crate::calculations::{Calculation, Calculations};
 use crate::components::ComponentInfos;
-use crate::groups::ConfigId;
+use crate::configs::ConfigId;
+use crate::internal_prelude::*;
 use crate::shader::wgsl_struct::{ToWgslFn, WgslTypeInfos};
-use bevy::asset::io::{AssetReaderError, MissingAssetSourceError};
-use bevy::asset::AssetPath;
-use bevy::utils::HashMap;
-use bevy::{
-    asset::{embedded_asset, io::Reader},
-    prelude::*,
-};
-use derive_more::derive::{Display, Error, From};
+use bevy_asset::io::{AssetReaderError, MissingAssetSourceError, Reader};
+use bevy_asset::{embedded_asset, Asset, AssetApp, AssetPath, AssetServer, Handle};
+use derive_more::{Display, Error, From};
 use gen::gen_shader;
 use std::string::FromUtf8Error;
 
@@ -106,7 +102,7 @@ async fn load_shader(
 ) -> Result<Shader, LoadShaderError> {
     let mut snippets = String::new();
     let base = [AddSnippet::File(
-        "embedded://cuttle/shader/fragment.wgsl".to_string(),
+        "embedded://cuttle_core/shader/fragment.wgsl".to_string(),
     )];
     let snippet_sources = base.into_iter().chain(settings.snippets);
     for add in snippet_sources {

@@ -3,16 +3,15 @@ use crate::calculations::{Calculation, Calculations};
 use crate::components::buffer::GlobalBuffer;
 use crate::components::initialization::{init_render_data, ComponentOrder, Cuttle};
 use crate::components::{ComponentInfo, ComponentInfos};
-use crate::groups::global::GlobalGroupInfos;
-use crate::groups::{initialize_config, CuttleConfig};
+use crate::configs::global::GlobalConfigInfos;
+use crate::configs::{initialize_config, CuttleConfig};
+use crate::internal_prelude::*;
 use crate::pipeline::extract::extract_cuttle_global;
 use crate::shader::wgsl_struct::WgslTypeInfos;
 use crate::shader::{AddSnippet, Snippets, ToComponentShaderInfo, ToRenderData};
-use bevy::app::{App, PostUpdate};
-use bevy::prelude::{Component, Entity, ExtractSchedule};
-use bevy::reflect::Typed;
-use bevy::render::sync_world::RenderEntity;
-use bevy::render::RenderApp;
+use bevy_reflect::Typed;
+use bevy_render::sync_world::RenderEntity;
+use bevy_render::RenderApp;
 use convert_case::{Case, Casing};
 use std::any::{type_name, TypeId};
 use std::marker::PhantomData;
@@ -24,7 +23,7 @@ pub struct CuttleConfigBuilder<'a, Config> {
 }
 
 impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
-    fn group_comp<C: Component>(&mut self) -> &mut C {
+    fn get_comp_mut<C: Component>(&mut self) -> &mut C {
         self.app
             .world_mut()
             .get_mut::<C>(self.config)
@@ -65,7 +64,7 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
         name: impl Into<String>,
         wgsl_type: impl Into<String>,
     ) -> &mut Self {
-        self.group_comp::<Calculations>().push(Calculation {
+        self.get_comp_mut::<Calculations>().push(Calculation {
             name: name.into(),
             wgsl_type: wgsl_type.into(),
         });
@@ -94,7 +93,7 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
     ///
     /// ```
     pub fn snippet(&mut self, snippet: impl Into<String>) -> &mut Self {
-        self.group_comp::<Snippets>()
+        self.get_comp_mut::<Snippets>()
             .push(AddSnippet::Inline(snippet.into()));
         self
     }
@@ -124,7 +123,7 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
     ///
     /// see [`builtins.wgsl`](https://github.com/wolf-in-space/cuttle/blob/main/src/builtins/builtins.wgsl) for an example
     pub fn snippet_file(&mut self, path: impl Into<String>) -> &mut Self {
-        self.group_comp::<Snippets>()
+        self.get_comp_mut::<Snippets>()
             .push(AddSnippet::File(path.into()));
         self
     }
@@ -210,11 +209,11 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
             function_name,
             to_render_data,
         };
-        self.group_comp::<ComponentInfos>().push(ComponentInfo {
+        self.get_comp_mut::<ComponentInfos>().push(ComponentInfo {
             order,
             to_shader_info,
         });
-        GlobalGroupInfos::register_component::<C>(self.app);
+        GlobalConfigInfos::register_component::<C>(self.app);
         self
     }
 
@@ -226,11 +225,11 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
 }
 
 pub trait CuttleGroupBuilderAppExt {
-    fn cuttle_group<Config: CuttleConfig>(&mut self) -> CuttleConfigBuilder<Config>;
+    fn cuttle_config<Config: CuttleConfig>(&mut self) -> CuttleConfigBuilder<Config>;
 }
 
 impl CuttleGroupBuilderAppExt for App {
-    fn cuttle_group<Config: CuttleConfig>(&mut self) -> CuttleConfigBuilder<Config> {
+    fn cuttle_config<Config: CuttleConfig>(&mut self) -> CuttleConfigBuilder<Config> {
         let config = initialize_config::<Config>(self);
         CuttleConfigBuilder {
             config,

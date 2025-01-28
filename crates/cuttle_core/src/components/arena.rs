@@ -1,4 +1,5 @@
-use bevy::prelude::{default, Component, Resource};
+use crate::internal_prelude::*;
+use bevy_utils::default;
 use std::any::type_name;
 use std::fmt::Debug;
 use std::marker::PhantomData;

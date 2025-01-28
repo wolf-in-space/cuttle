@@ -3,21 +3,16 @@ use super::specialization::CuttleViewBindGroup;
 use super::SortedCuttlePhaseItem;
 use super::{queue::CuttleBatch, specialization::CuttlePipeline};
 use crate::components::buffer::{Bind, CompBufferEntity, ConfigRenderEntity};
+use crate::configs::CuttleConfig;
 use crate::extensions::CompIndicesBindgroup;
-use crate::groups::CuttleConfig;
-use bevy::ecs::system::lifetimeless::SQuery;
-use bevy::prelude::With;
-use bevy::{
-    ecs::system::{
-        lifetimeless::{Read, SRes},
-        SystemParamItem,
-    },
-    render::{
-        render_phase::{RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass},
-        render_resource::IndexFormat,
-        view::ViewUniformOffset,
-    },
+use crate::internal_prelude::*;
+use bevy_ecs::system::lifetimeless::{Read, SQuery, SRes};
+use bevy_ecs::system::SystemParamItem;
+use bevy_render::render_phase::{
+    RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
 };
+use bevy_render::render_resource::IndexFormat;
+use bevy_render::view::ViewUniformOffset;
 use std::marker::PhantomData;
 
 pub type DrawCuttle<G> = (SetItemPipeline, PerFrame, PerConfig<G>, PerView, PerBatch);

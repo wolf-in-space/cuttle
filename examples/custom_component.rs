@@ -1,5 +1,4 @@
 use bevy::{color::palettes::css, prelude::*, render::render_resource::ShaderType};
-use cuttle::groups::builder::CuttleGroupBuilderAppExt;
 use cuttle::prelude::*;
 
 fn main() {
@@ -24,8 +23,8 @@ fn spawn(mut cmds: Commands) {
 }
 
 fn do_a_wave(app: &mut App) {
-    app.cuttle_group::<Sdf>()
-        .component::<DoAWave>(SdfOrder::Distance)
+    app.cuttle_config::<Sdf>()
+        .component::<DoAWave>()
         .affect_bounds(Bounding::Add, |&DoAWave { amplitude, .. }| amplitude)
         .snippet(stringify!(
             fn do_a_wave(comp: DoAWave) {
@@ -36,7 +35,8 @@ fn do_a_wave(app: &mut App) {
         ));
 }
 
-#[derive(Clone, Debug, Default, Component, ShaderType, Reflect)]
+#[derive(Clone, Debug, Default, Component, ShaderType, Reflect, Cuttle)]
+#[cuttle(sort(SdfOrder::Distance))]
 struct DoAWave {
     amplitude: f32,
     frequency: f32,
