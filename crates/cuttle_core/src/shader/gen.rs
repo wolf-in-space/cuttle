@@ -1,31 +1,15 @@
-use crate::calculations::Calculation;
 use crate::shader::ComponentShaderInfo;
 use convert_case::{Case, Casing};
 use std::fmt::Write;
 
-pub fn gen_shader(
-    infos: &[ComponentShaderInfo],
-    calculations: &[Calculation],
-    snippets: String,
-) -> String {
+pub fn gen_shader(infos: &[ComponentShaderInfo], snippets: String) -> String {
     let selector = comp_selector(infos);
     let stuff = structs_and_bindings(infos);
-    let calculations = gen_calculations(calculations);
 
-    let shader = format!("{snippets}\n{stuff}\n{calculations}\n{selector}");
+    let shader = format!("{snippets}\n{stuff}\n{selector}");
 
     // println!("SHADER:\n{}", shader);
     shader
-}
-
-fn gen_calculations(calculations: &[Calculation]) -> String {
-    calculations
-        .iter()
-        .try_fold(String::new(), |mut result, calc| {
-            writeln!(result, "var<private> {}: {};", calc.name, calc.wgsl_type)?;
-            Ok::<_, std::fmt::Error>(result)
-        })
-        .unwrap()
 }
 
 fn comp_selector(infos: &[ComponentShaderInfo]) -> String {

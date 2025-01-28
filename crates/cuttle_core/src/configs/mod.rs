@@ -1,4 +1,3 @@
-use crate::calculations::*;
 use crate::components::buffer::ConfigRenderEntity;
 use crate::components::ComponentInfos;
 use crate::indices::{on_add_config_marker_initialize_indices_config_id, CuttleIndices};
@@ -42,12 +41,6 @@ fn initialize_config<Config: CuttleConfig>(app: &mut App) -> Entity {
 
     let config_id = initialize_config_id(app);
     let config_buffer_entity = initialize_config_render_world::<Config>(app, config_id);
-    let initial_calculations = vec![
-        // Always needed as the input to the fragment shader.
-        Calculation::new("vertex", "VertexOut"),
-        // Always needed as the output to the fragment shader.
-        Calculation::new("color", "vec4<f32>"),
-    ];
 
     let config_entity = app
         .world_mut()
@@ -55,7 +48,6 @@ fn initialize_config<Config: CuttleConfig>(app: &mut App) -> Entity {
             config_id,
             Snippets::default(),
             ComponentInfos::default(),
-            Calculations(initial_calculations),
             RenderEntity::from(config_buffer_entity),
         ))
         .id();

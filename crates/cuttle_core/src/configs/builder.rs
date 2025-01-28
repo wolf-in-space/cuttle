@@ -1,5 +1,4 @@
 use crate::bounding::{make_compute_aabb_system, Bounding};
-use crate::calculations::{Calculation, Calculations};
 use crate::components::buffer::GlobalBuffer;
 use crate::components::initialization::{init_render_data, ComponentOrder, Cuttle};
 use crate::components::{ComponentInfo, ComponentInfos};
@@ -59,15 +58,12 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
         self
     }
 
-    pub fn calculation(
-        &mut self,
-        name: impl Into<String>,
-        wgsl_type: impl Into<String>,
-    ) -> &mut Self {
-        self.get_comp_mut::<Calculations>().push(Calculation {
-            name: name.into(),
-            wgsl_type: wgsl_type.into(),
-        });
+    pub fn variable(&mut self, name: impl Into<String>, wgsl_type: impl Into<String>) -> &mut Self {
+        self.snippet(format!(
+            "var<private> {}: {};",
+            name.into(),
+            wgsl_type.into()
+        ));
         self
     }
 

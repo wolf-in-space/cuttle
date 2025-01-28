@@ -12,7 +12,6 @@ use pipeline::PipelinePlugin;
 use shader::ShaderPlugin;
 
 pub mod bounding;
-pub mod calculations;
 pub mod components;
 pub mod configs;
 pub mod debug;
@@ -22,12 +21,13 @@ pub mod pipeline;
 pub mod shader;
 
 pub mod prelude {
-    pub use crate::bounding::{Bounding, ComputeGlobalBounding};
+    pub use crate::bounding::*;
     pub use crate::components::initialization::{Cuttle, CuttleRenderData};
     pub use crate::configs::builder::CuttleGroupBuilderAppExt;
     pub use crate::configs::CuttleConfig;
     pub use crate::extensions::Extension;
     pub use crate::extensions::Extensions;
+    pub use crate::pipeline::extract::CuttleZ;
     pub use crate::CuttleCorePlugin;
 }
 
@@ -51,7 +51,6 @@ impl Plugin for CuttleCorePlugin {
             extensions::plugin,
             bounding::plugin,
             indices::plugin,
-            calculations::plugin,
         ));
     }
 

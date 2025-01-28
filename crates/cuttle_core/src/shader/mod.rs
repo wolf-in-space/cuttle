@@ -1,4 +1,3 @@
-use crate::calculations::{Calculation, Calculations};
 use crate::components::ComponentInfos;
 use crate::configs::ConfigId;
 use crate::internal_prelude::*;
@@ -55,17 +54,16 @@ pub struct RenderDataWgsl {
 }
 
 pub fn load_shaders(
-    query: Query<(&ConfigId, &ComponentInfos, &Snippets, &Calculations)>,
+    query: Query<(&ConfigId, &ComponentInfos, &Snippets)>,
     wgsl_type_infos: Res<WgslTypeInfos>,
     assets: Res<AssetServer>,
 ) -> HashMap<ConfigId, Handle<Shader>> {
     let mut result = HashMap::new();
     let wgsl_type_infos = wgsl_type_infos.into_inner();
 
-    for (&id, infos, snippets, calculations) in &query {
+    for (&id, infos, snippets) in &query {
         let settings = ShaderSettings {
             snippets: snippets.0.clone(),
-            calculations: calculations.0.clone(),
             infos: infos
                 .iter()
                 .map(|i| ComponentShaderInfo {
@@ -116,7 +114,7 @@ async fn load_shader(
         snippets.push_str(&snippet);
     }
 
-    let shader = gen_shader(&settings.infos, &settings.calculations, snippets);
+    let shader = gen_shader(&settings.infos, snippets);
     // println!("{}", shader);
     let shader = Shader::from_wgsl(
         shader,
@@ -143,7 +141,6 @@ async fn load_asset_bytes_manually(
 #[derive(Default)]
 pub(crate) struct ShaderSettings {
     pub infos: Vec<ComponentShaderInfo>,
-    pub calculations: Vec<Calculation>,
     pub snippets: Vec<AddSnippet>,
 }
 

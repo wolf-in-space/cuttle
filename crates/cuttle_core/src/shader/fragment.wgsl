@@ -1,9 +1,9 @@
-// NOTE: This file would not compile on its own, it will be included
-//       as a Snippet in the generated shader.
-
 #import cuttle::common::VertexOut
 
 @group(1) @binding(0) var<storage, read> indices: array<u32>;
+
+var<private> vertex: VertexOut;
+var<private> color: vec4<f32>;
 
 @fragment
 fn fragment(vert: VertexOut) -> @location(0) vec4<f32> {
