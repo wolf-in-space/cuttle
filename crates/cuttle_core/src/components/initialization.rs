@@ -5,20 +5,13 @@ use crate::indices::CuttleComponentIndex;
 use crate::internal_prelude::*;
 use crate::pipeline::extract::extract_cuttle_comp;
 use crate::shader::wgsl_struct::WgslTypeInfos;
-use crate::shader::RenderDataWgsl;
+use crate::shader::ComponentName;
 use bevy_reflect::Typed;
 use bevy_render::render_resource::encase::internal::WriteInto;
 use bevy_render::render_resource::ShaderSize;
 use bevy_render::RenderApp;
 use std::any::TypeId;
 use std::fmt::Debug;
-
-#[derive(Debug, Reflect)]
-pub struct ComponentOrder {
-    pub id: TypeId,
-    pub sort: u32,
-    pub extension_override: Option<u8>,
-}
 
 /// Returns the registered binding for the component or register a new binding
 /// to return and do the setup needed once per component.
@@ -52,7 +45,7 @@ pub trait Cuttle: Typed + Component {
     type RenderData: CuttleRenderData;
     const EXTENSION_INDEX_OVERRIDE: Option<u8>;
 
-    fn wgsl_type(wgsl_types: &WgslTypeInfos) -> RenderDataWgsl;
+    fn wgsl_type(wgsl_types: &WgslTypeInfos) -> ComponentName;
 
     fn to_render_data(&self) -> Self::RenderData;
 

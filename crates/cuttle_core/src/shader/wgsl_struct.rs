@@ -1,5 +1,5 @@
 use crate::internal_prelude::*;
-use crate::shader::RenderDataWgsl;
+use crate::shader::ComponentName;
 use bevy_math::{Mat2, Mat4, Vec2, Vec3, Vec4};
 use bevy_reflect::{TypeInfo, Typed};
 use std::any::{type_name, TypeId};
@@ -32,10 +32,12 @@ impl RegisterWgslTypeExt for App {
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct WgslTypeInfos(TypeIdMap<&'static str>);
 
-pub type ToWgslFn = fn(&WgslTypeInfos) -> RenderDataWgsl;
+#[derive(Debug, Component, Reflect)]
+#[reflect(Component)]
+pub struct ToWgslFn(fn(&WgslTypeInfos) -> ComponentName);
 
 impl WgslTypeInfos {
-    pub fn wgsl_type_for_struct<R: Typed>(&self) -> RenderDataWgsl {
+    pub fn wgsl_type_for_struct<R: Typed>(&self) -> String {
         let (TypeInfo::Struct(structure), Some(name)) = (R::type_info(), R::type_ident()) else {
             panic!("Render data {} is not a named struct", type_name::<R>(),)
         };
@@ -45,25 +47,6 @@ impl WgslTypeInfos {
             writeln!(vars, "    {}: {},", field.name(), wgsl_type).unwrap();
             vars
         });
-        let definition = format!("struct {} {}\n{}{}\n", name, "{", vars, "}");
-
-        RenderDataWgsl {
-            definition,
-            name: name.to_string(),
-        }
-    }
-
-    pub fn wgsl_type_for_builtin<R: Typed>(&self) -> RenderDataWgsl {
-        let Some(wgsl_type) = self.get(&TypeId::of::<R>()) else {
-            panic!(
-                "RenderData {} not registered with WgslTypeInfos",
-                type_name::<R>(),
-            )
-        };
-
-        RenderDataWgsl {
-            name: wgsl_type.to_string(),
-            definition: String::new(),
-        }
+        format!("struct {} {}\n{}{}\n", name, "{", vars, "}")
     }
 }

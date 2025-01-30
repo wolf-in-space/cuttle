@@ -1,18 +1,18 @@
 use crate::bounding::{make_compute_aabb_system, Bounding};
 use crate::components::buffer::GlobalBuffer;
 use crate::components::initialization::{init_render_data, ComponentOrder, Cuttle};
-use crate::components::{ComponentInfo, ComponentInfos};
+use crate::components::ComponentInfo;
 use crate::configs::global::GlobalConfigInfos;
 use crate::configs::{initialize_config, CuttleConfig};
 use crate::internal_prelude::*;
 use crate::pipeline::extract::extract_cuttle_global;
 use crate::shader::wgsl_struct::WgslTypeInfos;
-use crate::shader::{AddSnippet, Snippets, ToComponentShaderInfo, ToRenderData};
+use crate::shader::{AddSnippet, Snippets};
 use bevy_reflect::Typed;
 use bevy_render::sync_world::RenderEntity;
 use bevy_render::RenderApp;
 use convert_case::{Case, Casing};
-use std::any::{type_name, TypeId};
+use std::any::type_name;
 use std::marker::PhantomData;
 
 pub struct CuttleConfigBuilder<'a, Config> {
@@ -46,9 +46,9 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
         self.snippet(format!(
             "@group(3) @binding({}) var<storage, read> {}: {};\n\n{}",
             binding,
-            wgsl.name.to_case(Case::Snake),
-            wgsl.name,
-            wgsl.definition
+            wgsl.function_name.to_case(Case::Snake),
+            wgsl.function_name,
+            wgsl.type_name
         ));
 
         self.app
@@ -183,11 +183,12 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
         self.register_component_manual::<C>(sort, None, None)
     }
 
+    pub fn extension_index_override<C: Component>(&mut self, index_override: u8) -> &mut Self {}
+
     pub fn register_component_manual<C: Component + Typed>(
         &mut self,
         sort: impl Into<u32>,
         to_render_data: Option<ToRenderData>,
-        extension_override: Option<u8>,
     ) -> &mut Self {
         let Some(function_name) = C::type_ident().map(|i| i.to_case(Case::Snake)) else {
             panic!(
@@ -196,11 +197,6 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
             );
         };
 
-        let order = ComponentOrder {
-            sort: sort.into(),
-            id: TypeId::of::<C>(),
-            extension_override,
-        };
         let to_shader_info = ToComponentShaderInfo {
             function_name,
             to_render_data,

@@ -1,7 +1,7 @@
 use crate::bounding::BoundingRadius;
 use crate::bounding::GlobalBoundingCircle;
 use crate::components::arena::IndexArena;
-use crate::components::ComponentPosition;
+use crate::components::{ExtensionIndexOverride, Positions};
 use crate::configs::{ConfigStore, CuttleConfig};
 use crate::extensions::Extensions;
 use crate::internal_prelude::*;
@@ -91,20 +91,74 @@ pub struct CuttleIndex {
     pub(crate) component_id: u8,
 }
 
-pub(crate) const fn build_set_flag_index<const SET: bool, T, C: Component>(
-    positions: Vec<Option<ComponentPosition>>,
+pub fn init_component_observers(
+    mut cmds: Commands,
+    query: Query<(
+        &Positions,
+        Option<&ExtensionIndexOverride>,
+        &InitObserversFn,
+    )>,
+) {
+    for (positions, index_override, init_fn) in &query {
+        init_fn.0(&mut cmds, positions.clone(), index_override.map(|o| o.0))
+    }
+}
+
+fn init_observers<C: Component>(
+    cmds: &mut Commands,
+    positions: Positions,
+    extension_index_override: Option<u8>,
+) {
+    if let Some(index_override) = extension_index_override {
+        cmds.add_observer(build_set_flag_index::<true, true, OnAdd, C>(
+            positions.clone(),
+            index_override,
+        ));
+        cmds.add_observer(build_set_flag_index::<false, true, OnRemove, C>(
+            positions,
+            index_override,
+        ));
+    } else {
+        cmds.add_observer(build_set_flag_index::<true, false, OnAdd, C>(
+            positions.clone(),
+            0,
+        ));
+        cmds.add_observer(build_set_flag_index::<false, false, OnRemove, C>(
+            positions, 0,
+        ));
+    }
+}
+
+#[derive(Debug, Component, Reflect)]
+#[reflect(Component)]
+pub struct InitObserversFn(fn(&mut Commands, Positions, Option<u8>));
+
+pub(crate) const fn build_set_flag_index<const SET: bool, const OVERRIDE: bool, T, C: Component>(
+    positions: Positions,
+    extension_index_override: u8,
 ) -> impl FnMut(Trigger<T, C>, DeferredWorld) {
     move |trigger, world| {
         if SET {
-            set_index::<C>(&positions, world, trigger.entity())
+            set_index::<OVERRIDE, C>(
+                &positions,
+                extension_index_override,
+                world,
+                trigger.entity(),
+            )
         } else {
-            remove_index(&positions, world, trigger.entity())
+            remove_index::<OVERRIDE>(
+                &positions,
+                extension_index_override,
+                world,
+                trigger.entity(),
+            )
         }
     }
 }
 
-fn set_index<C: Component>(
-    positions: &[Option<ComponentPosition>],
+fn set_index<const OVERRIDE: bool, C: Component>(
+    positions: &Positions,
+    extension_index_override: u8,
     mut world: DeferredWorld,
     entity: Entity,
 ) {
@@ -113,15 +167,24 @@ fn set_index<C: Component>(
         .map(|i| **i)
         .unwrap_or(u32::MAX);
 
-    let Some((flags, pos)) = get_indices_and_pos(&mut world, positions, entity) else {
+    let Some((flags, pos)) =
+        get_indices_and_pos::<OVERRIDE>(&mut world, positions, extension_index_override, entity)
+    else {
         return;
     };
 
     flags.indices.insert(pos, index);
 }
 
-fn remove_index(positions: &[Option<ComponentPosition>], mut world: DeferredWorld, entity: Entity) {
-    let Some((flags, index)) = get_indices_and_pos(&mut world, positions, entity) else {
+fn remove_index<const OVERRIDE: bool>(
+    positions: &Positions,
+    extension_index_override: u8,
+    mut world: DeferredWorld,
+    entity: Entity,
+) {
+    let Some((flags, index)) =
+        get_indices_and_pos::<OVERRIDE>(&mut world, positions, extension_index_override, entity)
+    else {
         return;
     };
 
@@ -130,9 +193,10 @@ fn remove_index(positions: &[Option<ComponentPosition>], mut world: DeferredWorl
     }
 }
 
-fn get_indices_and_pos<'a>(
+fn get_indices_and_pos<'a, const OVERRIDE: bool>(
     world: &'a mut DeferredWorld,
-    positions: &[Option<ComponentPosition>],
+    positions: &Positions,
+    extension_index_override: u8,
     entity: Entity,
 ) -> Option<(&'a mut CuttleIndices, CuttleIndex)> {
     let (entity, extension_index) = match world.get::<Extension>(entity) {
@@ -140,16 +204,17 @@ fn get_indices_and_pos<'a>(
         None => (entity, 0),
     };
     let flags = world.get_mut::<CuttleIndices>(entity)?;
-    let ComponentPosition {
-        position,
-        extension_override,
-    } = positions.get(flags.group_id).copied()??;
+    let position = positions.get(flags.group_id).copied()??;
 
     Some((
         flags.into_inner(),
         CuttleIndex {
             component_id: position,
-            extension_index: extension_override.unwrap_or(extension_index),
+            extension_index: if OVERRIDE {
+                extension_index_override
+            } else {
+                extension_index
+            },
         },
     ))
 }

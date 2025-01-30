@@ -1,5 +1,4 @@
 use crate::shader::ComponentShaderInfo;
-use convert_case::{Case, Casing};
 use std::fmt::Write;
 
 pub fn gen_shader(infos: &[ComponentShaderInfo], snippets: String) -> String {
@@ -9,6 +8,7 @@ pub fn gen_shader(infos: &[ComponentShaderInfo], snippets: String) -> String {
     let shader = format!("{snippets}\n{stuff}\n{selector}");
 
     // println!("SHADER:\n{}", shader);
+
     shader
 }
 
@@ -19,9 +19,9 @@ fn comp_selector(infos: &[ComponentShaderInfo]) -> String {
         .iter()
         .enumerate()
         .try_fold(String::new(), |mut result, (i, info)| {
-            let snake = info.function_name.to_case(Case::Snake);
+            let snake = &info.name.function_name;
             writeln!(result, "    case u32({i}): {{")?;
-            match info.render_data {
+            match info.binding {
                 Some(_) => {
                     writeln!(result, "      let info = comps{i}[index];")?;
                     writeln!(result, "      {snake}(info);")?;
@@ -47,10 +47,10 @@ fn structs_and_bindings(infos: &[ComponentShaderInfo]) -> String {
         .iter()
         .enumerate()
         .flat_map(|(i, info)| {
-            info.render_data.clone().map(|render| {
+            info.binding.clone().map(|binding| {
                 format!(
-                    "@group(2) @binding({}) var<storage, read> comps{}: array<{}>;\n\n{}",
-                    render.binding, i, render.wgsl.name, render.wgsl.definition
+                    "@group(2) @binding({}) var<storage, read> comps{}: array<{}>;\n",
+                    binding, i, info.name.type_name,
                 )
             })
         })

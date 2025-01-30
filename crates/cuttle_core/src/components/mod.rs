@@ -1,10 +1,8 @@
 use crate::components::initialization::ComponentOrder;
-use crate::configs::global::GlobalConfigInfos;
 use crate::configs::ConfigId;
 use crate::internal_prelude::*;
 use crate::shader::ToComponentShaderInfo;
 use bevy_app::{App, Plugin};
-use bevy_derive::{Deref, DerefMut};
 use buffer::BufferPlugin;
 
 pub mod arena;
@@ -14,50 +12,59 @@ pub mod initialization;
 pub struct CompPlugin;
 impl Plugin for CompPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(BufferPlugin);
+        app.register_type::<ConfigComponents>()
+            .register_type::<Sort>()
+            .register_type::<Positions>()
+            .register_type::<ExtensionIndexOverride>()
+            .add_plugins(BufferPlugin);
     }
 }
 
-pub fn sort_component_infos(mut query: Query<&mut ComponentInfos>) {
-    for mut component_infos in &mut query {
-        component_infos.sort_by_key(|c| c.order.sort);
+#[derive(Debug, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct ConfigComponents(Vec<Entity>);
+
+#[derive(Debug, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct Sort(u32);
+
+#[derive(Debug, Clone, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+pub struct Positions(pub Vec<Option<u8>>);
+
+#[derive(Debug, Component, Reflect, Deref)]
+#[reflect(Component)]
+pub struct ExtensionIndexOverride(pub u8);
+
+pub fn sort_components(mut configs: Query<&mut ConfigComponents>, components_sort: Query<&Sort>) {
+    for mut components in &mut configs {
+        components.sort_by_cached_key(|&entity| components_sort.get(entity).unwrap().0)
     }
 }
 
 pub fn init_component_positions(
-    query: Query<(&ConfigId, &ComponentInfos)>,
-    mut global: ResMut<GlobalConfigInfos>,
-) {
-    for (id, infos) in &query {
-        for (i, info) in infos.iter().enumerate() {
-            let pos = ComponentPosition::new(i as u8, info.order.extension_override);
-            global.component_positions[id.0].insert(info.order.id, pos);
+    configs: Query<(&ConfigId, &ConfigComponents)>,
+    mut components: Query<&mut Positions>,
+) -> Option<()> {
+    let config_count = configs.iter().count();
+
+    for mut positions in &mut components {
+        positions.resize(config_count, None);
+    }
+
+    for (id, comps) in &configs {
+        for (i, &entity) in comps.iter().enumerate() {
+            *components.get_mut(entity).ok()?.get_mut(id.0)? = Some(i as u8);
         }
     }
-}
 
-#[derive(Debug, Default, Component, Deref, DerefMut, Reflect)]
-pub struct ComponentInfos(Vec<ComponentInfo>);
+    Some(())
+}
 
 #[derive(Debug, Reflect)]
 pub struct ComponentInfo {
     pub(crate) order: ComponentOrder,
     pub(crate) to_shader_info: ToComponentShaderInfo,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ComponentPosition {
-    pub position: u8,
-    pub extension_override: Option<u8>,
-}
-
-impl ComponentPosition {
-    pub fn new(position: u8, extension_override: Option<u8>) -> Self {
-        Self {
-            position,
-            extension_override,
-        }
-    }
 }
 
 #[cfg(test)]

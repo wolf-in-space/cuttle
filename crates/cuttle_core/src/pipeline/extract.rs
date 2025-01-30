@@ -91,7 +91,12 @@ pub fn extract_cuttles<Config: CuttleConfig>(
             .map(|(_, entity, &CuttleZ(z), bounding, indices)| {
                 let indices_start = buffer.len() as u32;
                 let indices_end = (buffer.len() + indices.indices.len()) as u32;
-                buffer.extend(indices.iter_as_packed_u32s());
+                let indices_iter = indices.iter_as_packed_u32s();
+
+                #[cfg(feature = "debug")]
+                {}
+
+                buffer.extend(indices_iter);
 
                 (
                     entity,

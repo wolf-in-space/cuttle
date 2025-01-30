@@ -1,7 +1,6 @@
-use crate::components::ComponentInfos;
+use crate::components::ConfigComponents;
 use crate::configs::ConfigId;
 use crate::internal_prelude::*;
-use crate::shader::wgsl_struct::{ToWgslFn, WgslTypeInfos};
 use bevy_asset::io::{AssetReaderError, MissingAssetSourceError, Reader};
 use bevy_asset::{embedded_asset, Asset, AssetApp, AssetPath, AssetServer, Handle};
 use derive_more::{Display, Error, From};
@@ -23,57 +22,40 @@ impl Plugin for ShaderPlugin {
     }
 }
 
+#[derive(Clone)]
 pub struct ComponentShaderInfo {
+    pub name: ComponentName,
+    pub binding: Option<u32>,
+}
+
+#[derive(Clone, Component)]
+pub struct Binding(u32);
+
+#[derive(Debug, Default, Clone, Component, Reflect)]
+#[reflect(Component)]
+pub struct ComponentName {
+    pub type_name: String,
     pub function_name: String,
-    pub render_data: Option<ShaderInfo>,
-}
-
-#[derive(Debug, Reflect)]
-pub struct ToComponentShaderInfo {
-    pub function_name: String,
-    #[reflect(ignore)]
-    pub to_render_data: Option<ToRenderData>,
-}
-
-#[derive(Clone)]
-pub struct ShaderInfo {
-    pub binding: u32,
-    pub wgsl: RenderDataWgsl,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct ToRenderData {
-    pub binding: u32,
-    pub to_wgsl: ToWgslFn,
-}
-
-#[derive(Clone)]
-pub struct RenderDataWgsl {
-    pub definition: String,
-    pub name: String,
 }
 
 pub fn load_shaders(
-    query: Query<(&ConfigId, &ComponentInfos, &Snippets)>,
-    wgsl_type_infos: Res<WgslTypeInfos>,
+    query: Query<(&ConfigId, &Snippets, &ConfigComponents)>,
+    components: Query<(&ComponentName, Option<&Binding>)>,
     assets: Res<AssetServer>,
 ) -> HashMap<ConfigId, Handle<Shader>> {
     let mut result = HashMap::new();
-    let wgsl_type_infos = wgsl_type_infos.into_inner();
 
-    for (&id, infos, snippets) in &query {
+    for (&id, snippets, comps) in &query {
         let settings = ShaderSettings {
             snippets: snippets.0.clone(),
-            infos: infos
+            infos: comps
                 .iter()
-                .map(|i| ComponentShaderInfo {
-                    function_name: i.to_shader_info.function_name.clone(),
-                    render_data: i.to_shader_info.to_render_data.clone().map(
-                        |ToRenderData { binding, to_wgsl }| ShaderInfo {
-                            binding,
-                            wgsl: to_wgsl(wgsl_type_infos),
-                        },
-                    ),
+                .map(|&i| {
+                    let (name, binding) = components.get(i).unwrap();
+                    ComponentShaderInfo {
+                        name: name.clone(),
+                        binding: binding.map(|b| b.0).clone(),
+                    }
                 })
                 .collect(),
         };
@@ -144,7 +126,7 @@ pub(crate) struct ShaderSettings {
     pub snippets: Vec<AddSnippet>,
 }
 
-#[derive(Asset, Debug, Reflect)]
+#[derive(Asset, Debug, Reflect, Component)]
 pub struct Snippet(pub String);
 
 #[derive(Debug, Component, Default, Deref, DerefMut, Reflect)]
