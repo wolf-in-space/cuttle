@@ -1,9 +1,10 @@
-use crate::components::initialization::ComponentOrder;
 use crate::configs::ConfigId;
+use crate::indices::{init_observers, InitObserversFn};
 use crate::internal_prelude::*;
-use crate::shader::ToComponentShaderInfo;
+use crate::shader::Snippets;
 use bevy_app::{App, Plugin};
 use buffer::BufferPlugin;
+use std::marker::PhantomData;
 
 pub mod arena;
 pub mod buffer;
@@ -20,21 +21,59 @@ impl Plugin for CompPlugin {
     }
 }
 
-#[derive(Debug, Component, Reflect, Deref, DerefMut)]
+#[derive(Debug, Default, Component, Reflect, Deref, DerefMut)]
+#[reflect(Component)]
+#[require(Sort, Positions, Snippets)]
+pub struct CuttleComponent<C>(PhantomData<C>);
+
+impl<C> CuttleComponent<C> {
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+#[derive(Debug, Default, Component, Reflect, Deref, DerefMut)]
 #[reflect(Component)]
 pub struct ConfigComponents(Vec<Entity>);
 
-#[derive(Debug, Component, Reflect, Deref, DerefMut)]
+#[derive(Debug, Default, Component, Reflect, Deref, DerefMut)]
 #[reflect(Component)]
-pub struct Sort(u32);
+pub struct Sort(pub u32);
 
-#[derive(Debug, Clone, Component, Reflect, Deref, DerefMut)]
+impl Sort {
+    pub fn new(sort: impl Into<u32>) -> Self {
+        Self(sort.into())
+    }
+}
+
+#[derive(Debug, Default, Clone, Component, Reflect, Deref, DerefMut)]
 #[reflect(Component)]
 pub struct Positions(pub Vec<Option<u8>>);
 
 #[derive(Debug, Component, Reflect, Deref)]
 #[reflect(Component)]
 pub struct ExtensionIndexOverride(pub u8);
+
+pub fn register_cuttle<C: Component>(
+    config: In<Entity>,
+    mut cmds: Commands,
+    mut configs: Query<&mut ConfigComponents>,
+    comp: Option<Single<Entity, With<CuttleComponent<C>>>>,
+) -> Entity {
+    let component_entity = match comp {
+        Some(entity) => *entity,
+        None => cmds
+            .spawn((
+                CuttleComponent::<C>::new(),
+                InitObserversFn(init_observers::<C>),
+            ))
+            .id(),
+    };
+
+    configs.get_mut(config.0).unwrap().push(component_entity);
+
+    component_entity
+}
 
 pub fn sort_components(mut configs: Query<&mut ConfigComponents>, components_sort: Query<&Sort>) {
     for mut components in &mut configs {
@@ -59,12 +98,6 @@ pub fn init_component_positions(
     }
 
     Some(())
-}
-
-#[derive(Debug, Reflect)]
-pub struct ComponentInfo {
-    pub(crate) order: ComponentOrder,
-    pub(crate) to_shader_info: ToComponentShaderInfo,
 }
 
 #[cfg(test)]

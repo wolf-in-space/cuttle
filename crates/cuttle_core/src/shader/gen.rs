@@ -19,9 +19,9 @@ fn comp_selector(infos: &[ComponentShaderInfo]) -> String {
         .iter()
         .enumerate()
         .try_fold(String::new(), |mut result, (i, info)| {
-            let snake = &info.name.function_name;
+            let snake = &info.function_name;
             writeln!(result, "    case u32({i}): {{")?;
-            match info.binding {
+            match info.data {
                 Some(_) => {
                     writeln!(result, "      let info = comps{i}[index];")?;
                     writeln!(result, "      {snake}(info);")?;
@@ -47,10 +47,10 @@ fn structs_and_bindings(infos: &[ComponentShaderInfo]) -> String {
         .iter()
         .enumerate()
         .flat_map(|(i, info)| {
-            info.binding.clone().map(|binding| {
+            info.data.clone().map(|data| {
                 format!(
                     "@group(2) @binding({}) var<storage, read> comps{}: array<{}>;\n",
-                    binding, i, info.name.type_name,
+                    data.binding, i, data.type_name,
                 )
             })
         })

@@ -104,7 +104,7 @@ pub fn init_component_observers(
     }
 }
 
-fn init_observers<C: Component>(
+pub fn init_observers<C: Component>(
     cmds: &mut Commands,
     positions: Positions,
     extension_index_override: Option<u8>,
@@ -131,7 +131,7 @@ fn init_observers<C: Component>(
 
 #[derive(Debug, Component, Reflect)]
 #[reflect(Component)]
-pub struct InitObserversFn(fn(&mut Commands, Positions, Option<u8>));
+pub struct InitObserversFn(pub fn(&mut Commands, Positions, Option<u8>));
 
 pub(crate) const fn build_set_flag_index<const SET: bool, const OVERRIDE: bool, T, C: Component>(
     positions: Positions,

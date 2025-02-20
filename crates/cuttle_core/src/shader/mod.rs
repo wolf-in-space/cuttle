@@ -3,6 +3,7 @@ use crate::configs::ConfigId;
 use crate::internal_prelude::*;
 use bevy_asset::io::{AssetReaderError, MissingAssetSourceError, Reader};
 use bevy_asset::{embedded_asset, Asset, AssetApp, AssetPath, AssetServer, Handle};
+use convert_case::{Case, Casing};
 use derive_more::{Display, Error, From};
 use gen::gen_shader;
 use std::string::FromUtf8Error;
@@ -24,23 +25,29 @@ impl Plugin for ShaderPlugin {
 
 #[derive(Clone)]
 pub struct ComponentShaderInfo {
-    pub name: ComponentName,
-    pub binding: Option<u32>,
+    pub function_name: String,
+    pub data: Option<RenderData>,
 }
 
 #[derive(Clone, Component)]
-pub struct Binding(u32);
+pub struct RenderData {
+    pub binding: u32,
+    pub type_name: String,
+}
 
 #[derive(Debug, Default, Clone, Component, Reflect)]
 #[reflect(Component)]
-pub struct ComponentName {
-    pub type_name: String,
-    pub function_name: String,
+pub struct FunctionName(pub String);
+
+impl FunctionName {
+    pub fn from_type_name(type_name: impl Into<String>) -> Self {
+        Self(type_name.into().to_case(Case::Snake))
+    }
 }
 
 pub fn load_shaders(
     query: Query<(&ConfigId, &Snippets, &ConfigComponents)>,
-    components: Query<(&ComponentName, Option<&Binding>)>,
+    components: Query<(&FunctionName, Option<&RenderData>)>,
     assets: Res<AssetServer>,
 ) -> HashMap<ConfigId, Handle<Shader>> {
     let mut result = HashMap::new();
@@ -51,10 +58,10 @@ pub fn load_shaders(
             infos: comps
                 .iter()
                 .map(|&i| {
-                    let (name, binding) = components.get(i).unwrap();
+                    let (name, render_data) = components.get(i).unwrap();
                     ComponentShaderInfo {
-                        name: name.clone(),
-                        binding: binding.map(|b| b.0).clone(),
+                        function_name: name.0.clone(),
+                        data: render_data.cloned(),
                     }
                 })
                 .collect(),
@@ -97,7 +104,7 @@ async fn load_shader(
     }
 
     let shader = gen_shader(&settings.infos, snippets);
-    // println!("{}", shader);
+    println!("{}", shader);
     let shader = Shader::from_wgsl(
         shader,
         format!("Generated at {} | {}: {:?}", file!(), line!(), group_id),
@@ -131,6 +138,18 @@ pub struct Snippet(pub String);
 
 #[derive(Debug, Component, Default, Deref, DerefMut, Reflect)]
 pub struct Snippets(Vec<AddSnippet>);
+
+pub fn collect_component_snippets(
+    components: Query<&Snippets, Without<ConfigId>>,
+    mut configs: Query<(&mut Snippets, &ConfigComponents), With<ConfigId>>,
+) {
+    for (mut config, component_entities) in &mut configs {
+        for &entity in component_entities.iter() {
+            config.extend_from_slice(components.get(entity).unwrap());
+            dbg!(&config);
+        }
+    }
+}
 
 #[derive(Debug, Clone, Reflect)]
 pub enum AddSnippet {

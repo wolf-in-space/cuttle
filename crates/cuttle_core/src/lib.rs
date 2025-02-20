@@ -4,7 +4,7 @@
 use crate::components::{init_component_positions, sort_components};
 use crate::indices::init_component_observers;
 use crate::pipeline::specialization::CuttlePipeline;
-use crate::shader::load_shaders;
+use crate::shader::{collect_component_snippets, load_shaders};
 use bevy_ecs::system::RunSystemOnce;
 use components::CompPlugin;
 use internal_prelude::*;
@@ -59,6 +59,7 @@ impl Plugin for CuttleCorePlugin {
         world.run_system_once(sort_components).unwrap();
         world.run_system_once(init_component_positions).unwrap();
         world.run_system_once(init_component_observers).unwrap();
+        world.run_system_once(collect_component_snippets).unwrap();
         let shaders = world.run_system_once(load_shaders).unwrap();
         CuttlePipeline::init(app, shaders);
     }

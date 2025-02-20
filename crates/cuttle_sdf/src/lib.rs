@@ -5,39 +5,43 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::prelude::ReflectComponent;
-use bevy_math::{Mat4, Vec2, Vec4};
+use bevy_math::{Vec2, Vec4};
 use bevy_reflect::Reflect;
 use bevy_render::render_resource::ShaderType;
 use bevy_transform::prelude::GlobalTransform;
-use cuttle_core::components::initialization::init_render_data;
+use cuttle_core::configs::builder::CuttleBuilder;
 use cuttle_core::prelude::{Bounding, CuttleConfig, CuttleGroupBuilderAppExt};
-use cuttle_core::shader::wgsl_struct::WgslTypeInfos;
-use cuttle_core::shader::ToRenderData;
 use cuttle_macros::Cuttle;
 
 pub struct SdfPlugin;
 impl Plugin for SdfPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Sdf>()
-            .register_type::<Rounded>()
-            .register_type::<Annular>()
-            .register_type::<PrepareBase>()
-            .register_type::<Circle>()
-            .register_type::<Line>()
-            .register_type::<Quad>()
-            .register_type::<Fill>()
-            .register_type::<DistanceGradient>()
-            .register_type::<ForceFieldAlpha>()
-            .register_type::<PrepareOperation>()
-            .register_type::<Unioni>()
-            .register_type::<SmoothUnion>()
-            .register_type::<Subtract>()
-            .register_type::<SmoothSubtract>()
-            .register_type::<Intersect>()
-            .register_type::<SmoothIntersect>()
-            .register_type::<Xor>()
-            .register_type::<Morph>()
-            .register_type::<Repetition>();
+        app.register_type::<(
+            Sdf,
+            DistanceGradient,
+            PrepareBase,
+            Annular,
+            Circle,
+            Line,
+            Quad,
+            Fill,
+            ForceFieldAlpha,
+            Stretch,
+            Rounded,
+        )>()
+        .register_type::<(
+            PrepareOperation,
+            Unioni,
+            Subtract,
+            Intersect,
+            Xor,
+            SmoothUnion,
+            SmoothSubtract,
+            SmoothIntersect,
+            SmoothXor,
+            Repetition,
+            Morph,
+        )>();
 
         embedded_asset!(app, "sdf.wgsl");
 
@@ -49,53 +53,50 @@ impl Plugin for SdfPlugin {
             .variable("size", "f32")
             .variable("prev_distance", "f32")
             .variable("prev_color", "vec4<f32>")
-            .component::<DistanceGradient>()
-            .component::<Sdf>()
-            .component::<PrepareOperation>()
-            .component::<PrepareBase>()
-            .component::<Annular>()
+            .components::<(
+                Sdf,
+                DistanceGradient,
+                PrepareBase,
+                Annular,
+                Circle,
+                Line,
+                Quad,
+                Fill,
+                ForceFieldAlpha,
+                Stretch,
+                Rounded,
+            )>()
+            .components::<(
+                PrepareOperation,
+                Unioni,
+                Subtract,
+                Intersect,
+                Xor,
+                SmoothUnion,
+                SmoothSubtract,
+                SmoothIntersect,
+                SmoothXor,
+                Repetition,
+                Morph,
+            )>()
             .affect_bounds(Bounding::Add, |&Annular(a)| a)
-            .component::<Fill>()
-            .component::<ForceFieldAlpha>()
-            .component::<Stretch>()
             .affect_bounds(Bounding::Multiply, |&Stretch(s)| (s.length() + 1.) * 20.)
-            .component::<Circle>()
             .affect_bounds(Bounding::Add, |&Circle(c)| c)
-            .component::<Line>()
             .affect_bounds(Bounding::Add, |&Line(l)| l)
-            .component::<Quad>()
             .affect_bounds(Bounding::Add, |&Quad(q)| q.length())
-            .component::<Rounded>()
-            .affect_bounds(Bounding::Add, |&Rounded(r)| r)
-            .component::<Unioni>()
-            .component::<Subtract>()
-            .component::<Intersect>()
-            .component::<Xor>()
-            .component::<SmoothUnion>()
-            .component::<SmoothSubtract>()
-            .component::<SmoothIntersect>()
-            .component::<SmoothXor>()
-            .component::<Repetition>()
-            .component::<Morph>();
-
-        let global_transform_binding =
-            init_render_data(app, |g: &GlobalTransform| g.compute_matrix().inverse());
+            .affect_bounds(Bounding::Add, |&Rounded(r)| r);
 
         app.cuttle_config::<Sdf>()
-            .register_component_manual::<GlobalTransform>(
-                SdfOrder::Translation,
-                Some(ToRenderData {
-                    binding: global_transform_binding,
-                    to_wgsl: WgslTypeInfos::wgsl_type_for_builtin::<Mat4>,
-                }),
-                None,
-            );
+            .component_manual::<GlobalTransform>()
+            .name("GlobalTransform")
+            .sort(SdfOrder::Translation)
+            .render_data_manual(|g: &GlobalTransform| g.compute_matrix().inverse());
     }
 }
 
 #[derive(Component, Debug, Default, Clone, Reflect, Cuttle)]
-#[cuttle(sort(SdfOrder::Result))]
 #[cuttle(extension_index_override(255u8))]
+#[cuttle(sort(SdfOrder::Result))]
 pub struct Sdf;
 
 impl CuttleConfig for Sdf {
@@ -160,8 +161,8 @@ pub struct Quad(pub Vec2);
 #[reflect(Component)]
 pub struct Fill(pub Srgba);
 
-impl From<Fill> for Vec4 {
-    fn from(value: Fill) -> Self {
+impl From<&Fill> for Vec4 {
+    fn from(value: &Fill) -> Self {
         value.0.to_vec4()
     }
 }

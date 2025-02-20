@@ -1,5 +1,5 @@
 use crate::components::buffer::ConfigRenderEntity;
-use crate::components::ComponentInfos;
+use crate::components::ConfigComponents;
 use crate::indices::{on_add_config_marker_initialize_indices_config_id, CuttleIndices};
 use crate::internal_prelude::*;
 use crate::pipeline::draw::DrawCuttle;
@@ -46,8 +46,8 @@ fn initialize_config<Config: CuttleConfig>(app: &mut App) -> Entity {
         .world_mut()
         .spawn((
             config_id,
+            ConfigComponents::default(),
             Snippets::default(),
-            ComponentInfos::default(),
             RenderEntity::from(config_buffer_entity),
         ))
         .id();
@@ -89,7 +89,6 @@ fn initialize_config_id(app: &mut App) -> ConfigId {
     let mut global = world.resource_mut::<GlobalConfigInfos>();
     let id = global.config_count;
     global.config_count += 1;
-    global.component_positions.push(default());
     ConfigId(id)
 }
 
@@ -98,13 +97,13 @@ fn initialize_config_id(app: &mut App) -> ConfigId {
 pub struct ConfigId(pub(crate) usize);
 
 #[derive(Resource)]
-pub struct ConfigStore<G> {
+pub struct ConfigStore<Config> {
     pub id: usize,
     pub config_entity: Entity,
-    phantom_data: PhantomData<G>,
+    phantom_data: PhantomData<Config>,
 }
-impl<G> Copy for ConfigStore<G> {}
-impl<G> Clone for ConfigStore<G> {
+impl<Config> Copy for ConfigStore<Config> {}
+impl<Config> Clone for ConfigStore<Config> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
