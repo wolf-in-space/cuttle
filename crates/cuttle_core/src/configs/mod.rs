@@ -11,10 +11,12 @@ use crate::pipeline::specialization::write_group_buffer;
 use crate::pipeline::CuttleRenderSet::WriteBuffers;
 use crate::pipeline::{CuttleRenderSet, SortedCuttlePhaseItem};
 use crate::shader::Snippets;
+use bevy_core::Name;
 use bevy_render::render_phase::AddRenderCommand;
 use bevy_render::sync_world::RenderEntity;
 use bevy_render::{Render, RenderApp};
 use global::GlobalConfigInfos;
+use std::any::type_name;
 use std::marker::PhantomData;
 
 pub mod builder;
@@ -45,6 +47,7 @@ fn initialize_config<Config: CuttleConfig>(app: &mut App) -> Entity {
     let config_entity = app
         .world_mut()
         .spawn((
+            Name::new(format!("Cuttle Config for {}", type_name::<Config>())),
             config_id,
             ConfigComponents::default(),
             Snippets::default(),

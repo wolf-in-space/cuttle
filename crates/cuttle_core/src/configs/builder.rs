@@ -35,8 +35,7 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
     }
 
     pub fn global_with<C: Cuttle>(&mut self, value: C) -> &mut Self {
-        let builder = self.global_manual::<C>();
-        C::build(builder);
+        C::build(self.global_manual::<C>());
         self.app.world_mut().entity_mut(self.config).insert(value);
         self
     }
@@ -129,8 +128,7 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
     /// }
     /// ```
     pub fn component<C: Cuttle>(&mut self) -> &mut Self {
-        let builder = self.component_manual::<C>();
-        C::build(builder);
+        C::build(self.component_manual::<C>());
         self
     }
 

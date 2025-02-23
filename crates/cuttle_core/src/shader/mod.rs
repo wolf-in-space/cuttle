@@ -16,6 +16,7 @@ impl Plugin for ShaderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(wgsl_struct::plugin);
         app.init_asset::<Snippet>();
+        app.register_type::<(Snippet, Snippets, RenderData, FunctionName, AddSnippet)>();
 
         embedded_asset!(app, "common.wgsl");
         embedded_asset!(app, "vertex.wgsl");
@@ -29,7 +30,8 @@ pub struct ComponentShaderInfo {
     pub data: Option<RenderData>,
 }
 
-#[derive(Clone, Component)]
+#[derive(Clone, Component, Reflect)]
+#[reflect(Component)]
 pub struct RenderData {
     pub binding: u32,
     pub type_name: String,

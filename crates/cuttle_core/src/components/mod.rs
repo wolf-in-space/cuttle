@@ -3,7 +3,9 @@ use crate::indices::{init_observers, InitObserversFn};
 use crate::internal_prelude::*;
 use crate::shader::Snippets;
 use bevy_app::{App, Plugin};
+use bevy_core::Name;
 use buffer::BufferPlugin;
+use std::any::type_name;
 use std::marker::PhantomData;
 
 pub mod arena;
@@ -64,6 +66,7 @@ pub fn register_cuttle<C: Component>(
         Some(entity) => *entity,
         None => cmds
             .spawn((
+                Name::new(format!("CuttleComponent<{}>", type_name::<C>())),
                 CuttleComponent::<C>::new(),
                 InitObserversFn(init_observers::<C>),
             ))
