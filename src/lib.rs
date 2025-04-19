@@ -12,10 +12,10 @@ pub mod prelude {
 pub struct CuttlePlugin;
 impl Plugin for CuttlePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((
-            CuttleCorePlugin,
+        app.add_plugins(CuttleCorePlugin);
+        app.add_plugins(
             #[cfg(feature = "sdf")]
             SdfPlugin,
-        ));
+        );
     }
 }

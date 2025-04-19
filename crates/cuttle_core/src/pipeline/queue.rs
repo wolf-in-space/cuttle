@@ -1,5 +1,5 @@
 use super::{
-    draw::DrawCuttle, specialization::CuttlePipeline, CuttlePipelineKey, SortedCuttlePhaseItem,
+    CuttlePipelineKey, SortedCuttlePhaseItem, draw::DrawCuttle, specialization::CuttlePipeline,
 };
 use crate::components::buffer::ConfigRenderEntity;
 use crate::configs::{ConfigId, CuttleConfig};
@@ -11,7 +11,7 @@ use bevy_render::render_resource::{
     BufferUsages, PipelineCache, RawBufferVec, SpecializedRenderPipelines,
 };
 use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
-use bevy_render::view::ExtractedView;
+use bevy_render::view::{ExtractedView, RetainedViewEntity};
 use bytemuck::NoUninit;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -20,7 +20,7 @@ use std::ops::Range;
 pub fn cuttle_queue_sorted_for_config<Config: CuttleConfig>(
     mut cmds: Commands,
     extracted: Single<&Extracted, With<ConfigRenderEntity<Config>>>,
-    views: Query<Entity, With<ExtractedView>>,
+    views: Query<&MainEntity, With<ExtractedView>>,
     cuttle_pipeline: Res<CuttlePipeline>,
     draw_functions: Res<DrawFunctions<Config::Phase>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<CuttlePipeline>>,
@@ -29,17 +29,21 @@ pub fn cuttle_queue_sorted_for_config<Config: CuttleConfig>(
 ) {
     let draw_function = draw_functions.read().id::<DrawCuttle<Config>>();
     for view_entity in views.into_iter() {
-        let Some(render_phase) = render_phases.get_mut(&view_entity) else {
+        let retained_view = RetainedViewEntity::new(*view_entity, None, 0);
+        let Some(render_phase) = render_phases.get_mut(&retained_view) else {
             continue;
         };
         for (
-            &entity,
-            &ExtractedCuttle {
-                z,
-                group_id: item_group_id,
-                ..
-            },
-        ) in extracted.iter()
+            index,
+            (
+                &entity,
+                &ExtractedCuttle {
+                    z,
+                    group_id: item_group_id,
+                    ..
+                },
+            ),
+        ) in extracted.iter().enumerate()
         {
             let pipeline = pipelines.specialize(
                 &cache,
@@ -51,6 +55,7 @@ pub fn cuttle_queue_sorted_for_config<Config: CuttleConfig>(
                 },
             );
             render_phase.add(Config::Phase::phase_item(
+                index,
                 z,
                 (
                     cmds.spawn(TemporaryRenderEntity).id(),
@@ -146,7 +151,7 @@ pub fn cuttle_prepare_sorted_for_config<Config: CuttleConfig>(
             buffers.vertex.push(instance);
 
             transparent_phase.items[batch_index].batch_range_mut().end += 1;
-            batches.last_mut().unwrap().1 .0.range.end += 1;
+            batches.last_mut().unwrap().1.0.range.end += 1;
         }
     }
 

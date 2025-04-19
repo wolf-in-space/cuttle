@@ -1,9 +1,8 @@
 use crate::configs::ConfigId;
-use crate::indices::{init_observers, InitObserversFn};
-use crate::internal_prelude::*;
+use crate::indices::added_cuttle_component;
 use crate::shader::Snippets;
+use crate::{FinishCuttleSetup, FinishCuttleSetupSet, internal_prelude::*};
 use bevy_app::{App, Plugin};
-use bevy_core::Name;
 use buffer::BufferPlugin;
 use std::any::type_name;
 use std::marker::PhantomData;
@@ -19,6 +18,13 @@ impl Plugin for CompPlugin {
             .register_type::<Sort>()
             .register_type::<Positions>()
             .register_type::<ExtensionIndexOverride>()
+            .add_systems(
+                FinishCuttleSetup,
+                (
+                    sort_components.in_set(FinishCuttleSetupSet::Sort),
+                    init_component_positions.in_set(FinishCuttleSetupSet::InitPositions),
+                ),
+            )
             .add_plugins(BufferPlugin);
     }
 }
@@ -58,24 +64,27 @@ pub struct ExtensionIndexOverride(pub u8);
 
 pub fn register_cuttle<C: Component>(
     config: In<Entity>,
-    mut cmds: Commands,
+    cmds: Commands,
     mut configs: Query<&mut ConfigComponents>,
     comp: Option<Single<Entity, With<CuttleComponent<C>>>>,
 ) -> Entity {
     let component_entity = match comp {
         Some(entity) => *entity,
-        None => cmds
-            .spawn((
-                Name::new(format!("CuttleComponent<{}>", type_name::<C>())),
-                CuttleComponent::<C>::new(),
-                InitObserversFn(init_observers::<C>),
-            ))
-            .id(),
+        None => init_cuttle::<C>(cmds),
     };
 
     configs.get_mut(config.0).unwrap().push(component_entity);
 
     component_entity
+}
+
+fn init_cuttle<C: Component>(mut cmds: Commands) -> Entity {
+    cmds.add_observer(added_cuttle_component::<C>);
+    cmds.spawn((
+        Name::new(format!("CuttleComponent<{}>", type_name::<C>())),
+        CuttleComponent::<C>::new(),
+    ))
+    .id()
 }
 
 pub fn sort_components(mut configs: Query<&mut ConfigComponents>, components_sort: Query<&Sort>) {
@@ -87,7 +96,7 @@ pub fn sort_components(mut configs: Query<&mut ConfigComponents>, components_sor
 pub fn init_component_positions(
     configs: Query<(&ConfigId, &ConfigComponents)>,
     mut components: Query<&mut Positions>,
-) -> Option<()> {
+) -> Result<()> {
     let config_count = configs.iter().count();
 
     for mut positions in &mut components {
@@ -96,11 +105,11 @@ pub fn init_component_positions(
 
     for (id, comps) in &configs {
         for (i, &entity) in comps.iter().enumerate() {
-            *components.get_mut(entity).ok()?.get_mut(id.0)? = Some(i as u8);
+            *components.get_mut(entity)?.get_mut(id.0).ok_or("HI")? = Some(i as u8);
         }
     }
 
-    Some(())
+    Ok(())
 }
 
 #[cfg(test)]

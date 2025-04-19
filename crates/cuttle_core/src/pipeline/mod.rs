@@ -9,7 +9,7 @@ use bevy_render::render_phase::{
 use bevy_render::render_resource::{CachedRenderPipelineId, SpecializedRenderPipelines};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{Render, RenderApp, RenderSet};
-use specialization::{prepare_view_bind_groups, CuttlePipeline};
+use specialization::{CuttlePipeline, prepare_view_bind_groups};
 
 pub mod draw;
 pub mod extract;
@@ -25,6 +25,7 @@ pub struct CuttlePipelineKey {
 
 pub trait SortedCuttlePhaseItem: Send + CachedRenderPipelinePhaseItem + SortedPhaseItem {
     fn phase_item(
+        index: usize,
         sort: f32,
         entity: (Entity, MainEntity),
         pipeline: CachedRenderPipelineId,
@@ -36,6 +37,7 @@ pub trait SortedCuttlePhaseItem: Send + CachedRenderPipelinePhaseItem + SortedPh
 
 impl SortedCuttlePhaseItem for Transparent2d {
     fn phase_item(
+        index: usize,
         sort: f32,
         entity: (Entity, MainEntity),
         pipeline: CachedRenderPipelineId,
@@ -47,7 +49,9 @@ impl SortedCuttlePhaseItem for Transparent2d {
             pipeline,
             draw_function,
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extracted_index: index,
+            extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
         }
     }
 

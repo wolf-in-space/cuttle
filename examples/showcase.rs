@@ -1,10 +1,15 @@
 use bevy::color::palettes::css;
+use bevy::ecs::error::{GLOBAL_ERROR_HANDLER, warn};
 use bevy::{color::palettes::tailwind, prelude::*};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use cuttle::prelude::*;
 use std::f32::consts::PI;
 
 fn main() {
+    GLOBAL_ERROR_HANDLER
+        .set(warn)
+        .expect("The error handler can only be set once, glo");
+
     App::new()
         .add_plugins((DefaultPlugins, CuttlePlugin, WorldInspectorPlugin::new()))
         .add_systems(Startup, spawn)

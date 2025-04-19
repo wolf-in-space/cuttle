@@ -1,13 +1,14 @@
+use super::SortedCuttlePhaseItem;
 use super::queue::ConfigInstanceBuffer;
 use super::specialization::CuttleViewBindGroup;
-use super::SortedCuttlePhaseItem;
 use super::{queue::CuttleBatch, specialization::CuttlePipeline};
 use crate::components::buffer::{Bind, CompBufferEntity, ConfigRenderEntity};
 use crate::configs::CuttleConfig;
-use crate::extensions::CompIndicesBindgroup;
+use crate::extensions::CompIndicesBindGroup;
 use crate::internal_prelude::*;
-use bevy_ecs::system::lifetimeless::{Read, SQuery, SRes};
 use bevy_ecs::system::SystemParamItem;
+use bevy_ecs::system::lifetimeless::{Read, SQuery, SRes};
+use bevy_log::info;
 use bevy_render::render_phase::{
     RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
 };
@@ -20,7 +21,7 @@ pub type DrawCuttle<G> = (SetItemPipeline, PerFrame, PerConfig<G>, PerView, PerB
 pub struct PerFrame;
 impl<P: SortedCuttlePhaseItem> RenderCommand<P> for PerFrame {
     type Param = (
-        SRes<CompIndicesBindgroup>,
+        SRes<CompIndicesBindGroup>,
         SQuery<&'static Bind, With<CompBufferEntity>>,
         SRes<CuttlePipeline>,
     );
@@ -83,6 +84,7 @@ impl<Config: CuttleConfig> RenderCommand<Config::Phase> for PerConfig<Config> {
         RenderCommandResult::Success
     }
 }
+
 pub struct PerView;
 impl<P: SortedCuttlePhaseItem> RenderCommand<P> for PerView {
     type Param = ();
@@ -91,12 +93,11 @@ impl<P: SortedCuttlePhaseItem> RenderCommand<P> for PerView {
 
     fn render<'w>(
         _item: &P,
-        view: (&'w ViewUniformOffset, &'w CuttleViewBindGroup),
+        (offset, bind_group): (&'w ViewUniformOffset, &'w CuttleViewBindGroup),
         _entity: Option<()>,
         _param: (),
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (offset, bind_group) = view;
         pass.set_bind_group(0, &bind_group.value, &[offset.offset]);
         RenderCommandResult::Success
     }

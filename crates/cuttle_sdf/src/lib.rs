@@ -5,11 +5,10 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::prelude::ReflectComponent;
-use bevy_math::{Vec2, Vec4};
+use bevy_math::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::render_resource::ShaderType;
 use bevy_transform::prelude::GlobalTransform;
-use cuttle_core::configs::builder::CuttleBuilder;
 use cuttle_core::prelude::{Bounding, CuttleConfig, CuttleGroupBuilderAppExt};
 use cuttle_macros::Cuttle;
 
@@ -90,8 +89,12 @@ impl Plugin for SdfPlugin {
             .component_manual::<GlobalTransform>()
             .name("GlobalTransform")
             .sort(SdfOrder::Translation)
-            .render_data_manual(|g: &GlobalTransform| g.compute_matrix().inverse());
+            .render_data_manual(tranfsorm_to_mat4);
     }
+}
+
+fn tranfsorm_to_mat4(t: &GlobalTransform) -> Mat4 {
+    t.compute_matrix()
 }
 
 #[derive(Component, Debug, Default, Clone, Reflect, Cuttle)]

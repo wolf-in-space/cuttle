@@ -8,17 +8,17 @@ use crate::indices::{CuttleComponentIndex, CuttleIndices};
 use crate::internal_prelude::*;
 use bevy_app::{App, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_math::bounding::BoundingCircle;
 use bevy_render::{Extract, Render, RenderApp, RenderSet};
-use bevy_transform::systems::propagate_transforms;
+use bevy_transform::TransformSystem;
 use std::fmt::Debug;
 use std::ops::Deref;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(
         PostUpdate,
-        set_cuttle_z_from_bevy_global_transform.after(propagate_transforms),
+        set_cuttle_z_from_bevy_global_transform.after(TransformSystem::TransformPropagate),
     );
     app.sub_app_mut(RenderApp)
         .add_systems(Render, clear_cuttles.in_set(RenderSet::Cleanup));

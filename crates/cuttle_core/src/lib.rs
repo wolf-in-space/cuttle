@@ -1,11 +1,8 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 
-use crate::components::{init_component_positions, sort_components};
-use crate::indices::init_component_observers;
 use crate::pipeline::specialization::CuttlePipeline;
-use crate::shader::{collect_component_snippets, load_shaders};
-use bevy_ecs::system::RunSystemOnce;
+use bevy_ecs::schedule::ScheduleLabel;
 use components::CompPlugin;
 use internal_prelude::*;
 use pipeline::PipelinePlugin;
@@ -21,14 +18,14 @@ pub mod pipeline;
 pub mod shader;
 
 pub mod prelude {
+    pub use crate::CuttleCorePlugin;
     pub use crate::bounding::*;
     pub use crate::components::initialization::{Cuttle, CuttleRenderData};
-    pub use crate::configs::builder::CuttleGroupBuilderAppExt;
     pub use crate::configs::CuttleConfig;
+    pub use crate::configs::builder::CuttleGroupBuilderAppExt;
     pub use crate::extensions::Extension;
     pub use crate::extensions::Extensions;
     pub use crate::pipeline::extract::CuttleZ;
-    pub use crate::CuttleCorePlugin;
 }
 
 mod internal_prelude {
@@ -52,15 +49,26 @@ impl Plugin for CuttleCorePlugin {
             bounding::plugin,
             indices::plugin,
         ));
+        use FinishCuttleSetupSet::*;
+        app.configure_sets(
+            FinishCuttleSetup,
+            (Sort, InitPositions, CollectSnippets, LoadShaders).chain(),
+        );
     }
 
     fn finish(&self, app: &mut App) {
-        let world = app.world_mut();
-        world.run_system_once(sort_components).unwrap();
-        world.run_system_once(init_component_positions).unwrap();
-        world.run_system_once(init_component_observers).unwrap();
-        world.run_system_once(collect_component_snippets).unwrap();
-        let shaders = world.run_system_once(load_shaders).unwrap();
-        CuttlePipeline::init(app, shaders);
+        app.world_mut().run_schedule(FinishCuttleSetup);
+        CuttlePipeline::init(app);
     }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, ScheduleLabel)]
+pub struct FinishCuttleSetup;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, SystemSet)]
+pub enum FinishCuttleSetupSet {
+    Sort,
+    InitPositions,
+    CollectSnippets,
+    LoadShaders,
 }

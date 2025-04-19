@@ -1,11 +1,13 @@
-use super::{queue::ConfigInstanceBuffer, CuttlePipelineKey};
+use super::{CuttlePipelineKey, queue::ConfigInstanceBuffer};
 use crate::components::buffer::{build_buffer_layout, build_comp_layout, build_global_layouts};
 use crate::configs::{ConfigId, CuttleConfig};
 use crate::internal_prelude::*;
+use crate::shader::CuttleShader;
 use bevy_asset::{AssetServer, Handle};
 use bevy_core_pipeline::core_2d::CORE_2D_DEPTH_FORMAT;
 use bevy_ecs::system::RunSystemOnce;
 use bevy_image::BevyDefault;
+use bevy_render::RenderApp;
 use bevy_render::mesh::{PrimitiveTopology, VertexBufferLayout};
 use bevy_render::render_resource::binding_types::uniform_buffer;
 use bevy_render::render_resource::{
@@ -17,7 +19,7 @@ use bevy_render::render_resource::{
 };
 use bevy_render::renderer::{RenderDevice, RenderQueue};
 use bevy_render::view::{ExtractedView, ViewUniform, ViewUniforms};
-use bevy_render::RenderApp;
+use std::collections::HashMap;
 
 #[derive(Resource)]
 pub struct CuttlePipeline {
@@ -32,7 +34,16 @@ pub struct CuttlePipeline {
 }
 
 impl CuttlePipeline {
-    pub fn init(app: &mut App, fragment_shaders: HashMap<ConfigId, Handle<Shader>>) {
+    pub fn init(app: &mut App) {
+        let fragment_shaders = app
+            .world_mut()
+            .run_system_once(|shaders: Query<(&ConfigId, &CuttleShader)>| {
+                shaders
+                    .iter()
+                    .map(|(id, shader)| (*id, shader.0.clone()))
+                    .collect()
+            })
+            .unwrap();
         let world = app.sub_app_mut(RenderApp).world_mut();
 
         let device = world.resource::<RenderDevice>();

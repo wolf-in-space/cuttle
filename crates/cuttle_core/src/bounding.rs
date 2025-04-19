@@ -6,6 +6,7 @@ use bevy_render::primitives::{Frustum, Sphere};
 use bevy_render::view::{
     NoCpuCulling, NoFrustumCulling, RenderLayers, VisibilitySystems, VisibleEntities,
 };
+use std::any::TypeId;
 
 pub fn plugin(app: &mut App) {
     app.register_type::<BoundingRadius>()
@@ -14,9 +15,16 @@ pub fn plugin(app: &mut App) {
             PostUpdate,
             (Bounding::Add, Bounding::Multiply)
                 .chain()
-                .before(ComputeGlobalBounding),
+                .in_set(ComputeBounding),
         )
-        .configure_sets(PostUpdate, ComputeGlobalBounding.before(check_visibility))
+        .configure_sets(
+            PostUpdate,
+            (
+                ComputeBounding,
+                ComputeGlobalBounding.before(check_visibility),
+            )
+                .chain(),
+        )
         .add_systems(
             PostUpdate,
             (
@@ -28,6 +36,9 @@ pub fn plugin(app: &mut App) {
 
 #[derive(Debug, SystemSet, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone)]
 pub struct ComputeGlobalBounding;
+
+#[derive(Debug, SystemSet, Ord, PartialOrd, Eq, PartialEq, Hash, Copy, Clone)]
+pub struct ComputeBounding;
 
 #[derive(Clone, Copy, Debug, Component, Default, Reflect, Deref, DerefMut)]
 #[reflect(Component)]
@@ -164,7 +175,8 @@ pub fn check_visibility(
             },
         );
 
-        visible_entities.clear::<BoundingRadius>();
-        thread_queues.drain_into(visible_entities.get_mut::<BoundingRadius>());
+        let id = TypeId::of::<BoundingRadius>();
+        visible_entities.clear(id);
+        thread_queues.drain_into(visible_entities.get_mut(id));
     }
 }

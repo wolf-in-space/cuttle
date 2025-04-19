@@ -11,7 +11,6 @@ use crate::pipeline::specialization::write_group_buffer;
 use crate::pipeline::CuttleRenderSet::WriteBuffers;
 use crate::pipeline::{CuttleRenderSet, SortedCuttlePhaseItem};
 use crate::shader::Snippets;
-use bevy_core::Name;
 use bevy_render::render_phase::AddRenderCommand;
 use bevy_render::sync_world::RenderEntity;
 use bevy_render::{Render, RenderApp};

@@ -7,9 +7,11 @@ use crate::configs::{initialize_config, CuttleConfig};
 use crate::internal_prelude::*;
 use crate::prelude::CuttleRenderData;
 use crate::shader::{AddSnippet, FunctionName, Snippets};
+use bevy_ecs::component::Mutable;
 use bevy_ecs::system::RunSystemOnce;
 use std::marker::PhantomData;
 use std::ops::Deref;
+use variadics_please::all_tuples;
 
 pub struct CuttleConfigBuilder<'a, Config> {
     pub(crate) config: Entity,
@@ -18,7 +20,7 @@ pub struct CuttleConfigBuilder<'a, Config> {
 }
 
 impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
-    fn get_comp_mut<C: Component>(&mut self) -> &mut C {
+    fn get_comp_mut<C: Component<Mutability = Mutable>>(&mut self) -> &mut C {
         self.app
             .world_mut()
             .get_mut::<C>(self.config)
@@ -160,7 +162,7 @@ impl<'a, C: Component> CuttleBuilder<'a, C> {
     pub fn new(app: &'a mut App, config: Entity, global: bool) -> Self {
         let component = app
             .world_mut()
-            .run_system_once_with(config, register_cuttle::<C>)
+            .run_system_once_with(register_cuttle::<C>, config)
             .unwrap();
         Self {
             app,

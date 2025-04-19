@@ -1,14 +1,14 @@
 use crate::components::ConfigComponents;
 use crate::configs::ConfigId;
-use crate::internal_prelude::*;
+use crate::{FinishCuttleSetup, FinishCuttleSetupSet, internal_prelude::*};
 use bevy_asset::io::{AssetReaderError, MissingAssetSourceError, Reader};
-use bevy_asset::{embedded_asset, Asset, AssetApp, AssetPath, AssetServer, Handle};
+use bevy_asset::{Asset, AssetApp, AssetPath, AssetServer, Handle, embedded_asset};
+use code_gen::gen_shader;
 use convert_case::{Case, Casing};
 use derive_more::{Display, Error, From};
-use gen::gen_shader;
 use std::string::FromUtf8Error;
 
-pub mod gen;
+pub mod code_gen;
 pub mod wgsl_struct;
 
 pub struct ShaderPlugin;
@@ -17,7 +17,13 @@ impl Plugin for ShaderPlugin {
         app.add_plugins(wgsl_struct::plugin);
         app.init_asset::<Snippet>();
         app.register_type::<(Snippet, Snippets, RenderData, FunctionName, AddSnippet)>();
-
+        app.add_systems(
+            FinishCuttleSetup,
+            (
+                load_shaders.in_set(FinishCuttleSetupSet::LoadShaders),
+                collect_component_snippets.in_set(FinishCuttleSetupSet::CollectSnippets),
+            ),
+        );
         embedded_asset!(app, "common.wgsl");
         embedded_asset!(app, "vertex.wgsl");
         embedded_asset!(app, "fragment.wgsl");
@@ -41,6 +47,9 @@ pub struct RenderData {
 #[reflect(Component)]
 pub struct FunctionName(pub String);
 
+#[derive(Debug, Clone, Component)]
+pub struct CuttleShader(pub Handle<Shader>);
+
 impl FunctionName {
     pub fn from_type_name(type_name: impl Into<String>) -> Self {
         Self(type_name.into().to_case(Case::Snake))
@@ -48,13 +57,12 @@ impl FunctionName {
 }
 
 pub fn load_shaders(
-    query: Query<(&ConfigId, &Snippets, &ConfigComponents)>,
+    query: Query<(Entity, &ConfigId, &Snippets, &ConfigComponents)>,
     components: Query<(&FunctionName, Option<&RenderData>)>,
     assets: Res<AssetServer>,
-) -> HashMap<ConfigId, Handle<Shader>> {
-    let mut result = HashMap::new();
-
-    for (&id, snippets, comps) in &query {
+    mut cmds: Commands,
+) {
+    for (entity, &id, snippets, comps) in &query {
         let settings = ShaderSettings {
             snippets: snippets.0.clone(),
             infos: comps
@@ -70,10 +78,8 @@ pub fn load_shaders(
         };
 
         let shader = assets.add_async(load_shader(assets.clone(), settings, id.0));
-        result.insert(id, shader);
+        cmds.entity(entity).insert(CuttleShader(shader));
     }
-
-    result
 }
 
 #[derive(Debug, Error, Display, From)]
@@ -148,7 +154,6 @@ pub fn collect_component_snippets(
     for (mut config, component_entities) in &mut configs {
         for &entity in component_entities.iter() {
             config.extend_from_slice(components.get(entity).unwrap());
-            dbg!(&config);
         }
     }
 }

@@ -1,0 +1,19 @@
+[package]
+name = "cuttle_sdf"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cuttle_core = { path = "../cuttle_core" }
+cuttle_macros = { path = "../cuttle_macros" }
+
+bevy_app = "0.16.0-rc.5"
+bevy_color = "0.16.0-rc.5"
+bevy_ecs = "0.16.0-rc.5"
+bevy_reflect = "0.16.0-rc.5"
+bevy_asset = "0.16.0-rc.5"
+bevy_render = "0.16.0-rc.5"
+bevy_derive = "0.16.0-rc.5"
+bevy_math = "0.16.0-rc.5"
+bevy_transform = "0.16.0-rc.5"
+bevy_core_pipeline = "0.16.0-rc.5"

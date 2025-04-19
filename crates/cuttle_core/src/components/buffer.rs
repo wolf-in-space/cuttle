@@ -11,6 +11,7 @@ use bevy_render::render_resource::{
 };
 use bevy_render::renderer::{RenderDevice, RenderQueue};
 use bevy_render::{Render, RenderApp};
+use std::collections::HashMap;
 use std::marker::PhantomData;
 
 pub struct BufferPlugin;

@@ -1,6 +1,4 @@
-use bevy::window::Monitor;
 use bevy::{color::palettes::css, prelude::*};
-use bevy_inspector_egui::quick::FilterQueryInspectorPlugin;
 use cuttle::prelude::*;
 
 fn main() {
@@ -8,7 +6,6 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             CuttlePlugin,
-            FilterQueryInspectorPlugin::<(Without<Observer>, Without<Monitor>)>::new(),
         ))
         .add_systems(Startup, spawn)
         .run();
