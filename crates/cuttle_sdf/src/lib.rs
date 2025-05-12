@@ -89,12 +89,12 @@ impl Plugin for SdfPlugin {
             .component_manual::<GlobalTransform>()
             .name("GlobalTransform")
             .sort(SdfOrder::Translation)
-            .render_data_manual(tranfsorm_to_mat4);
+            .render_data_manual(transform_to_mat4);
     }
 }
 
-fn tranfsorm_to_mat4(t: &GlobalTransform) -> Mat4 {
-    t.compute_matrix()
+fn transform_to_mat4(t: &GlobalTransform) -> Mat4 {
+    t.compute_matrix().inverse()
 }
 
 #[derive(Component, Debug, Default, Clone, Reflect, Cuttle)]
@@ -220,7 +220,7 @@ pub struct SmoothUnion(pub f32);
 
 impl Default for SmoothUnion {
     fn default() -> Self {
-        Self(25.)
+        Self(15.)
     }
 }
 
@@ -232,7 +232,7 @@ pub struct SmoothSubtract(pub f32);
 
 impl Default for SmoothSubtract {
     fn default() -> Self {
-        Self(25.)
+        Self(15.)
     }
 }
 
@@ -244,7 +244,7 @@ pub struct SmoothIntersect(pub f32);
 
 impl Default for SmoothIntersect {
     fn default() -> Self {
-        Self(25.)
+        Self(15.)
     }
 }
 
@@ -256,7 +256,7 @@ pub struct SmoothXor(pub f32);
 
 impl Default for SmoothXor {
     fn default() -> Self {
-        Self(25.)
+        Self(15.)
     }
 }
 

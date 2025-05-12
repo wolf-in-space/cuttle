@@ -1,8 +1,11 @@
 use bevy::color::palettes::css;
-use bevy::ecs::error::{GLOBAL_ERROR_HANDLER, warn};
+use bevy::ecs::error::{warn, GLOBAL_ERROR_HANDLER};
+use bevy::log::LogPlugin;
 use bevy::{color::palettes::tailwind, prelude::*};
+use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use cuttle::prelude::*;
+use cuttle_core::debug::CuttleDebugPlugin;
 use std::f32::consts::PI;
 
 fn main() {
@@ -11,7 +14,16 @@ fn main() {
         .expect("The error handler can only be set once, glo");
 
     App::new()
-        .add_plugins((DefaultPlugins, CuttlePlugin, WorldInspectorPlugin::new()))
+        .add_plugins((
+            DefaultPlugins.build().disable::<LogPlugin>(),
+            CuttlePlugin,
+            CuttleDebugPlugin::default(),
+            bevy_mod_debugdump::CommandLineArgs,
+            EguiPlugin {
+                enable_multipass_for_primary_context: true,
+            },
+            WorldInspectorPlugin::new(),
+        ))
         .add_systems(Startup, spawn)
         .add_systems(
             Update,

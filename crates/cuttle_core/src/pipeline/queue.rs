@@ -1,16 +1,17 @@
 use super::{
-    CuttlePipelineKey, SortedCuttlePhaseItem, draw::DrawCuttle, specialization::CuttlePipeline,
+    draw::DrawCuttle, specialization::CuttlePipeline, CuttlePipelineKey, SortedCuttlePhaseItem,
 };
 use crate::components::buffer::ConfigRenderEntity;
 use crate::configs::{ConfigId, CuttleConfig};
 use crate::internal_prelude::*;
 use crate::pipeline::extract::{Extracted, ExtractedCuttle};
 use bevy_math::Vec2;
+use bevy_platform::collections::HashMap;
 use bevy_render::render_phase::{DrawFunctions, PhaseItem, ViewSortedRenderPhases};
 use bevy_render::render_resource::{
     BufferUsages, PipelineCache, RawBufferVec, SpecializedRenderPipelines,
 };
-use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
+use bevy_render::sync_world::MainEntity;
 use bevy_render::view::{ExtractedView, RetainedViewEntity};
 use bytemuck::NoUninit;
 use std::fmt::Debug;
@@ -18,9 +19,8 @@ use std::marker::PhantomData;
 use std::ops::Range;
 
 pub fn cuttle_queue_sorted_for_config<Config: CuttleConfig>(
-    mut cmds: Commands,
     extracted: Single<&Extracted, With<ConfigRenderEntity<Config>>>,
-    views: Query<&MainEntity, With<ExtractedView>>,
+    views: Query<&ExtractedView>,
     cuttle_pipeline: Res<CuttlePipeline>,
     draw_functions: Res<DrawFunctions<Config::Phase>>,
     mut pipelines: ResMut<SpecializedRenderPipelines<CuttlePipeline>>,
@@ -28,39 +28,30 @@ pub fn cuttle_queue_sorted_for_config<Config: CuttleConfig>(
     mut render_phases: ResMut<ViewSortedRenderPhases<Config::Phase>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawCuttle<Config>>();
-    for view_entity in views.into_iter() {
-        let retained_view = RetainedViewEntity::new(*view_entity, None, 0);
-        let Some(render_phase) = render_phases.get_mut(&retained_view) else {
+    for view in views.into_iter() {
+        let Some(render_phase) = render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
-        for (
-            index,
-            (
-                &entity,
-                &ExtractedCuttle {
-                    z,
-                    group_id: item_group_id,
-                    ..
-                },
-            ),
-        ) in extracted.iter().enumerate()
-        {
+        for (index, (&entity, cuttle)) in extracted.iter().enumerate() {
+            let &ExtractedCuttle {
+                z,
+                render_entity,
+                group_id,
+                ..
+            } = cuttle;
             let pipeline = pipelines.specialize(
                 &cache,
                 &cuttle_pipeline,
                 CuttlePipelineKey {
                     multisample_count: Config::Phase::multisample_count(),
-                    group_id: ConfigId(item_group_id),
+                    group_id: ConfigId(group_id),
                     has_depth: Config::Phase::depth(),
                 },
             );
             render_phase.add(Config::Phase::phase_item(
                 index,
                 z,
-                (
-                    cmds.spawn(TemporaryRenderEntity).id(),
-                    MainEntity::from(entity),
-                ),
+                (render_entity, MainEntity::from(entity)),
                 pipeline,
                 draw_function,
             ));
@@ -68,7 +59,7 @@ pub fn cuttle_queue_sorted_for_config<Config: CuttleConfig>(
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Debug)]
 pub struct CuttleBatch {
     pub range: Range<u32>,
 }
@@ -97,22 +88,25 @@ impl<Config: CuttleConfig> Default for ConfigInstanceBuffer<Config> {
     }
 }
 
+#[derive(Default, Resource, Debug, Deref, DerefMut)]
+pub struct CuttleBatches(pub HashMap<(RetainedViewEntity, Entity), CuttleBatch>);
+
 pub fn cuttle_prepare_sorted_for_config<Config: CuttleConfig>(
-    mut cmds: Commands,
     mut phases: ResMut<ViewSortedRenderPhases<Config::Phase>>,
     mut buffers: ResMut<ConfigInstanceBuffer<Config>>,
+    mut batches: ResMut<CuttleBatches>,
     extracted: Single<&Extracted, With<ConfigRenderEntity<Config>>>,
 ) {
-    let mut batches = Vec::new();
     buffers.vertex.clear();
+    batches.clear();
 
-    for transparent_phase in phases.values_mut() {
+    for (retained_view, phase) in phases.iter_mut() {
         let mut batch_index = 0;
         let mut batch_z = f32::NAN;
-        let mut batch = false;
+        let mut batch = None;
 
-        for index in 0..transparent_phase.items.len() {
-            let item = &transparent_phase.items[index];
+        for index in 0..phase.items.len() {
+            let item = &phase.items[index];
             let Some(&ExtractedCuttle {
                 z,
                 indices_start,
@@ -121,23 +115,18 @@ pub fn cuttle_prepare_sorted_for_config<Config: CuttleConfig>(
                 ..
             }) = extracted.get(&item.main_entity().id())
             else {
-                batch = false;
+                batch = None;
                 continue;
             };
 
-            if !batch || batch_z != z {
-                batch = true;
+            if batch.is_none() || batch_z != z {
                 batch_index = index;
                 batch_z = z;
                 let index = index as u32;
-                batches.push((
-                    item.entity(),
-                    (
-                        CuttleBatch {
-                            range: index..index,
-                        },
-                        TemporaryRenderEntity,
-                    ),
+                batch = Some(batches.entry((*retained_view, item.entity())).or_insert(
+                    CuttleBatch {
+                        range: index..index,
+                    },
                 ));
             }
 
@@ -150,10 +139,8 @@ pub fn cuttle_prepare_sorted_for_config<Config: CuttleConfig>(
 
             buffers.vertex.push(instance);
 
-            transparent_phase.items[batch_index].batch_range_mut().end += 1;
-            batches.last_mut().unwrap().1.0.range.end += 1;
+            phase.items[batch_index].batch_range_mut().end += 1;
+            batch.as_mut().unwrap().range.end += 1;
         }
     }
-
-    cmds.insert_or_spawn_batch(batches);
 }

@@ -1,7 +1,7 @@
 use crate::bounding::BoundingRadius;
 use crate::bounding::GlobalBoundingCircle;
-use crate::components::CuttleComponent;
 use crate::components::arena::IndexArena;
+use crate::components::CuttleComponent;
 use crate::components::{ExtensionIndexOverride, Positions};
 use crate::configs::{ConfigStore, CuttleConfig};
 use crate::extensions::Extensions;
@@ -12,6 +12,7 @@ use crate::prelude::Extension;
 use bevy_ecs::component::{ComponentHooks, HookContext, Mutable, StorageType};
 use bevy_ecs::query::QueryEntityError;
 use bevy_ecs::world::DeferredWorld;
+use bevy_render::sync_world::SyncToRenderWorld;
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
@@ -22,7 +23,14 @@ pub(super) fn plugin(app: &mut App) {
 }
 
 #[derive(Component, Reflect, Debug, Default, Deref)]
-#[require(Visibility, Extensions, BoundingRadius, GlobalBoundingCircle, CuttleZ)]
+#[require(
+    Visibility,
+    Extensions,
+    BoundingRadius,
+    GlobalBoundingCircle,
+    CuttleZ,
+    SyncToRenderWorld
+)]
 #[reflect(Component)]
 pub struct CuttleIndices {
     #[deref]
@@ -112,10 +120,6 @@ pub fn set_flag_indices(
             Err(QueryEntityError::QueryDoesNotMatch(ent, _)) => (ent, 0),
             _ => panic!("NO ENTITY"),
         };
-        // info!(
-        //     "ent={entity}, addet_to={}, comp_ent={}",
-        //     event.added_to, event.component
-        // );
         let Ok(mut flags) = indices.get_mut(entity) else {
             continue;
         };
@@ -130,7 +134,7 @@ pub fn set_flag_indices(
                 .map(|o| **o)
                 .unwrap_or(extension_index),
         };
-        flags.indices.insert(index, position as u32);
+        flags.indices.insert(index, event.index);
     }
     Ok(())
 }
@@ -139,16 +143,23 @@ pub fn set_flag_indices(
 pub struct AddCuttleComponent {
     component: Entity,
     added_to: Entity,
+    index: u32,
 }
 
-pub fn added_cuttle_component<C: Component>(
+pub(crate) fn added_cuttle_component<C: Component>(
     trigger: Trigger<OnAdd, C>,
+    indices: Query<&CuttleComponentIndex<C>>,
     component_meta: Single<Entity, With<CuttleComponent<C>>>,
     mut events: EventWriter<AddCuttleComponent>,
 ) {
+    let index = indices
+        .get(trigger.target())
+        .map(|i| i.index)
+        .unwrap_or(u32::MAX);
     events.write(AddCuttleComponent {
         component: component_meta.into_inner(),
         added_to: trigger.target(),
+        index,
     });
 }
 

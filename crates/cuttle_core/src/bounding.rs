@@ -13,23 +13,24 @@ pub fn plugin(app: &mut App) {
         .register_type::<GlobalBoundingCircle>()
         .configure_sets(
             PostUpdate,
-            (Bounding::Add, Bounding::Multiply)
-                .chain()
-                .in_set(ComputeBounding),
-        )
-        .configure_sets(
-            PostUpdate,
             (
-                ComputeBounding,
-                ComputeGlobalBounding.before(check_visibility),
-            )
-                .chain(),
+                (Bounding::Add, Bounding::Multiply)
+                    .chain()
+                    .in_set(ComputeBounding),
+                (
+                    ComputeBounding,
+                    ComputeGlobalBounding.before(check_visibility),
+                )
+                    .chain()
+                    .after(VisibilitySystems::CheckVisibility),
+                ComputeBounding.ambiguous_with(ComputeBounding),
+            ),
         )
         .add_systems(
             PostUpdate,
             (
                 compute_global_bounding_circles.in_set(ComputeGlobalBounding),
-                check_visibility.in_set(VisibilitySystems::CheckVisibility),
+                check_visibility,
             ),
         );
 }
@@ -89,8 +90,8 @@ fn compute_global_bounding_circles(
         **bounding = BoundingCircle::new(transform.translation.xy(), **radius);
         **radius = default();
 
-        for extension_entity in extensions.iter() {
-            if let Ok((transform, mut radius)) = extension_bounds.get_mut(*extension_entity) {
+        for &extension_entity in extensions.iter() {
+            if let Ok((transform, mut radius)) = extension_bounds.get_mut(extension_entity) {
                 **bounding =
                     bounding.merge(&BoundingCircle::new(transform.translation.xy(), **radius));
                 **radius = default();
@@ -104,7 +105,7 @@ fn compute_global_bounding_circles(
 ///
 /// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each
 /// frame, it updates the [`ViewVisibility`] of all entities, and for each view
-/// also compute the [`VisibleEntities`] for that view.
+/// also computes the [`VisibleEntities`] for that view.
 ///
 /// This system needs to be run for each type of renderable entity. If you add a
 /// new type of renderable entity, you'll need to add an instantiation of this
@@ -131,6 +132,7 @@ pub fn check_visibility(
     for (mut visible_entities, frustum, maybe_view_mask, camera, no_cpu_culling) in &mut view_query
     {
         if !camera.is_active {
+            println!("Camera is not active");
             continue;
         }
 

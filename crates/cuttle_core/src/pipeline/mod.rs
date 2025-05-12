@@ -9,7 +9,7 @@ use bevy_render::render_phase::{
 use bevy_render::render_resource::{CachedRenderPipelineId, SpecializedRenderPipelines};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{Render, RenderApp, RenderSet};
-use specialization::{CuttlePipeline, prepare_view_bind_groups};
+use specialization::{prepare_view_bind_groups, CuttlePipeline};
 
 pub mod draw;
 pub mod extract;
@@ -111,6 +111,7 @@ impl Plugin for PipelinePlugin {
                     .before(RenderSet::Render),
             )
             .init_resource::<SpecializedRenderPipelines<CuttlePipeline>>()
+            .init_resource::<CuttleBatches>()
             .add_systems(Render, prepare_view_bind_groups.in_set(PrepareBindGroups));
     }
 }
@@ -125,8 +126,8 @@ pub enum CuttleRenderSet {
     WriteBuffers,
     PrepareBindGroups,
 }
+use crate::pipeline::queue::CuttleBatches;
 use CuttleRenderSet::*;
-
 /*
 pub(crate) fn render_group_plugin<G: CuttleGroup>(app: &mut App) {
     app.init_resource::<GroupInstanceBuffer<G>>()

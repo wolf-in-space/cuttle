@@ -1,8 +1,8 @@
 use crate::components::ConfigComponents;
 use crate::configs::ConfigId;
-use crate::{FinishCuttleSetup, FinishCuttleSetupSet, internal_prelude::*};
+use crate::{internal_prelude::*, FinishCuttleSetup, FinishCuttleSetupSet};
 use bevy_asset::io::{AssetReaderError, MissingAssetSourceError, Reader};
-use bevy_asset::{Asset, AssetApp, AssetPath, AssetServer, Handle, embedded_asset};
+use bevy_asset::{embedded_asset, Asset, AssetApp, AssetPath, AssetServer, Handle};
 use code_gen::gen_shader;
 use convert_case::{Case, Casing};
 use derive_more::{Display, Error, From};
@@ -112,7 +112,7 @@ async fn load_shader(
     }
 
     let shader = gen_shader(&settings.infos, snippets);
-    println!("{}", shader);
+    // println!("{}", shader);
     let shader = Shader::from_wgsl(
         shader,
         format!("Generated at {} | {}: {:?}", file!(), line!(), group_id),

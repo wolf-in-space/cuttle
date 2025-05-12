@@ -4,7 +4,8 @@ use bevy_color::Srgba;
 use bevy_gizmos::prelude::Gizmos;
 use bevy_math::Vec3Swizzles;
 
-#[derive(Resource, Default, Clone, Copy)]
+#[derive(Resource, Reflect, Default, Clone, Copy)]
+#[reflect(Resource)]
 pub struct CuttleDebugPlugin {
     pub global_bounds: bool,
     pub local_bounds: bool,
@@ -12,6 +13,7 @@ pub struct CuttleDebugPlugin {
 
 impl Plugin for CuttleDebugPlugin {
     fn build(&self, app: &mut App) {
+        app.register_type::<CuttleDebugPlugin>();
         app.insert_resource(*self);
         app.add_systems(
             PostUpdate,

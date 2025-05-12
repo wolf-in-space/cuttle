@@ -1,19 +1,18 @@
-use super::SortedCuttlePhaseItem;
-use super::queue::ConfigInstanceBuffer;
+use super::queue::{ConfigInstanceBuffer, CuttleBatches};
+use super::specialization::CuttlePipeline;
 use super::specialization::CuttleViewBindGroup;
-use super::{queue::CuttleBatch, specialization::CuttlePipeline};
+use super::SortedCuttlePhaseItem;
 use crate::components::buffer::{Bind, CompBufferEntity, ConfigRenderEntity};
 use crate::configs::CuttleConfig;
 use crate::extensions::CompIndicesBindGroup;
 use crate::internal_prelude::*;
-use bevy_ecs::system::SystemParamItem;
 use bevy_ecs::system::lifetimeless::{Read, SQuery, SRes};
-use bevy_log::info;
+use bevy_ecs::system::SystemParamItem;
 use bevy_render::render_phase::{
     RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
 };
 use bevy_render::render_resource::IndexFormat;
-use bevy_render::view::ViewUniformOffset;
+use bevy_render::view::{ExtractedView, ViewUniformOffset};
 use std::marker::PhantomData;
 
 pub type DrawCuttle<G> = (SetItemPipeline, PerFrame, PerConfig<G>, PerView, PerBatch);
@@ -105,22 +104,24 @@ impl<P: SortedCuttlePhaseItem> RenderCommand<P> for PerView {
 
 pub struct PerBatch;
 impl<P: SortedCuttlePhaseItem> RenderCommand<P> for PerBatch {
-    type Param = ();
-    type ViewQuery = ();
-    type ItemQuery = Read<CuttleBatch>;
+    type Param = SRes<CuttleBatches>;
+    type ViewQuery = Read<ExtractedView>;
+    type ItemQuery = ();
 
     #[inline]
     fn render<'w>(
-        _item: &P,
-        _view: (),
-        sdf_instance: Option<&'w CuttleBatch>,
-        (): SystemParamItem<'w, '_, Self::Param>,
+        item: &P,
+        view: &ExtractedView,
+        sdf_instance: Option<()>,
+        batches: Res<CuttleBatches>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let Some(instance) = sdf_instance else {
+        let Some(batch) =
+            sdf_instance.and(batches.get(&(view.retained_view_entity, item.entity())))
+        else {
             return RenderCommandResult::Skip;
         };
-        pass.draw_indexed(0..6, 0, instance.range.clone());
+        pass.draw_indexed(0..6, 0, batch.range.clone());
 
         RenderCommandResult::Success
     }

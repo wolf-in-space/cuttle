@@ -15,6 +15,6 @@ fn fragment(vert: VertexOut) -> @location(0) vec4<f32> {
         let index = combined >> 8;
         component(pos, index);
     }
-	
+
     return color;
 }

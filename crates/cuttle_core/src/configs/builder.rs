@@ -1,11 +1,11 @@
-use crate::bounding::{make_compute_aabb_system, Bounding};
+use crate::bounding::{Bounding, make_compute_aabb_system};
 use crate::components::initialization::{
-    init_component_render_data, init_global_render_data, Cuttle,
+    Cuttle, init_component_render_data, init_global_render_data,
 };
-use crate::components::{register_cuttle, Sort};
-use crate::configs::{initialize_config, CuttleConfig};
+use crate::components::{Sort, register_cuttle};
+use crate::configs::{CuttleConfig, initialize_config};
 use crate::internal_prelude::*;
-use crate::prelude::CuttleRenderData;
+use crate::prelude::{ComputeBounding, CuttleRenderData};
 use crate::shader::{AddSnippet, FunctionName, Snippets};
 use bevy_ecs::component::Mutable;
 use bevy_ecs::system::RunSystemOnce;
@@ -144,8 +144,10 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
     }
 
     pub fn affect_bounds<C: Component>(&mut self, set: Bounding, func: fn(&C) -> f32) -> &mut Self {
-        self.app
-            .add_systems(PostUpdate, make_compute_aabb_system(func, set));
+        self.app.add_systems(
+            PostUpdate,
+            make_compute_aabb_system(func, set).in_set(ComputeBounding),
+        );
         self
     }
 }

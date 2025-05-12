@@ -10,6 +10,7 @@ use bevy_app::{App, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_math::bounding::BoundingCircle;
+use bevy_render::sync_world::RenderEntity;
 use bevy_render::{Extract, Render, RenderApp, RenderSet};
 use bevy_transform::TransformSystem;
 use std::fmt::Debug;
@@ -40,6 +41,7 @@ pub(crate) fn extract_cuttle_comp<C: Component, R: CuttleRenderData>(
 ) {
     buffer.resize(arena.max as usize);
     for (index, comp) in &comps {
+        // info!("Extracting {} at index {}", type_name::<C>(), **index);
         buffer.insert(**index as usize, comp);
     }
 }
@@ -59,6 +61,7 @@ pub struct Extracted(EntityHashMap<ExtractedCuttle>);
 
 #[derive(Debug)]
 pub struct ExtractedCuttle {
+    pub render_entity: Entity,
     pub group_id: usize,
     pub bounding: BoundingCircle,
     pub indices_start: u32,
@@ -72,6 +75,7 @@ pub fn extract_cuttles<Config: CuttleConfig>(
             (
                 &ViewVisibility,
                 Entity,
+                RenderEntity,
                 &CuttleZ,
                 &GlobalBoundingCircle,
                 &CuttleIndices,
@@ -87,28 +91,31 @@ pub fn extract_cuttles<Config: CuttleConfig>(
     extracted.extend(
         extract
             .iter()
-            .filter(|(visibility, ..)| visibility.get())
-            .map(|(_, entity, &CuttleZ(z), bounding, indices)| {
-                let indices_start = buffer.len() as u32;
-                let indices_end = (buffer.len() + indices.indices.len()) as u32;
-                let indices_iter = indices.iter_as_packed_u32s();
+            //.filter(|(visibility, ..)| visibility.get())
+            .map(
+                |(_, entity, render_entity, &CuttleZ(z), bounding, indices)| {
+                    let indices_start = buffer.len() as u32;
+                    let indices_end = (buffer.len() + indices.indices.len()) as u32;
+                    let indices_iter = indices.iter_as_packed_u32s();
 
-                #[cfg(feature = "debug")]
-                {}
+                    #[cfg(feature = "debug")]
+                    {}
 
-                buffer.extend(indices_iter);
+                    buffer.extend(indices_iter);
 
-                (
-                    entity,
-                    ExtractedCuttle {
-                        group_id: indices.group_id,
-                        indices_start,
-                        indices_end,
-                        bounding: **bounding,
-                        z,
-                    },
-                )
-            }),
+                    (
+                        entity,
+                        ExtractedCuttle {
+                            render_entity,
+                            group_id: indices.group_id,
+                            indices_start,
+                            indices_end,
+                            bounding: **bounding,
+                            z,
+                        },
+                    )
+                },
+            ),
     );
 }
 
