@@ -79,21 +79,24 @@ pub const fn make_compute_aabb_system<C: Component>(
 
 fn compute_global_bounding_circles(
     mut roots: Query<(
-        &Transform,
+        &GlobalTransform,
         &mut BoundingRadius,
         &Extensions,
         &mut GlobalBoundingCircle,
     )>,
-    mut extension_bounds: Query<(&Transform, &mut BoundingRadius), Without<GlobalBoundingCircle>>,
+    mut extension_bounds: Query<
+        (&GlobalTransform, &mut BoundingRadius),
+        Without<GlobalBoundingCircle>,
+    >,
 ) {
     for (transform, mut radius, extensions, mut bounding) in &mut roots {
-        **bounding = BoundingCircle::new(transform.translation.xy(), **radius);
+        **bounding = BoundingCircle::new(transform.translation().xy(), **radius);
         **radius = default();
 
         for &extension_entity in extensions.iter() {
             if let Ok((transform, mut radius)) = extension_bounds.get_mut(extension_entity) {
                 **bounding =
-                    bounding.merge(&BoundingCircle::new(transform.translation.xy(), **radius));
+                    bounding.merge(&BoundingCircle::new(transform.translation().xy(), **radius));
                 **radius = default();
             }
         }
