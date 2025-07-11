@@ -98,21 +98,11 @@ fn initialize_config_id(app: &mut App) -> ConfigId {
 #[reflect(Component)]
 pub struct ConfigId(pub(crate) usize);
 
-#[derive(Resource)]
+#[derive(Resource, Copy, Clone)]
 pub struct ConfigStore<Config> {
     pub id: usize,
     pub config_entity: Entity,
-    phantom_data: PhantomData<Config>,
-}
-impl<Config> Copy for ConfigStore<Config> {}
-impl<Config> Clone for ConfigStore<Config> {
-    fn clone(&self) -> Self {
-        Self {
-            id: self.id,
-            config_entity: self.config_entity,
-            phantom_data: PhantomData,
-        }
-    }
+    phantom_data: PhantomData<fn() -> Config>,
 }
 
 impl<Config: CuttleConfig> ConfigStore<Config> {
