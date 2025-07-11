@@ -1,7 +1,8 @@
 
 fn sdf() {
-    color.w *= step(0.0, -distance);
-    // color.w *= smoothstep(0.0, 1.0, -distance);
+    // color.w *= step(0.0, -distance);
+    let smoothing = fwidth(distance);
+    color.w *= smoothstep(-smoothing, smoothing, -distance);
 }
 
 fn prepare_base() {
