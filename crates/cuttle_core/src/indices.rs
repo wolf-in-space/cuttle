@@ -62,8 +62,9 @@ pub fn on_add_config_marker_initialize_indices_config_id<G: CuttleConfig>(
     world.get_mut::<CuttleIndices>(ctx.entity).unwrap().group_id = id;
 }
 
-#[derive(Debug, Reflect, Deref, DerefMut, Copy, Clone)]
+#[derive(Debug, Component, Reflect, Deref, DerefMut, Copy, Clone)]
 #[reflect(Component)]
+#[component(on_add = on_add_cuttle_component_initialize_index::<C>, on_remove = on_remove_cuttle_component_release_index::<C>)]
 pub(crate) struct CuttleComponentIndex<C: Component> {
     #[deref]
     index: u32,
@@ -80,23 +81,22 @@ impl<C: Component> Default for CuttleComponentIndex<C> {
     }
 }
 
-impl<C: Component> Component for CuttleComponentIndex<C> {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
-    type Mutability = Mutable;
+fn on_add_cuttle_component_initialize_index<C: Component>(
+    mut world: DeferredWorld,
+    ctx: HookContext,
+) {
+    let index = world.resource_mut::<IndexArena<C>>().get();
+    **world
+        .get_mut::<CuttleComponentIndex<C>>(ctx.entity)
+        .unwrap() = index;
+}
 
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        let on_add = |mut world: DeferredWorld, ctx: HookContext| {
-            let index = world.resource_mut::<IndexArena<C>>().get();
-            **world
-                .get_mut::<CuttleComponentIndex<C>>(ctx.entity)
-                .unwrap() = index;
-        };
-        let on_remove = |mut world: DeferredWorld, ctx: HookContext| {
-            let index = **world.get::<CuttleComponentIndex<C>>(ctx.entity).unwrap();
-            world.resource_mut::<IndexArena<C>>().release(index);
-        };
-        hooks.on_add(on_add).on_remove(on_remove);
-    }
+fn on_remove_cuttle_component_release_index<C: Component>(
+    mut world: DeferredWorld,
+    ctx: HookContext,
+) {
+    let index = **world.get::<CuttleComponentIndex<C>>(ctx.entity).unwrap();
+    world.resource_mut::<IndexArena<C>>().release(index);
 }
 
 #[derive(Reflect, Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]

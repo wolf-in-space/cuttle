@@ -12,7 +12,6 @@ use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_math::bounding::BoundingCircle;
 use bevy_render::sync_world::RenderEntity;
 use bevy_render::{Extract, Render, RenderApp, RenderSet};
-use bevy_transform::TransformSystem;
 use std::fmt::Debug;
 use std::ops::Deref;
 
@@ -91,7 +90,7 @@ pub fn extract_cuttles<Config: CuttleConfig>(
     extracted.extend(
         extract
             .iter()
-            //.filter(|(visibility, ..)| visibility.get())
+            .filter(|(visibility, ..)| visibility.get())
             .map(
                 |(_, entity, render_entity, &CuttleZ(z), bounding, indices)| {
                     let indices_start = buffer.len() as u32;
