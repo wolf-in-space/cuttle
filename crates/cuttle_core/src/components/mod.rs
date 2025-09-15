@@ -63,7 +63,8 @@ pub struct Positions(pub Vec<Option<u8>>);
 pub struct ExtensionIndexOverride(pub u8);
 
 pub fn register_cuttle<C: Component>(
-    config: In<Entity>,
+    // Entity to register and whether it's a global variable
+    config: In<(Entity, bool)>,
     cmds: Commands,
     mut configs: Query<&mut ConfigComponents>,
     comp: Option<Single<Entity, With<CuttleComponent<C>>>>,
@@ -73,7 +74,10 @@ pub fn register_cuttle<C: Component>(
         None => init_cuttle::<C>(cmds),
     };
 
-    configs.get_mut(config.0).unwrap().push(component_entity);
+    let (config, is_global) = *config;
+    if !is_global {
+        configs.get_mut(config).unwrap().push(component_entity);
+    }
 
     component_entity
 }

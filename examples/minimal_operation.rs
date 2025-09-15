@@ -3,10 +3,7 @@ use cuttle::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            CuttlePlugin,
-        ))
+        .add_plugins((DefaultPlugins, CuttlePlugin))
         .add_systems(Startup, spawn)
         .run();
 }
@@ -24,7 +21,7 @@ fn spawn(mut cmds: Commands) {
         .id();
 
     cmds.spawn((
-        Extension::new(subtract),
+        Extends(subtract),
         Transform::default(),
         Circle(75.),
         Fill(css::SKY_BLUE),

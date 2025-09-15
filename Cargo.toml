@@ -16,10 +16,10 @@ cuttle_core = { path = "crates/cuttle_core" }
 cuttle_macros = { path = "crates/cuttle_macros" }
 cuttle_sdf = { path = "crates/cuttle_sdf", optional = true }
 
-bevy_app = "0.16.0"
+bevy_app = "0.17.0-rc.1"
 
 [dev-dependencies]
-bevy = { version = "0.16.0", features = ["configurable_error_handler"] }
+bevy = { version = "0.17.0-rc.1", features = [] }
 rand = "0.9"
-bevy-inspector-egui = "0.31"
-bevy_mod_debugdump = "0.13.0"
+# bevy-inspector-egui = "0.31"
+# bevy_mod_debugdump = "0.13.0"

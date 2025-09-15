@@ -1,3 +1,4 @@
+use bevy_app::Update;
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_color::{ColorToComponents, Srgba};
@@ -5,6 +6,8 @@ use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::prelude::ReflectComponent;
+use bevy_ecs::system::Res;
+use bevy_ecs::system::Single;
 use bevy_math::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::render_resource::ShaderType;
@@ -40,7 +43,9 @@ impl Plugin for SdfPlugin {
             SmoothXor,
             Repetition,
             Morph,
-        )>();
+            Flame,
+        )>()
+        .register_type::<ElapsedTime>();
 
         embedded_asset!(app, "sdf.wgsl");
 
@@ -52,6 +57,7 @@ impl Plugin for SdfPlugin {
             .variable("size", "f32")
             .variable("prev_distance", "f32")
             .variable("prev_color", "vec4<f32>")
+            .global::<ElapsedTime>()
             .components::<(
                 Sdf,
                 DistanceGradient,
@@ -62,6 +68,7 @@ impl Plugin for SdfPlugin {
                 Quad,
                 Fill,
                 ForceFieldAlpha,
+                Flame,
                 Stretch,
                 Rounded,
             )>()
@@ -79,6 +86,7 @@ impl Plugin for SdfPlugin {
                 Morph,
             )>()
             .affect_bounds(Bounding::Add, |&Annular(a)| a)
+            .affect_bounds(Bounding::Add, |&Flame { .. }| 100.)
             .affect_bounds(Bounding::Multiply, |&Stretch(s)| (s.length() + 1.) * 20.)
             .affect_bounds(Bounding::Add, |&Circle(c)| c)
             .affect_bounds(Bounding::Add, |&Line(l)| l)
@@ -90,11 +98,13 @@ impl Plugin for SdfPlugin {
             .name("GlobalTransform")
             .sort(SdfOrder::Translation)
             .render_data_manual(transform_to_mat4);
+
+        app.add_systems(Update, update_time);
     }
 }
 
 fn transform_to_mat4(t: &GlobalTransform) -> Mat4 {
-    t.compute_matrix().inverse()
+    t.to_matrix().inverse()
 }
 
 #[derive(Component, Debug, Default, Clone, Reflect, Cuttle)]
@@ -125,6 +135,14 @@ impl From<SdfOrder> for u32 {
     }
 }
 
+#[derive(Debug, Component, Reflect, Default, Deref, DerefMut, Cuttle)]
+#[reflect(Component)]
+pub struct ElapsedTime(pub f32);
+
+fn update_time(time: Res<bevy_time::Time>, mut elapsed_time: Single<&mut ElapsedTime>) {
+    elapsed_time.0 += time.elapsed_secs();
+}
+
 #[derive(Debug, Component, Reflect, Default, Cuttle)]
 #[cuttle(sort(SdfOrder::Prepare))]
 #[reflect(Component)]
@@ -139,6 +157,16 @@ pub struct Rounded(pub f32);
 #[cuttle(sort(SdfOrder::Distance))]
 #[reflect(Component)]
 pub struct Annular(pub f32);
+
+#[derive(Debug, Default, Clone, Copy, Component, Reflect, ShaderType, Cuttle)]
+#[cuttle(sort(SdfOrder::Distance))]
+#[reflect(Component)]
+pub struct Flame {
+    pub sharpness: f32,
+    pub tip: f32,
+    pub base: f32,
+    pub flicker: f32,
+}
 
 #[derive(Debug, Default, Copy, Clone, Component, Reflect, Deref, DerefMut, Cuttle)]
 #[cuttle(sort(SdfOrder::Base))]
@@ -158,7 +186,7 @@ pub struct Line(pub f32);
 #[require(PrepareBase)]
 pub struct Quad(pub Vec2);
 
-#[derive(Debug, Default, Clone, Component, Reflect, Cuttle)]
+#[derive(Debug, Default, Clone, Component, Reflect, Deref, DerefMut, Cuttle)]
 #[cuttle(sort(SdfOrder::Color))]
 #[cuttle(render_data(Vec4))]
 #[reflect(Component)]

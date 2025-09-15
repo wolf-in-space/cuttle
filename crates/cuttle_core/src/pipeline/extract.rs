@@ -7,21 +7,23 @@ use crate::extensions::CompIndicesBuffer;
 use crate::indices::{CuttleComponentIndex, CuttleIndices};
 use crate::internal_prelude::*;
 use bevy_app::{App, PostUpdate};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_math::bounding::BoundingCircle;
 use bevy_render::sync_world::RenderEntity;
-use bevy_render::{Extract, Render, RenderApp, RenderSet};
+use bevy_render::{Extract, Render, RenderApp, RenderSystems};
+use bevy_transform::plugins::TransformSystems;
 use std::fmt::Debug;
 use std::ops::Deref;
 
 pub fn plugin(app: &mut App) {
     app.add_systems(
         PostUpdate,
-        set_cuttle_z_from_bevy_global_transform.after(TransformSystem::TransformPropagate),
+        set_cuttle_z_from_bevy_global_transform.after(TransformSystems::Propagate),
     );
     app.sub_app_mut(RenderApp)
-        .add_systems(Render, clear_cuttles.in_set(RenderSet::Cleanup));
+        .add_systems(Render, clear_cuttles.in_set(RenderSystems::Cleanup));
 }
 
 pub(crate) fn extract_cuttle_global<C: Component, R: CuttleRenderData>(

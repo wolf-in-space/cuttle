@@ -3,13 +3,14 @@ use crate::internal_prelude::*;
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_math::FloatOrd;
+use bevy_render::RenderSystems;
 use bevy_render::render_phase::{
     CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItemExtraIndex, SortedPhaseItem,
 };
 use bevy_render::render_resource::{CachedRenderPipelineId, SpecializedRenderPipelines};
 use bevy_render::sync_world::MainEntity;
-use bevy_render::{Render, RenderApp, RenderSet};
-use specialization::{prepare_view_bind_groups, CuttlePipeline};
+use bevy_render::{Render, RenderApp};
+use specialization::{CuttlePipeline, prepare_view_bind_groups};
 
 pub mod draw;
 pub mod extract;
@@ -102,13 +103,13 @@ impl Plugin for PipelinePlugin {
                 Render,
                 (
                     ComponentBuffers,
-                    PrepareBindGroups.after(RenderSet::PrepareBindGroups),
+                    PrepareBindGroups.after(RenderSystems::PrepareBindGroups),
                     PrepareIndices.before(ItemPreparation),
                     PrepareBounds.before(ItemPreparation),
                     (Queue, ItemPreparation, WriteBuffers).chain(),
                 )
-                    .after(RenderSet::ExtractCommands)
-                    .before(RenderSet::Render),
+                    .after(RenderSystems::ExtractCommands)
+                    .before(RenderSystems::Render),
             )
             .init_resource::<SpecializedRenderPipelines<CuttlePipeline>>()
             .init_resource::<CuttleBatches>()

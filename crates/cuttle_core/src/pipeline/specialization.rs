@@ -7,18 +7,19 @@ use bevy_asset::{AssetServer, Handle};
 use bevy_core_pipeline::core_2d::CORE_2D_DEPTH_FORMAT;
 use bevy_ecs::system::RunSystemOnce;
 use bevy_image::BevyDefault;
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::RenderApp;
-use bevy_render::mesh::{PrimitiveTopology, VertexBufferLayout};
 use bevy_render::render_resource::binding_types::uniform_buffer;
 use bevy_render::render_resource::{
     BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendState, BufferUsages,
     ColorTargetState, ColorWrites, CompareFunction, DepthBiasState, DepthStencilState,
-    FragmentState, FrontFace, MultisampleState, PolygonMode, PrimitiveState, RawBufferVec,
-    RenderPipelineDescriptor, ShaderStages, SpecializedRenderPipeline, StencilFaceState,
-    StencilState, TextureFormat, VertexFormat, VertexState, VertexStepMode,
+    FragmentState, FrontFace, MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology,
+    RawBufferVec, RenderPipelineDescriptor, ShaderStages, SpecializedRenderPipeline,
+    StencilFaceState, StencilState, TextureFormat, VertexFormat, VertexState, VertexStepMode,
 };
 use bevy_render::renderer::{RenderDevice, RenderQueue};
 use bevy_render::view::{ExtractedView, ViewUniform, ViewUniforms};
+use bevy_shader::Shader;
 use std::collections::HashMap;
 
 #[derive(Resource)]
@@ -41,7 +42,7 @@ impl CuttlePipeline {
                 shaders
                     .iter()
                     .map(|(id, shader)| (*id, shader.0.clone()))
-                    .collect()
+                    .collect::<HashMap<_, _>>()
             })
             .unwrap();
         let world = app.sub_app_mut(RenderApp).world_mut();
@@ -124,14 +125,14 @@ impl SpecializedRenderPipeline for CuttlePipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.vertex_shader.clone(),
-                entry_point: "vertex".into(),
+                entry_point: Some("vertex".into()),
                 shader_defs: Vec::new(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 shader: self.fragment_shaders[&key.group_id].clone(),
                 shader_defs: Vec::new(),
-                entry_point: "fragment".into(),
+                entry_point: Some("fragment".into()),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: Some(BlendState::ALPHA_BLENDING),

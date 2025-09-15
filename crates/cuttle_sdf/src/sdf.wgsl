@@ -76,7 +76,7 @@ fn xor() {
     if prev_distance < distance {
         distance = prev_distance;
         color = prev_color;
-    } 
+    }
     distance = max(distance, -inter);
 }
 
@@ -107,7 +107,7 @@ fn smooth_xor(smoothness: f32) {
         prev_distance = distance;
     } else {
         color = prev_color;
-    } 
+    }
     distance = inter;
     let mix = clamp(0.5 - 0.5 * (distance + prev_distance) / smoothness, 0.0, 1.0);
     let distance_correction = smoothness * mix * (1.0 - mix);
@@ -127,4 +127,18 @@ fn morph(morph: f32) {
 
 fn stretch(stretch: vec2<f32>) {
     position /= dot(normalize(position), normalize(stretch)) * length(stretch);
+}
+
+// Simple flame SDF
+fn flame(flame: Flame) {
+    let profile = flame.base * (1.0 - pow(position.y, flame.sharpness)) + flame.tip * pow(position.y, flame.sharpness);
+
+    // flicker: small time-varying perturbation that decays toward the tip
+    let flicker_amp = flame.flicker;
+    let flicker = (sin(elapsed_time * 6.0 + position.x * 12.0) + 0.5 * sin(elapsed_time * 13.0 - position.y * 10.0));
+    let flicker_falloff = exp(-4.0 * position.y); // stronger at base, weaker near tip
+    let r = profile * (1.0 + flicker_amp * flicker * flicker_falloff);
+
+    // radial distance compared to radius at this height
+    distance = length(vec2<f32>(position.x, position.y * 0.5)) - r;
 }

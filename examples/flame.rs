@@ -10,5 +10,15 @@ fn main() {
 
 fn spawn(mut cmds: Commands) {
     cmds.spawn(Camera2d);
-    cmds.spawn((Sdf, Transform::default(), Circle(50.), Fill(css::SKY_BLUE)));
+    cmds.spawn((
+        Sdf,
+        Transform::default(),
+        Flame {
+            flicker: 0.5,
+            sharpness: 0.8,
+            base: 1.0,
+            tip: 0.5,
+        },
+        Fill(css::SKY_BLUE),
+    ));
 }

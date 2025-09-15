@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use cuttle::prelude::*;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 
 fn main() {
     App::new()
@@ -27,7 +27,7 @@ fn spawn(mut cmds: Commands) {
                 1.,
             )),
         );
-        match thread_rng().gen_range(0..2) {
+        match rng().random_range(0..2) {
             0 => cmds.spawn((base, (Circle(40.)))),
             _ => cmds.spawn((base, (Quad(Vec2::splat(40.))))),
         };

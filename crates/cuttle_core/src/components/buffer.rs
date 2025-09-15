@@ -1,8 +1,8 @@
 use crate::components::initialization::CuttleRenderData;
 use crate::configs::{ConfigId, CuttleConfig};
 use crate::internal_prelude::*;
-use crate::pipeline::extract::Extracted;
 use crate::pipeline::CuttleRenderSet;
+use crate::pipeline::extract::Extracted;
 use bevy_ecs::world::{EntityMutExcept, EntityRefExcept};
 use bevy_render::render_resource::encase::internal::WriteInto;
 use bevy_render::render_resource::{
@@ -99,7 +99,7 @@ where
         }
     }
 
-    pub fn get_binding_res<'a>(entity: &'a EntRef<'a>) -> BindingResource<'a> {
+    pub fn get_binding_res<'w, 's>(entity: &'w EntRef<'w, 's>) -> BindingResource<'w> {
         entity
             .get::<Self>()
             .unwrap()
@@ -110,10 +110,10 @@ where
     }
 }
 
-type EntMut<'w> = EntityMutExcept<'w, BufferFns>;
+type EntMut<'w, 's> = EntityMutExcept<'w, 's, BufferFns>;
 pub type WriteBufferFn = fn(&mut EntMut, &RenderDevice, &RenderQueue);
-type EntRef<'w> = EntityRefExcept<'w, (Bind, BufferFns, BindLayout)>;
-pub type GetBufferBindingResFn = for<'a> fn(&'a EntRef<'a>) -> BindingResource<'a>;
+type EntRef<'w, 's> = EntityRefExcept<'w, 's, (Bind, BufferFns, BindLayout)>;
+pub type GetBufferBindingResFn = for<'w, 's> fn(&'w EntRef<'w, 's>) -> BindingResource<'w>;
 
 #[derive(Component, Default)]
 pub struct BufferFns {

@@ -1,24 +1,24 @@
 use crate::bounding::BoundingRadius;
 use crate::indices::set_flag_indices;
-use crate::pipeline::{CuttleRenderSet, specialization::CuttlePipeline};
+use crate::pipeline::{specialization::CuttlePipeline, CuttleRenderSet};
 use bevy_app::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::{
-    Render, RenderApp,
-    render_resource::{BindGroup, BindGroupEntries, StorageBuffer},
-    renderer::{RenderDevice, RenderQueue},
+    render_resource::{BindGroup, BindGroupEntries, StorageBuffer}, renderer::{RenderDevice, RenderQueue},
+    Render,
+    RenderApp,
 };
 use std::fmt::Debug;
 
 pub fn plugin(app: &mut App) {
-    app.register_type::<Extension>()
-        .register_type::<Extensions>()
-        .add_systems(PostUpdate, register_extensions.before(set_flag_indices));
+    app.register_type::<Extends>()
+        .register_type::<ExtendedBy>()
+        .add_systems(PostUpdate, set_extension_index.before(set_flag_indices));
 
     app.world_mut()
-        .register_required_components::<Extension, BoundingRadius>();
+        .register_required_components::<Extends, BoundingRadius>();
     app.sub_app_mut(RenderApp)
         .init_resource::<CompIndicesBuffer>()
         .init_resource::<CompIndicesBindGroup>()
@@ -30,34 +30,29 @@ pub fn plugin(app: &mut App) {
 }
 
 #[derive(Debug, Clone, Copy, Reflect, Component)]
+#[relationship(relationship_target = ExtendedBy)]
+#[require(ExtensionIndex)]
 #[reflect(Component)]
-pub struct Extension {
-    pub target: Entity,
-    pub index: u8,
-}
+pub struct Extends(pub Entity);
 
-impl Extension {
-    pub fn new(target: Entity) -> Self {
-        Self { target, index: 0 }
-    }
-}
+#[derive(Debug, Default, Clone, Copy, Reflect, Component)]
+#[reflect(Component)]
+pub struct ExtensionIndex(pub(crate) u8);
 
-fn register_extensions(
-    mut roots: Query<&mut Extensions>,
-    mut leafs: Query<(Entity, &mut Extension), Added<Extension>>,
+fn set_extension_index(
+    roots: Query<&ExtendedBy>,
+    mut leafs: Query<(&Extends, &mut ExtensionIndex), Added<Extends>>,
 ) -> Result<()> {
-    for (entity, mut extension) in &mut leafs {
-        let mut extensions = roots.get_mut(extension.target)?;
-        extensions.push(entity);
-        let index = extensions.len();
-        extension.index = index as u8;
+    for (extension, mut target) in &mut leafs {
+        target.0 = roots.get(extension.0)?.len() as u8;
     }
     Ok(())
 }
 
 #[derive(Debug, Component, Clone, Deref, DerefMut, Default, Reflect)]
+#[relationship_target(relationship = Extends)]
 #[reflect(Component)]
-pub struct Extensions(pub Vec<Entity>);
+pub struct ExtendedBy(Vec<Entity>);
 
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct CompIndicesBuffer(StorageBuffer<Vec<u32>>);

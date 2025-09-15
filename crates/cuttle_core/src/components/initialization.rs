@@ -8,11 +8,10 @@ use crate::pipeline::extract::{extract_cuttle_comp, extract_cuttle_global};
 use crate::shader::wgsl_struct::{WgslType, WgslTypes};
 use crate::shader::{AddSnippet, RenderData, Snippets};
 use bevy_reflect::Typed;
-use bevy_render::render_resource::encase::internal::WriteInto;
-use bevy_render::render_resource::ShaderSize;
-use bevy_render::sync_world::RenderEntity;
 use bevy_render::RenderApp;
-use convert_case::{Case, Casing};
+use bevy_render::render_resource::ShaderSize;
+use bevy_render::render_resource::encase::internal::WriteInto;
+use bevy_render::sync_world::RenderEntity;
 use std::fmt::Debug;
 
 pub trait Cuttle: Component + Typed + Sized {
@@ -61,6 +60,7 @@ pub fn init_global_render_data<C: Component, R: CuttleRenderData>(
     app: &mut App,
     config_entity: Entity,
     to_render_data: fn(&C) -> R,
+    name: &str,
 ) {
     let buffer_entity = app
         .world()
@@ -70,12 +70,13 @@ pub fn init_global_render_data<C: Component, R: CuttleRenderData>(
         .id();
     let binding = GlobalBuffer::init(app, buffer_entity, to_render_data);
 
-    let WgslType { type_name, snippet } = app.world().resource::<WgslTypes>().get_type::<R>();
+    let wgsl_types = app.world().resource::<WgslTypes>();
+    let WgslType { type_name, snippet } = wgsl_types.get_type::<R>();
 
     let snippet = format!(
         "@group(3) @binding({}) var<storage, read> {}: {};\n\n{}",
         binding,
-        type_name.to_case(Case::Snake),
+        name,
         type_name,
         snippet.unwrap_or_default()
     );

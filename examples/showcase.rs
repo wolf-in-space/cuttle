@@ -1,28 +1,25 @@
 use bevy::color::palettes::css;
-use bevy::ecs::error::{warn, GLOBAL_ERROR_HANDLER};
 use bevy::log::LogPlugin;
 use bevy::{color::palettes::tailwind, prelude::*};
-use bevy_inspector_egui::bevy_egui::EguiPlugin;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use cuttle::prelude::*;
 use cuttle_core::debug::CuttleDebugPlugin;
 use std::f32::consts::PI;
 
 fn main() {
-    GLOBAL_ERROR_HANDLER
-        .set(warn)
-        .expect("The error handler can only be set once, glo");
+    // GLOBAL_ERROR_HANDLER
+    //    .set(warn)
+    //    .expect("The error handler can only be set once, glo");
 
     App::new()
         .add_plugins((
             DefaultPlugins.build().disable::<LogPlugin>(),
             CuttlePlugin,
             CuttleDebugPlugin::default(),
-            bevy_mod_debugdump::CommandLineArgs,
-            EguiPlugin {
-                enable_multipass_for_primary_context: true,
-            },
-            WorldInspectorPlugin::new(),
+            // bevy_mod_debugdump::CommandLineArgs,
+            // EguiPlugin {
+            //     enable_multipass_for_primary_context: false,
+            // },
+            // WorldInspectorPlugin::new(),
         ))
         .add_systems(Startup, spawn)
         .add_systems(
@@ -133,7 +130,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         .id();
 
     cmds.spawn((
-        Extension::new(quad),
+        Extends(quad),
         Circle(15.),
         Transform::from_translation(pos),
         Fill(tailwind::TEAL_400),
@@ -141,7 +138,7 @@ fn morph(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         AnimateMorph { speed: 1., scale },
     ));
 
-    cmds.spawn((Extension::new(quad), ForceFieldAlpha));
+    cmds.spawn((Extends(quad), ForceFieldAlpha));
 }
 
 fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
@@ -157,7 +154,7 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         .id();
 
     cmds.spawn((
-        Extension::new(quad),
+        Extends(quad),
         Quad(Vec2::splat(20.)),
         Transform::from_translation(pos),
         Fill(tailwind::BLUE_700),
@@ -165,7 +162,7 @@ fn morph2(cmds: &mut Commands, pos: impl Into<Vec2>, scale: f32) {
         AnimateMorph { speed: 1., scale },
     ));
 
-    cmds.spawn((Extension::new(quad), ForceFieldAlpha));
+    cmds.spawn((Extends(quad), ForceFieldAlpha));
 }
 
 #[derive(Component)]
@@ -190,7 +187,7 @@ fn spin<OP: Default + Component>(
 
     let make_ball = |pos: f32, color: Srgba, offset: f32| {
         (
-            Extension::new(sdf),
+            Extends(sdf),
             Transform::from_xyz(x, pos, 0.),
             Circle(10.),
             Fill(color),
@@ -199,7 +196,7 @@ fn spin<OP: Default + Component>(
         )
     };
 
-    [
+    cmds.spawn_batch([
         make_ball(y - 40. * 0., tailwind::GREEN_400, 0.),
         make_ball(y - 40. * 1., tailwind::RED_400, 0.3),
         make_ball(y - 40. * 2., tailwind::TEAL_400, 0.6),
@@ -207,13 +204,10 @@ fn spin<OP: Default + Component>(
         make_ball(y - 40. * 4., tailwind::EMERALD_400, 1.2),
         make_ball(y - 40. * 5., tailwind::ZINC_400, 1.5),
         make_ball(y - 40. * 6., tailwind::FUCHSIA_400, 1.8),
-    ]
-    .map(|bundle| {
-        cmds.spawn(bundle);
-    });
+    ]);
 
     cmds.spawn((
-        Extension::new(sdf),
+        Extends(sdf),
         Transform::from_xyz(x, y - 40. * 7., 0.),
         Quad(Vec2::splat(10.)),
         Fill(tailwind::GREEN_400),
@@ -225,7 +219,7 @@ fn spin<OP: Default + Component>(
     ));
 
     cmds.spawn((
-        Extension::new(sdf),
+        Extends(sdf),
         Quad(Vec2::splat(10.)),
         Transform::from_xyz(x, y - 40. * 8., 0.),
         Fill(tailwind::GREEN_400),
@@ -238,7 +232,7 @@ fn spin<OP: Default + Component>(
     ));
 
     cmds.spawn((
-        Extension::new(sdf),
+        Extends(sdf),
         Transform::from_xyz(x, y - 40. * 9., 0.),
         Circle(7.),
         Fill(tailwind::GREEN_400),
@@ -251,7 +245,7 @@ fn spin<OP: Default + Component>(
     ));
 
     cmds.spawn((
-        Extension::new(sdf),
+        Extends(sdf),
         Transform::from_xyz(x, y - 40. * 10., 0.),
         Quad(Vec2::splat(7.)),
         Annular(3.),
@@ -280,7 +274,7 @@ fn box_op_circle<O: Default + Component>(cmds: &mut Commands, pos: impl Into<Vec
         ))
         .id();
     cmds.spawn((
-        Extension::new(sdf),
+        Extends(sdf),
         Transform::from_xyz(pos.x, pos.y, 0.),
         Quad(Vec2::splat(25.)),
         Fill(tailwind::FUCHSIA_400),

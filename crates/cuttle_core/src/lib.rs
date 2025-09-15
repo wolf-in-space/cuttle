@@ -18,14 +18,14 @@ pub mod pipeline;
 pub mod shader;
 
 pub mod prelude {
-    pub use crate::CuttleCorePlugin;
     pub use crate::bounding::*;
     pub use crate::components::initialization::{Cuttle, CuttleRenderData};
-    pub use crate::configs::CuttleConfig;
     pub use crate::configs::builder::CuttleGroupBuilderAppExt;
-    pub use crate::extensions::Extension;
-    pub use crate::extensions::Extensions;
+    pub use crate::configs::CuttleConfig;
+    pub use crate::extensions::ExtendedBy;
+    pub use crate::extensions::Extends;
     pub use crate::pipeline::extract::CuttleZ;
+    pub use crate::CuttleCorePlugin;
 }
 
 mod internal_prelude {

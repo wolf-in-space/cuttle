@@ -1,6 +1,6 @@
 use bevy::{prelude::*, time::common_conditions::on_timer};
 use cuttle::prelude::*;
-use rand::{thread_rng, Rng};
+use rand::{Rng, rng};
 use std::time::Duration;
 
 fn main() {
@@ -22,7 +22,7 @@ fn delete_and_spawn(current: Query<Entity, With<Sdf>>, mut cmds: Commands) {
     for entity in current.into_iter() {
         cmds.entity(entity).despawn();
     }
-    for i in 0..thread_rng().gen_range(0..30) {
+    for i in 0..rng().random_range(0..30) {
         cmds.spawn((
             Sdf,
             Transform::from_xyz(

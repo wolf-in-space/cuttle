@@ -1,11 +1,12 @@
-use crate::extensions::Extensions;
+use crate::extensions::ExtendedBy;
 use crate::internal_prelude::*;
-use bevy_math::bounding::{BoundingCircle, BoundingVolume};
-use bevy_math::{Vec2, Vec3A, Vec3Swizzles};
-use bevy_render::primitives::{Frustum, Sphere};
-use bevy_render::view::{
+use bevy_camera::prelude::*;
+use bevy_camera::primitives::{Frustum, Sphere};
+use bevy_camera::visibility::{
     NoCpuCulling, NoFrustumCulling, RenderLayers, VisibilitySystems, VisibleEntities,
 };
+use bevy_math::bounding::{BoundingCircle, BoundingVolume};
+use bevy_math::{Vec2, Vec3A, Vec3Swizzles};
 use std::any::TypeId;
 
 pub fn plugin(app: &mut App) {
@@ -81,7 +82,7 @@ fn compute_global_bounding_circles(
     mut roots: Query<(
         &GlobalTransform,
         &mut BoundingRadius,
-        &Extensions,
+        &ExtendedBy,
         &mut GlobalBoundingCircle,
     )>,
     mut extension_bounds: Query<
@@ -93,7 +94,7 @@ fn compute_global_bounding_circles(
         **bounding = BoundingCircle::new(transform.translation().xy(), **radius);
         **radius = default();
 
-        for &extension_entity in extensions.iter() {
+        for extension_entity in extensions.iter() {
             if let Ok((transform, mut radius)) = extension_bounds.get_mut(extension_entity) {
                 **bounding =
                     bounding.merge(&BoundingCircle::new(transform.translation().xy(), **radius));

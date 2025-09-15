@@ -1,15 +1,17 @@
 use crate::bounding::BoundingRadius;
 use crate::bounding::GlobalBoundingCircle;
-use crate::components::arena::IndexArena;
 use crate::components::CuttleComponent;
+use crate::components::arena::IndexArena;
 use crate::components::{ExtensionIndexOverride, Positions};
 use crate::configs::{ConfigStore, CuttleConfig};
-use crate::extensions::Extensions;
+use crate::extensions::{ExtendedBy, ExtensionIndex};
 use crate::internal_prelude::*;
 use crate::pipeline::extract::CuttleZ;
 use crate::prelude::ComputeBounding;
-use crate::prelude::Extension;
-use bevy_ecs::component::{ComponentHooks, HookContext, Mutable, StorageType};
+use crate::prelude::Extends;
+use bevy_camera::visibility::Visibility;
+use bevy_ecs::lifecycle::HookContext;
+use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryEntityError;
 use bevy_ecs::world::DeferredWorld;
 use bevy_render::sync_world::SyncToRenderWorld;
@@ -18,14 +20,14 @@ use std::marker::PhantomData;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(PostUpdate, set_flag_indices.before(ComputeBounding))
-        .add_event::<AddCuttleComponent>()
+        .add_message::<AddCuttleComponent>()
         .register_type::<CuttleIndices>();
 }
 
 #[derive(Component, Reflect, Debug, Default, Deref)]
 #[require(
     Visibility,
-    Extensions,
+    ExtendedBy,
     BoundingRadius,
     GlobalBoundingCircle,
     CuttleZ,
@@ -106,17 +108,17 @@ pub struct CuttleIndex {
 }
 
 pub fn set_flag_indices(
-    mut events: EventReader<AddCuttleComponent>,
+    mut messages: MessageReader<AddCuttleComponent>,
     component_meta: Query<(&Positions, Option<&ExtensionIndexOverride>)>,
-    extensions: Query<&Extension>,
+    extensions: Query<(&Extends, &ExtensionIndex)>,
     mut indices: Query<&mut CuttleIndices>,
 ) -> Result<()> {
-    for event in events.read() {
+    for message in messages.read() {
         let (positions, extension_index_override) = component_meta
-            .get(event.component)
+            .get(message.component)
             .inspect_err(|err| println!("INDICES: {err}"))?;
-        let (entity, extension_index) = match extensions.get(event.added_to) {
-            Ok(&Extension { target, index, .. }) => (target, index),
+        let (entity, extension_index) = match extensions.get(message.added_to) {
+            Ok((&Extends(target), &ExtensionIndex(index))) => (target, index),
             Err(QueryEntityError::QueryDoesNotMatch(ent, _)) => (ent, 0),
             _ => panic!("NO ENTITY"),
         };
@@ -134,12 +136,12 @@ pub fn set_flag_indices(
                 .map(|o| **o)
                 .unwrap_or(extension_index),
         };
-        flags.indices.insert(index, event.index);
+        flags.indices.insert(index, message.index);
     }
     Ok(())
 }
 
-#[derive(Debug, Event, Reflect)]
+#[derive(Debug, Message, Reflect)]
 pub struct AddCuttleComponent {
     component: Entity,
     added_to: Entity,
@@ -147,18 +149,15 @@ pub struct AddCuttleComponent {
 }
 
 pub(crate) fn added_cuttle_component<C: Component>(
-    trigger: Trigger<OnAdd, C>,
+    add: On<Add, C>,
     indices: Query<&CuttleComponentIndex<C>>,
     component_meta: Single<Entity, With<CuttleComponent<C>>>,
-    mut events: EventWriter<AddCuttleComponent>,
+    mut events: MessageWriter<AddCuttleComponent>,
 ) {
-    let index = indices
-        .get(trigger.target())
-        .map(|i| i.index)
-        .unwrap_or(u32::MAX);
+    let index = indices.get(add.entity).map(|i| i.index).unwrap_or(u32::MAX);
     events.write(AddCuttleComponent {
         component: component_meta.into_inner(),
-        added_to: trigger.target(),
+        added_to: add.entity,
         index,
     });
 }

@@ -9,6 +9,8 @@ use crate::prelude::{ComputeBounding, CuttleRenderData};
 use crate::shader::{AddSnippet, FunctionName, Snippets};
 use bevy_ecs::component::Mutable;
 use bevy_ecs::system::RunSystemOnce;
+use bevy_reflect::Typed;
+use convert_case::{Case, Casing};
 use std::marker::PhantomData;
 use std::ops::Deref;
 use variadics_please::all_tuples;
@@ -28,16 +30,20 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
             .into_inner()
     }
 
-    pub fn global_manual<C: Cuttle>(&mut self) -> CuttleBuilder<C> {
-        CuttleBuilder::new(self.app, self.config, true)
+    pub fn global_manual<C: Cuttle>(&'_ mut self, name: String) -> CuttleBuilder<'_, C> {
+        CuttleBuilder::new(self.app, self.config, Some(name))
     }
 
-    pub fn global<C: Cuttle + Default>(&mut self) -> &mut Self {
+    pub fn global<C: Cuttle + Default + Typed>(&mut self) -> &mut Self {
         self.global_with(C::default())
     }
 
-    pub fn global_with<C: Cuttle>(&mut self, value: C) -> &mut Self {
-        C::build(self.global_manual::<C>());
+    pub fn global_with<C: Cuttle + Typed>(&mut self, value: C) -> &mut Self {
+        let name = C::type_ident()
+            .expect("Cuttle global has to be a named type")
+            .to_case(Case::Snake)
+            .to_string();
+        C::build(self.global_manual::<C>(name));
         self.app.world_mut().entity_mut(self.config).insert(value);
         self
     }
@@ -139,8 +145,8 @@ impl<Config: CuttleConfig> CuttleConfigBuilder<'_, Config> {
         self
     }
 
-    pub fn component_manual<C: Component>(&mut self) -> CuttleBuilder<C> {
-        CuttleBuilder::new(self.app, self.config, false)
+    pub fn component_manual<C: Component>(&'_ mut self) -> CuttleBuilder<'_, C> {
+        CuttleBuilder::new(self.app, self.config, None)
     }
 
     pub fn affect_bounds<C: Component>(&mut self, set: Bounding, func: fn(&C) -> f32) -> &mut Self {
@@ -156,15 +162,15 @@ pub struct CuttleBuilder<'a, C: Component> {
     app: &'a mut App,
     component: Entity,
     config: Entity,
-    global: bool,
+    global: Option<String>,
     _marker: PhantomData<C>,
 }
 
 impl<'a, C: Component> CuttleBuilder<'a, C> {
-    pub fn new(app: &'a mut App, config: Entity, global: bool) -> Self {
+    pub fn new(app: &'a mut App, config: Entity, global: Option<String>) -> Self {
         let component = app
             .world_mut()
-            .run_system_once_with(register_cuttle::<C>, config)
+            .run_system_once_with(register_cuttle::<C>, (config, global.is_some()))
             .unwrap();
         Self {
             app,
@@ -209,8 +215,8 @@ impl<'a, C: Component> CuttleBuilder<'a, C> {
         &mut self,
         to_render_data: fn(&C) -> R,
     ) -> &mut Self {
-        if self.global {
-            init_global_render_data::<C, R>(self.app, self.config, to_render_data);
+        if let Some(name) = &mut self.global {
+            init_global_render_data::<C, R>(self.app, self.config, to_render_data, name);
         } else {
             init_component_render_data::<C, R>(self.app, self.component, to_render_data);
         }
@@ -243,11 +249,11 @@ impl<'a, C: Component> CuttleBuilder<'a, C> {
 }
 
 pub trait CuttleGroupBuilderAppExt {
-    fn cuttle_config<Config: CuttleConfig>(&mut self) -> CuttleConfigBuilder<Config>;
+    fn cuttle_config<Config: CuttleConfig>(&'_ mut self) -> CuttleConfigBuilder<'_, Config>;
 }
 
 impl CuttleGroupBuilderAppExt for App {
-    fn cuttle_config<Config: CuttleConfig>(&mut self) -> CuttleConfigBuilder<Config> {
+    fn cuttle_config<Config: CuttleConfig>(&'_ mut self) -> CuttleConfigBuilder<'_, Config> {
         let config = initialize_config::<Config>(self);
         CuttleConfigBuilder {
             config,
